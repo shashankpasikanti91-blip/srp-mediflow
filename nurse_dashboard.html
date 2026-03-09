@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Hospital – Nurse Dashboard | SRP MediFlow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#00b896;color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:1.2rem;font-weight:600}
+.logout-btn{background:#fff;color:#00b896;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.layout{display:flex;flex:1}
+.sidebar{width:200px;background:#fff;border-right:1px solid #ddd;padding:20px 0}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:.95rem;color:#444;transition:all .2s}
+.nav-item:hover,.nav-item.active{background:#e6faf5;color:#00b896;font-weight:600;border-left:3px solid #00b896}
+.main{flex:1;padding:24px;overflow-y:auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+h2{font-size:1.3rem;margin-bottom:16px;color:#00b896}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;text-align:left;border-bottom:1px solid #eee;font-size:.9rem}
+th{background:#f8f9fa;font-weight:600;color:#555}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+input,textarea{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:.9rem}
+textarea{resize:vertical;min-height:60px}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-primary{background:#00b896;color:#fff}
+.btn-primary:hover{background:#009d7f}
+.msg{margin-top:8px;font-size:.9rem;display:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>⭐ Star Hospital – Nurse Dashboard</h1>
+    <small style="opacity:.8;font-size:.8rem;">Kothagudem, Telangana | +91 7981971015 | 24x7 Emergency</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span id="nurseName" style="font-size:.9rem;opacity:.85">Loading…</span>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-item active" data-sec="record-vitals">Record Vitals</div>
+    <div class="nav-item" data-sec="vitals-history">Vitals History</div>
+    <div class="nav-item" data-sec="assignments">My Assignments</div>
+    <div class="nav-item" data-sec="patients">Patients Today</div>
+    <div class="nav-item" data-sec="ipd-nurse">🏥 IPD Rounds</div>
+  </div>
+
+  <div class="main">
+    <!-- Record Vitals -->
+    <div id="record-vitals" class="section active">
+      <div class="card">
+        <h2>Record Patient Vitals</h2>
+        <div class="form-grid">
+          <input id="vPatient" type="text"   placeholder="Patient Name *">
+          <input id="vPhone"   type="text"   placeholder="Patient Phone">
+          <input id="vBP"      type="text"   placeholder="Blood Pressure (e.g. 120/80)">
+          <input id="vPulse"   type="text"   placeholder="Pulse (bpm)">
+          <input id="vTemp"    type="text"   placeholder="Temperature (°F)">
+          <input id="vSpO2"    type="text"   placeholder="SpO₂ (%)">
+          <input id="vWeight"  type="text"   placeholder="Weight (kg)">
+        </div>
+        <textarea id="vNotes" placeholder="Additional notes"></textarea>
+        <br><br>
+        <button class="btn btn-primary" onclick="saveVitals()">Save Vitals</button>
+        <div class="msg" id="vitalsMsg"></div>
+      </div>
+    </div>
+
+    <!-- Vitals History -->
+    <div id="vitals-history" class="section">
+      <div class="card">
+        <h2>Vitals History</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadVitals()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>#</th><th>Patient</th><th>BP</th><th>Pulse</th><th>Temp</th><th>SpO₂</th><th>Weight</th><th>Recorded</th></tr></thead>
+          <tbody id="vitalsBody"><tr><td colspan="8" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Patients Today -->
+    <div id="patients" class="section">
+      <div class="card">
+        <h2>Today's Patients</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadPatients()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Doctor</th><th>Issue</th><th>Time</th></tr></thead>
+          <tbody id="patientBody"><tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Nurse Assignments -->
+    <div id="assignments" class="section">
+      <div class="card">
+        <h2>My Patient Assignments</h2>
+        <!-- Assign patient form -->
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin-bottom:16px;">
+          <h3 style="color:#166534;margin-bottom:10px;">Assign Patient to Me</h3>
+          <div class="form-grid">
+            <input id="asPatient" type="text" placeholder="Patient Name *">
+            <input id="asPhone"   type="text" placeholder="Patient Phone">
+            <input id="asWard"    type="text" placeholder="Ward (e.g. General Ward)">
+            <input id="asBed"     type="text" placeholder="Bed Number">
+            <select id="asShift">
+              <option value="Morning">Morning Shift</option>
+              <option value="Evening">Evening Shift</option>
+              <option value="Night">Night Shift</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="addAssignment()">Add Assignment</button>
+          <div class="msg" id="asMsg"></div>
+        </div>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadAssignments()">↻ Refresh List</button>
+        <table>
+          <thead><tr><th>#</th><th>Patient</th><th>Ward</th><th>Bed</th><th>Shift</th><th>Since</th></tr></thead>
+          <tbody id="assignBody"><tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function checkSession() {
+  const r = await fetch('/api/session/me');
+  if (!r.ok) { window.location.href = '/login'; return; }
+  const d = await r.json();
+  if (!d.user || d.user.role !== 'NURSE') { window.location.href = '/login'; return; }
+  document.getElementById('nurseName').textContent = d.user.full_name || d.user.username;
+}
+
+async function saveVitals() {
+  const body = {
+    patient_name:  document.getElementById('vPatient').value.trim(),
+    patient_phone: document.getElementById('vPhone').value.trim(),
+    bp:            document.getElementById('vBP').value.trim(),
+    pulse:         document.getElementById('vPulse').value.trim(),
+    temperature:   document.getElementById('vTemp').value.trim(),
+    spo2:          document.getElementById('vSpO2').value.trim(),
+    weight:        document.getElementById('vWeight').value.trim(),
+    notes:         document.getElementById('vNotes').value.trim(),
+  };
+  if (!body.patient_name) { alert('Patient name is required'); return; }
+  const msg = document.getElementById('vitalsMsg');
+  const r = await fetch('/api/nurse/vitals/add', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  msg.style.display='block';
+  if (d.status==='ok') {
+    msg.style.color='green'; msg.textContent=`✅ Vitals saved for ${body.patient_name}`;
+    ['vPatient','vPhone','vBP','vPulse','vTemp','vSpO2','vWeight','vNotes'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.value='';
+    });
+  } else { msg.style.color='red'; msg.textContent='❌ '+(d.error||'Failed'); }
+}
+
+async function loadVitals() {
+  const r = await fetch('/api/nurse/vitals');
+  if (!r.ok) return;
+  const d = await r.json();
+  const tbody = document.getElementById('vitalsBody');
+  if (!d.vitals || d.vitals.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888">No records yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.vitals.map((v,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${v.patient_name}<br><small style="color:#888">${v.patient_phone}</small></td>
+      <td>${v.bp||'-'}</td><td>${v.pulse||'-'}</td><td>${v.temperature||'-'}</td>
+      <td>${v.spo2||'-'}</td><td>${v.weight||'-'}</td>
+      <td><small>${(v.recorded_at||'').slice(0,16)}</small></td>
+    </tr>`).join('');
+}
+
+async function loadPatients() {
+  const r = await fetch('/api/doctor/appointments');
+  if (!r.ok) return;
+  const d = await r.json();
+  const tbody = document.getElementById('patientBody');
+  const today = new Date().toISOString().slice(0,10);
+  const todayPts = (d.appointments||[]).filter(a => (a.timestamp||a.appointment_time||'').startsWith(today));
+  if (!todayPts.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888">No patients today</td></tr>'; return;
+  }
+  tbody.innerHTML = todayPts.map((a,i) => `
+    <tr>
+      <td>${i+1}</td><td>${a.name||'-'}</td><td>${a.phone||'-'}</td>
+      <td>${a.doctor||'-'}</td><td>${a.issue||'-'}</td>
+      <td><small>${(a.timestamp||'').slice(0,16)}</small></td>
+    </tr>`).join('');
+}
+
+function doLogout() {
+  fetch('/api/logout',{method:'POST'}).finally(()=>{ window.location.href='/login'; });
+}
+
+async function addAssignment() {
+  const body = {
+    patient_name:  document.getElementById('asPatient').value.trim(),
+    patient_phone: document.getElementById('asPhone').value.trim(),
+    ward:          document.getElementById('asWard').value.trim(),
+    bed_number:    document.getElementById('asBed').value.trim(),
+    shift:         document.getElementById('asShift').value,
+  };
+  const msg = document.getElementById('asMsg');
+  if (!body.patient_name) { alert('Patient name is required'); return; }
+  const r = await fetch('/api/nurse/assign', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  msg.style.display = 'block';
+  if (d.status === 'ok') {
+    msg.style.color = 'green';
+    msg.textContent = `✅ ${body.patient_name} assigned`;
+    document.getElementById('asPatient').value='';
+    document.getElementById('asPhone').value='';
+    document.getElementById('asWard').value='';
+    document.getElementById('asBed').value='';
+    loadAssignments();
+  } else {
+    msg.style.color = 'red'; msg.textContent = '❌ ' + (d.error || 'Failed');
+  }
+}
+
+async function loadAssignments() {
+  const r = await fetch('/api/nurse/assignments');
+  if (!r.ok) return;
+  const d = await r.json();
+  const tbody = document.getElementById('assignBody');
+  if (!d.assignments || !d.assignments.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888">No assignments yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = d.assignments.map((a,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${a.patient_name}<br><small style="color:#888">${a.patient_phone||''}</small></td>
+      <td>${a.ward||'-'}</td>
+      <td>${a.bed_number||'-'}</td>
+      <td>${a.shift||'-'}</td>
+      <td><small>${(a.assigned_at||'').slice(0,16)}</small></td>
+    </tr>`).join('');
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    const sec = item.dataset.sec;
+    document.getElementById(sec).classList.add('active');
+    if (sec === 'vitals-history') loadVitals();
+    if (sec === 'patients')       loadPatients();
+    if (sec === 'assignments')    loadAssignments();
+    if (sec === 'ipd-nurse')      {}
+  });
+});
+
+// ── IPD Round (Nurse) ───────────────────────────────────────────────
+  async function saveIPDRound() {
+    const msg = document.getElementById('nrMsg');
+    const admId = parseInt(document.getElementById('nrAdmId').value)||0;
+    if (!admId) { msg.textContent='Admission ID required'; msg.style.color='#e74c3c'; msg.style.display='block'; return; }
+    const payload = {
+      admission_id: admId,
+      bp:           document.getElementById('nrBP').value.trim(),
+      temperature:  document.getElementById('nrTemp').value.trim(),
+      pulse:        document.getElementById('nrPulse').value.trim(),
+      spo2:         document.getElementById('nrSpO2').value.trim(),
+      weight:       document.getElementById('nrWeight').value.trim(),
+      notes:        document.getElementById('nrNotes').value.trim(),
+    };
+    try {
+      const r = await fetch('/api/ipd/round/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d = await r.json();
+      msg.textContent = d.status==='ok' ? '✅ Round saved' : '❌ '+(d.error||'Failed');
+      msg.style.color  = d.status==='ok' ? '#27ae60' : '#e74c3c';
+    } catch(e) { msg.textContent='❌ Error'; msg.style.color='#e74c3c'; }
+    msg.style.display='block';
+  }
+
+  async function loadNurseRounds() {
+    const admId = parseInt(document.getElementById('nrViewId').value)||0;
+    if (!admId) return;
+    try {
+      const r = await fetch(`/api/ipd/rounds/${admId}`);
+      const d = await r.json();
+      const tbody = document.getElementById('nurseRoundsBody');
+      const rounds = d.rounds||[];
+      if (!rounds.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888;">No rounds found</td></tr>'; return; }
+      tbody.innerHTML = rounds.map(rnd=>`<tr>
+        <td><small>${(rnd.round_datetime||rnd.created_at||'').slice(0,16)}</small></td>
+        <td>${rnd.bp||'-'}</td><td>${rnd.temperature||'-'}</td><td>${rnd.pulse||'-'}</td>
+        <td>${rnd.spo2||'-'}</td><td>${rnd.weight||'-'}</td>
+        <td><small>${rnd.notes||'-'}</small></td>
+      </tr>`).join('');
+    } catch(e) { console.error(e); }
+  }
+
+checkSession();
+</script>
+    <!-- SRP MediFlow product footer -->
+    <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+                   font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+                   border-top:1px solid #222;">
+        Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+        &nbsp;&bull;&nbsp; Hospital Management System
+        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+    </footer>
+    <div style="height:32px;"></div>
+</body>
+</html>

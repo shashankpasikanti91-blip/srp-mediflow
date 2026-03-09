@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Hospital – Lab / X-Ray Dashboard | SRP MediFlow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#7b2d8b;color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:1.2rem;font-weight:600}
+.logout-btn{background:#fff;color:#7b2d8b;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.layout{display:flex;flex:1}
+.sidebar{width:200px;background:#fff;border-right:1px solid #ddd;padding:20px 0}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:.95rem;color:#444;transition:all .2s}
+.nav-item:hover,.nav-item.active{background:#f3e8f9;color:#7b2d8b;font-weight:600;border-left:3px solid #7b2d8b}
+.main{flex:1;padding:24px;overflow-y:auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+h2{font-size:1.3rem;margin-bottom:16px;color:#7b2d8b}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;text-align:left;border-bottom:1px solid #eee;font-size:.9rem}
+th{background:#f8f9fa;font-weight:600;color:#555}
+.badge{padding:3px 10px;border-radius:12px;font-size:.8rem;font-weight:600}
+.badge.pending{background:#fff3cd;color:#856404}
+.badge.done{background:#d1fae5;color:#065f46}
+input,textarea,select{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:.9rem}
+textarea{resize:vertical;min-height:70px}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-primary{background:#7b2d8b;color:#fff}
+.btn-primary:hover{background:#5e1f6b}
+.msg{margin-top:8px;font-size:.9rem;display:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>⭐ Star Hospital – Lab / X-Ray</h1>
+    <small style="opacity:.8;font-size:.8rem;">Kothagudem, Telangana | +91 7981971015 | 24x7 Emergency</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span id="labName" style="font-size:.9rem;opacity:.85">Loading…</span>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-item active" data-sec="pending-orders">Pending Tests</div>
+    <div class="nav-item" data-sec="upload-result">Upload Results</div>
+    <div class="nav-item" data-sec="completed-orders">Completed Reports</div>
+  </div>
+
+  <div class="main">
+    <!-- Pending Orders -->
+    <div id="pending-orders" class="section active">
+      <div class="card">
+        <h2>Pending Tests</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadOrders('PENDING')">↻ Refresh</button>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Doctor</th><th>Requested</th><th>Enter Result</th></tr>
+          </thead>
+          <tbody id="pendingBody">
+            <tr><td colspan="7" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Completed Orders -->
+    <div id="completed-orders" class="section">
+      <div class="card">
+        <h2>Completed Reports</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadCompleted()">↻ Refresh</button>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Result</th><th>Completed</th></tr>
+          </thead>
+          <tbody id="completedBody">
+            <tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Upload Results (standalone form) -->
+    <div id="upload-result" class="section">
+      <div class="card">
+        <h2>Upload / Enter Test Result</h2>
+        <p style="color:#666;margin-bottom:16px;font-size:.9rem;">
+          Find the order in <strong>Pending Tests</strong> and click Done, or use this form to enter a result by order ID.
+        </p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <input id="upOrderId" type="number" placeholder="Order ID (from Pending list) *">
+          <input id="upResult"  type="text"   placeholder="Result Summary *">
+        </div>
+        <div style="margin-bottom:12px;">
+          <textarea id="upNotes" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;min-height:60px;" placeholder="Detailed findings / notes (optional)"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="uploadResult()">Submit Result</button>
+        <div class="msg" id="upMsg"></div>
+      </div>
+    </div>  </div>
+</div>
+
+<script>
+let myRole = 'LAB';
+
+async function checkSession() {
+  const r = await fetch('/api/session/me');
+  if (!r.ok) { window.location.href = '/login'; return; }
+  const d = await r.json();
+  if (!d.user || !['LAB','XRAY'].includes(d.user.role)) { window.location.href = '/login'; return; }
+  myRole = d.user.role;
+  document.getElementById('labName').textContent = d.user.full_name || d.user.username;
+  loadOrders();
+}
+
+let allOrders = [];
+
+async function loadOrders() {
+  const r = await fetch('/api/lab/orders');
+  if (!r.ok) return;
+  const d = await r.json();
+  allOrders = d.orders || [];
+  renderPending();
+}
+
+function renderPending() {
+  const pending = allOrders.filter(o => o.status === 'PENDING');
+  const tbody = document.getElementById('pendingBody');
+  if (!pending.length) {
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888">No pending orders</td></tr>'; return;
+  }
+  tbody.innerHTML = pending.map((o,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${o.patient_name}<br><small style="color:#888">${o.patient_phone}</small></td>
+      <td><span class="badge pending">${o.test_type}</span></td>
+      <td>${o.test_name}</td>
+      <td>${o.doctor_username}</td>
+      <td><small>${(o.created_at||'').slice(0,16)}</small></td>
+      <td style="display:flex;gap:5px;align-items:center;">
+        <input type="text" id="res_${o.id}" placeholder="Result summary" style="width:160px;">
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="completeOrder(${o.id})">Done</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function completeOrder(id) {
+  const result = document.getElementById(`res_${id}`).value.trim();
+  if (!result) { alert('Please enter result before marking as done'); return; }
+  const r = await fetch('/api/lab/complete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id, result})
+  });
+  const d = await r.json();
+  if (d.status === 'ok') loadOrders();
+  else alert('Error: ' + (d.error||'Failed'));
+}
+
+async function loadCompleted() {
+  await loadOrders();
+  const completed = allOrders.filter(o => o.status === 'COMPLETED');
+  const tbody = document.getElementById('completedBody');
+  if (!completed.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888">No completed orders</td></tr>'; return;
+  }
+  tbody.innerHTML = completed.map((o,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${o.patient_name}<br><small style="color:#888">${o.patient_phone}</small></td>
+      <td><span class="badge done">${o.test_type}</span></td>
+      <td>${o.test_name}</td>
+      <td>${o.result_text||'-'}</td>
+      <td><small>${(o.completed_at||'').slice(0,16)}</small></td>
+    </tr>`).join('');
+}
+
+function doLogout() {
+  fetch('/api/logout',{method:'POST'}).finally(()=>{ window.location.href='/login'; });
+}
+
+async function uploadResult() {
+  const orderId = parseInt(document.getElementById('upOrderId').value);
+  const result  = document.getElementById('upResult').value.trim();
+  const notes   = document.getElementById('upNotes').value.trim();
+  const msg     = document.getElementById('upMsg');
+  if (!orderId || !result) { alert('Order ID and result are required'); return; }
+  const r = await fetch('/api/lab/complete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id: orderId, result: notes ? result + '\n' + notes : result})
+  });
+  const d = await r.json();
+  msg.style.display = 'block';
+  if (d.status === 'ok') {
+    msg.style.color = 'green'; msg.textContent = `✅ Result uploaded for order #${orderId}`;
+    document.getElementById('upOrderId').value = '';
+    document.getElementById('upResult').value  = '';
+    document.getElementById('upNotes').value   = '';
+    loadOrders();
+  } else {
+    msg.style.color = 'red'; msg.textContent = '❌ ' + (d.error || 'Failed');
+  }
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    const sec = item.dataset.sec;
+    document.getElementById(sec).classList.add('active');
+    if (sec === 'pending-orders')   loadOrders();
+    if (sec === 'completed-orders') loadCompleted();
+  });
+});
+
+checkSession();
+</script>
+    <!-- SRP MediFlow product footer -->
+    <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+                   font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+                   border-top:1px solid #222;">
+        Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+        &nbsp;&bull;&nbsp; Hospital Management System
+        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+    </footer>
+    <div style="height:32px;"></div>
+</body>
+</html>

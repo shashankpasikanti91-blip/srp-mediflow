@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="pageTitle">Admin Dashboard | SRP MediFlow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+        
+        .admin-container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .sidebar h2 {
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+        
+        .sidebar ul {
+            list-style: none;
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 0;
+            padding-bottom: 10px;
+        }
+        
+        .sidebar li {
+            padding: 12px;
+            margin: 5px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .sidebar li:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar li.active {
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            color: #667eea;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .stat-card .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #f5f7fa;
+            color: #333;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge.pending {
+            background: #ffeaa7;
+            color: #d63031;
+        }
+        
+        .badge.confirmed {
+            background: #55efc4;
+            color: #00b894;
+        }
+        
+        .badge.completed {
+            background: #74b9ff;
+            color: #0984e3;
+        }
+        
+        .badge.active {
+            background: #55efc4;
+            color: #00b894;
+        }
+        
+        .badge.absent {
+            background: #fab1a0;
+            color: #d63031;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            margin: 5px 2px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #764ba2;
+        }
+        
+        .btn-danger {
+            background: #d63031;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #00b894;
+            color: white;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .form-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            box-sizing: border-box;
+            background: white;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102,126,234,0.15);
+        }
+        .labeled-field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .labeled-field label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+    </style>
+    <!-- Chart.js for analytics charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <h2 id="sidebarHospitalName">🏥 Hospital</h2>
+            <p style="font-size:11px;opacity:.75;margin-top:4px;">SRP MediFlow HMS</p>
+            <ul>
+                <li class="nav-item active" data-section="dashboard">🏠 Dashboard</li>
+                <li class="nav-item" data-section="appointments">📅 Appointments</li>
+                <li class="nav-item" data-section="patients">🧍 Patients</li>
+                <li class="nav-item" data-section="ipd-admissions">🏥 IPD Admissions</li>
+                <li class="nav-item" data-section="doctors">👨‍⚕️ Doctors</li>
+                <li class="nav-item" data-section="surgery">🔪 Surgery</li>
+                <li class="nav-item" data-section="attendance">⏰ Attendance</li>
+                <li class="nav-item" data-section="doctor-rounds">🔄 Doctor Rounds</li>
+                <li class="nav-item" data-section="staff">👥 Staff Users</li>
+                <li class="nav-item" data-section="pharmacy">💊 Pharmacy</li>
+                <li class="nav-item" data-section="inventory">📦 Inventory</li>
+                <li class="nav-item" data-section="lab-reports">🧪 Lab Reports</li>
+                <li class="nav-item" data-section="billing">🧾 Billing</li>
+                <li class="nav-item" data-section="reports">📊 Reports</li>
+                <li class="nav-item" data-section="system-logs">🔒 System Logs</li>
+            </ul>
+            
+            <div style="flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 12px; margin-top: 10px;">
+                <button id="logoutBtn" style="
+                    width: 100%; 
+                    padding: 12px; 
+                    background: rgba(255,255,255,0.2); 
+                    color: white; 
+                    border: 1px solid rgba(255,255,255,0.3); 
+                    border-radius: 6px; 
+                    cursor: pointer;
+                    transition: all 0.3s;
+                " onmouseover="this.style.background='rgba(255,255,255,0.3)'" 
+                   onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+                    🚪 Logout
+                </button>
+                <p style="text-align: center; font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 8px;">
+                    7-Day Trial Version
+                </p>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1 id="mainHospitalName">🏥 Admin Panel</h1>
+                <small id="hospitalDetails" style="color:#888;font-size:12px;">SRP MediFlow Hospital Management System</small>
+                <div>Welcome, <strong id="welcomeUsername">Admin</strong> | Updated: <span id="lastUpdate">Just now</span></div>
+            </div>
+            
+            <!-- Dashboard -->
+            <div id="dashboard" class="section active">
+                <h2 style="margin-bottom: 20px;">Dashboard Overview</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>TOTAL APPOINTMENTS</h3>
+                        <div class="number" id="totalAppointments">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>TODAY'S PATIENTS</h3>
+                        <div class="number" id="todayPatients">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>DOCTORS ON DUTY</h3>
+                        <div class="number" id="doctorsOnDuty">2</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>PENDING APPROVALS</h3>
+                        <div class="number" id="pendingApprovals">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #e74c3c;">
+                        <h3>IPD ADMISSIONS</h3>
+                        <div class="number" id="totalAdmissions" style="color:#e74c3c;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #f39c12;">
+                        <h3>LOW STOCK ALERTS</h3>
+                        <div class="number" id="lowStockCount" style="color:#f39c12;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #27ae60;">
+                        <h3>TODAY'S REVENUE ₹</h3>
+                        <div class="number" id="todayRevenue" style="color:#27ae60;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #8e44ad;">
+                        <h3>PENDING SURGERIES</h3>
+                        <div class="number" id="pendingSurgeries" style="color:#8e44ad;">0</div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <h3 style="margin-bottom: 15px;">Recent Appointments</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Patient Name</th>
+                                <th>Doctor</th>
+                                <th>Date/Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentAppointmentsBody">
+                            <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Appointments Section -->
+            <div id="appointments" class="section">
+                <h2>Manage Appointments</h2>
+                <div id="appointmentMessage" class="message"></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Phone</th>
+                                <th>Doctor</th>
+                                <th>Issue</th>
+                                <th>Date/Time</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointmentsBody">
+                            <tr><td colspan="7" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Attendance Section -->
+            <div id="attendance" class="section">
+                <h2>Staff Attendance</h2>
+
+                <!-- Doctor Quick Check-In / Check-Out -->
+                <div class="table-container" style="background:#f0f9ff;border-left:4px solid #0ea5e9;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3 style="color:#0369a1;">🩺 Doctor Check-In / Check-Out</h3>
+                        <button class="btn" style="background:#e74c3c;color:white;font-size:12px;" onclick="resetAllDoctorsDuty()">🔄 Reset All → Off Duty</button>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Doctor Name</label>
+                            <select id="doctorSelect">
+                                <option value="">-- Loading doctors... --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="doctorCheckin()" style="margin-right:10px;">✅ Doctor Check In</button>
+                    <button class="btn btn-danger"  onclick="doctorCheckout()">🔴 Doctor Check Out</button>
+                    <div id="doctorAttendanceMessage" class="message" style="margin-top:10px;"></div>
+                </div>
+
+                <!-- Staff Check-In / Check-Out -->
+                <div class="table-container">
+                    <h3>👥 Staff Check-In / Check-Out</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Staff Name</label>
+                            <input type="text" id="staffName" placeholder="Enter staff name">
+                        </div>
+                        <div class="form-group">
+                            <label>Action</label>
+                            <select id="attendanceAction">
+                                <option value="checkin">Check In</option>
+                                <option value="checkout">Check Out</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="recordAttendance()">Record Attendance</button>
+                    <div id="attendanceMessage" class="message" style="margin-top: 10px;"></div>
+                </div>
+
+                <div class="table-container">
+                    <h3>Today's Attendance</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Staff / Doctor Name</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceBody">
+                            <tr><td colspan="3" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Doctor Rounds Section -->
+            <div id="doctor-rounds" class="section">
+                <h2>Doctor Rounds Schedule</h2>
+
+                <!-- Add new round -->
+                <div class="table-container" style="background:#f0fdf4;border-left:4px solid #16a34a;">
+                    <h3 style="color:#15803d;">➕ Schedule New Round</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Doctor</label>
+                            <select id="roundDoctor">
+                                <option value="">-- Loading doctors... --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ward</label>
+                            <input type="text" id="roundWard" placeholder="e.g. General Ward">
+                        </div>
+                        <div class="form-group">
+                            <label>Round Time</label>
+                            <input type="text" id="roundTime" placeholder="e.g. 10:00 AM">
+                        </div>
+                    </div>
+                    <button class="btn btn-success" onclick="addRound()">Schedule Round</button>
+                    <div id="roundMessage" class="message" style="margin-top:10px;"></div>
+                </div>
+
+                <div class="table-container">
+                    <h3>Active & Upcoming Rounds</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Doctor</th>
+                                <th>Ward</th>
+                                <th>Round Time</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="roundsBody">
+                            <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Staff Management Section -->
+            <div id="staff" class="section">
+                <h2>Staff Users</h2>
+                <!-- Create Staff Form -->
+                <div class="table-container" style="margin-bottom:20px;">
+                    <h3 style="margin-bottom:12px;">Create New Staff Login</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <input id="newStaffName"     type="text"     placeholder="Full Name"       class="form-input">
+                        <input id="newStaffUser"     type="text"     placeholder="Username"        class="form-input">
+                        <input id="newStaffPass"     type="password" placeholder="Password"        class="form-input">
+                        <input id="newStaffDept"     type="text"     placeholder="Department"      class="form-input">
+                        <select id="newStaffRole" class="form-input">
+                            <option value="DOCTOR">Doctor</option>
+                            <option value="NURSE">Nurse</option>
+                            <option value="LAB">Lab Technician</option>
+                            <option value="XRAY">Radiology / X-Ray</option>
+                            <option value="STOCK">Stock Manager</option>
+                            <option value="RECEPTION">Receptionist</option>
+                            <option value="ADMIN">Administrator</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="createStaffUser()">Create User</button>
+                    </div>
+                    <div id="staffCreateMsg" style="color:green;display:none;"></div>
+                </div>
+                <!-- Staff List -->
+                <div class="table-container">
+                    <h3 style="margin-bottom:12px;">All Staff Users &nbsp;
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadStaffUsers()">↻ Refresh</button>
+                    </h3>
+                    <table>
+                        <thead>
+                            <tr><th>Username</th><th>Full Name</th><th>Role</th><th>Department</th><th>Active</th><th>Action</th></tr>
+                        </thead>
+                        <tbody id="staffTableBody">
+                            <tr><td colspan="6" style="text-align:center;color:#888;">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Inventory Section -->
+            <div id="inventory" class="section">
+                <h2>Inventory Management</h2>
+                <!-- Add Stock Form -->
+                <div class="table-container" style="margin-bottom:20px;">
+                    <h3 style="margin-bottom:12px;">Add Stock Item</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div class="labeled-field"><label>Item Name *</label><input id="stockName" type="text" placeholder="e.g. Paracetamol 500mg" class="form-input"></div>
+                        <div class="labeled-field"><label>Category</label><input id="stockCat" type="text" placeholder="e.g. Medicine, Surgical" class="form-input" value="Medicine"></div>
+                        <div class="labeled-field"><label>Quantity</label><input id="stockQty" type="number" placeholder="0" class="form-input" value="0"></div>
+                        <div class="labeled-field"><label>Unit (e.g. tablets, bottles)</label><input id="stockUnit" type="text" placeholder="e.g. tablets" class="form-input" value="units"></div>
+                        <div class="labeled-field"><label>Min Qty Alert (reorder level)</label><input id="stockMin" type="number" placeholder="10" class="form-input" value="10"></div>
+                        <div style="display:flex;align-items:flex-end;"><button class="btn btn-primary" onclick="addStockItem()" style="width:100%;padding:10px;">Add Item</button></div>
+                    </div>
+                    <div id="stockAddMsg" style="color:green;display:none;"></div>
+                </div>
+                <!-- Stock Table -->
+                <div class="table-container">
+                    <h3 style="margin-bottom:12px;">Current Stock &nbsp;
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadStock()">↻ Refresh</button>
+                    </h3>
+                    <table>
+                        <thead>
+                            <tr><th>Item</th><th>Category</th><th>Qty</th><th>Unit</th><th>Min Alert</th><th>Status</th><th>Update Qty</th></tr>
+                        </thead>
+                        <tbody id="stockTableBody">
+                            <tr><td colspan="7" style="text-align:center;color:#888;">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Reports Section -->
+            <div id="reports" class="section">
+                <h2>📊 Reports &amp; Analytics</h2>
+
+                <!-- KPI Summary Row -->
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+                    <div class="stat-card" style="border-left:4px solid #667eea;">
+                        <h3>TOTAL PATIENTS</h3>
+                        <div class="number" id="reportTotalPatients" style="color:#667eea;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #00b894;">
+                        <h3>TOTAL APPOINTMENTS</h3>
+                        <div class="number" id="reportTotalAppointments" style="color:#00b894;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #e17055;">
+                        <h3>TOTAL REVENUE (₹)</h3>
+                        <div class="number" id="reportTotalRevenue" style="color:#e17055;">0</div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #6c5ce7;">
+                        <h3>TOTAL BILLS</h3>
+                        <div class="number" id="reportTotalBills" style="color:#6c5ce7;">0</div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+                    <div class="table-container">
+                        <h3 style="margin-bottom:12px;">📅 Appointments by Status</h3>
+                        <canvas id="chartAppointments" height="220"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <h3 style="margin-bottom:12px;">💰 Revenue by Bill Type (₹)</h3>
+                        <canvas id="chartRevenue" height="220"></canvas>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+                    <div class="table-container">
+                        <h3 style="margin-bottom:12px;">👨‍⚕️ Doctor Workload (Appointments)</h3>
+                        <canvas id="chartDoctors" height="220"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <h3 style="margin-bottom:12px;">🏥 IPD vs OPD Patients</h3>
+                        <canvas id="chartIPDvsOPD" height="220"></canvas>
+                    </div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="table-container" style="background:#f0f9ff;border-left:4px solid #0ea5e9;">
+                    <h3 style="color:#0369a1;margin-bottom:16px;">📥 Export Data</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;">Format:</label><br>
+                            <select id="exportFormat" style="padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;">
+                                <option value="csv">CSV (Excel-compatible)</option>
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;">Period:</label><br>
+                            <select id="exportRange" style="padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;">
+                                <option value="today">Today</option>
+                                <option value="weekly">This Week</option>
+                                <option value="monthly" selected>This Month</option>
+                                <option value="yearly">This Year</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:20px;">
+                            <button class="btn btn-primary" onclick="exportData('patients')">👥 Export Patients</button>
+                            <button class="btn btn-success" onclick="exportData('appointments')">📅 Export Appointments</button>
+                            <button class="btn" style="background:#8e44ad;color:white;" onclick="exportData('billing')">🧾 Export Billing</button>
+                            <button class="btn" style="background:#e17055;color:white;" onclick="exportFullReport()">📊 Full Report (All Data)</button>
+                        </div>
+                    </div>
+                    <div id="exportMsg" style="margin-top:10px;display:none;"></div>
+                </div>
+            </div>
+
+            <!-- Patients Section -->
+            <div id="patients" class="section">
+                <h2>Registered Patients</h2>
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>All Patients</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadPatients()">&#8635; Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Age</th><th>Issue</th><th>Doctor</th><th>Booked</th><th>Status</th></tr></thead>
+                        <tbody id="patientsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Doctors Section -->
+            <div id="doctors" class="section">
+                <h2>Doctors</h2>
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>All Doctors</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadDoctors()">&#8635; Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Name</th><th>Department</th><th>Specialization</th><th>Status</th><th>On Duty</th></tr></thead>
+                        <tbody id="doctorsBody"><tr><td colspan="6" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Lab Reports Section -->
+            <div id="lab-reports" class="section">
+                <h2>Lab Reports</h2>
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>All Lab / X-Ray Orders</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadLabReports()">&#8635; Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Requested By</th><th>Status</th><th>Result</th><th>Date</th></tr></thead>
+                        <tbody id="labReportsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Billing Section -->
+            <div id="billing" class="section">
+                <h2>Billing</h2>
+                <!-- Create Bill Form -->
+                <div class="table-container" style="margin-bottom:20px;">
+                    <h3 style="margin-bottom:12px;">Create Bill</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Patient Name *</label>
+                            <input id="billPatient" type="text" placeholder="e.g. Ravi Kumar" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Patient Phone</label>
+                            <input id="billPhone" type="text" placeholder="10-digit mobile" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Bill Type</label>
+                            <select id="billType" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="OPD">OPD – Out Patient</option>
+                                <option value="IPD">IPD – In Patient</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Consultation Fee (₹)</label>
+                            <input id="billConsult" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Lab Charges (₹)</label>
+                            <input id="billLab" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Pharmacy Charges (₹)</label>
+                            <input id="billPharmacy" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Imaging / X-Ray (₹)</label>
+                            <input id="billImaging" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Misc/Other Charges (₹)</label>
+                            <input id="billMisc" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Discount (₹)</label>
+                            <input id="billDiscount" type="number" placeholder="0" value="0" min="0" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="createBill()">Generate Bill</button>
+                    <div id="billMsg" style="margin-top:8px;font-size:.9rem;display:none;"></div>
+                </div>
+                <!-- Bills Table -->
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>Recent Bills</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadBills()">&#8635; Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Total</th><th>Discount</th><th>Net</th><th>Status</th><th>Date</th></tr></thead>
+                        <tbody id="billsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- IPD Admissions Section -->
+            <div id="ipd-admissions" class="section">
+                <h2>🏥 IPD Admissions</h2>
+                <!-- Admit Patient Form -->
+                <div class="table-container" style="background:#fdf4ff;border-left:4px solid #8b5cf6;margin-bottom:20px;">
+                    <h3 style="color:#6d28d9;margin-bottom:12px;">➕ Admit New Patient</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div class="labeled-field"><label>Patient Name *</label><input id="admitName" type="text" placeholder="Full name" class="form-input"></div>
+                        <div class="labeled-field"><label>Phone Number</label><input id="admitPhone" type="text" placeholder="10-digit mobile" class="form-input"></div>
+                        <div class="labeled-field"><label>Aadhar Number</label><input id="admitAadhar" type="text" placeholder="12-digit Aadhar" class="form-input"></div>
+                        <div class="labeled-field"><label>Age</label><input id="admitAge" type="text" placeholder="e.g. 35" class="form-input"></div>
+                        <div class="labeled-field"><label>Gender</label>
+                            <select id="admitGender" class="form-input">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="labeled-field"><label>Blood Group</label><input id="admitBlood" type="text" placeholder="e.g. B+" class="form-input"></div>
+                        <div class="labeled-field"><label>Ward Name</label><input id="admitWard" type="text" placeholder="e.g. General Male, ICU" class="form-input"></div>
+                        <div class="labeled-field"><label>Bed Number</label><input id="admitBed" type="text" placeholder="e.g. B-12" class="form-input"></div>
+                        <div class="labeled-field"><label>Admitting Doctor</label><input id="admitDoctor" type="text" placeholder="Dr. Name" class="form-input"></div>
+                        <div class="labeled-field"><label>Department</label><input id="admitDept" type="text" placeholder="e.g. Cardiology" class="form-input"></div>
+                        <div class="labeled-field"><label>Provisional Diagnosis</label><input id="admitDiag" type="text" placeholder="e.g. Dengue Fever" class="form-input"></div>
+                        <div class="labeled-field"><label>Admission Notes</label><textarea id="admitNotes" placeholder="Any additional notes..." class="form-input" rows="2" style="resize:vertical;"></textarea></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="admitPatient()">Admit Patient</button>
+                    <div id="admitMsg" style="margin-top:8px;display:none;"></div>
+                </div>
+                <!-- Current Admissions Table -->
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>Current IPD Admissions</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadAdmissions()">↻ Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Patient</th><th>Phone</th><th>Ward</th><th>Bed</th><th>Doctor</th><th>Diagnosis</th><th>Admitted</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="admissionsBody"><tr><td colspan="10" style="text-align:center;color:#888;">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Surgery Section -->
+            <div id="surgery" class="section">
+                <h2>🔪 Surgery Records</h2>
+                <div class="table-container" style="background:#fff7ed;border-left:4px solid #f97316;margin-bottom:20px;">
+                    <h3 style="color:#c2410c;margin-bottom:12px;">🩺 Schedule / Record Surgery</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div class="labeled-field"><label>Patient Name *</label><input id="surPatient" type="text" placeholder="Full name" class="form-input"></div>
+                        <div class="labeled-field"><label>Patient Phone</label><input id="surPhone" type="text" placeholder="10-digit mobile" class="form-input"></div>
+                        <div class="labeled-field"><label>IPD Admission ID (if admitted)</label><input id="surAdmId" type="number" placeholder="Leave blank if OPD" class="form-input"></div>
+                        <div class="labeled-field"><label>Surgery Type *</label><input id="surType" type="text" placeholder="e.g. Appendectomy, C-Section" class="form-input"></div>
+                        <div class="labeled-field"><label>Anaesthesia Type</label>
+                            <select id="surAnes" class="form-input">
+                                <option value="General">General Anaesthesia</option>
+                                <option value="Spinal">Spinal Anaesthesia</option>
+                                <option value="Local">Local Anaesthesia</option>
+                                <option value="Epidural">Epidural</option>
+                            </select>
+                        </div>
+                        <div class="labeled-field"><label>Operation Date &amp; Time</label><input id="surDate" type="datetime-local" class="form-input"></div>
+                        <div class="labeled-field"><label>Estimated Cost (₹)</label><input id="surEstCost" type="number" placeholder="0" class="form-input" value="0"></div>
+                        <div class="labeled-field"><label>Negotiated Cost (₹)</label><input id="surNegCost" type="number" placeholder="0" class="form-input" value="0"></div>
+                        <div class="labeled-field" style="grid-column:span 1;"><label>Operation Notes</label><textarea id="surNotes" placeholder="Pre/post-op notes" class="form-input" rows="2"></textarea></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="createSurgery()">Save Surgery Record</button>
+                    <div id="surMsg" style="margin-top:8px;display:none;"></div>
+                </div>
+                <!-- Update Negotiated Cost -->
+                <div class="table-container" style="background:#f0fdf4;border-left:4px solid #22c55e;margin-bottom:20px;">
+                    <h3 style="color:#16a34a;margin-bottom:12px;">💰 Update Negotiated Cost</h3>
+                    <div style="display:flex;gap:10px;align-items:flex-end;">
+                        <input id="surUpdateId"   type="number" placeholder="Surgery ID" class="form-input" style="width:120px;">
+                        <input id="surNegUpdate"  type="number" placeholder="New Price ₹" class="form-input" style="width:160px;">
+                        <input id="surNegNotes"   type="text"   placeholder="Notes" class="form-input" style="flex:1;">
+                        <button class="btn btn-success" onclick="updateSurgeryCost()">Update</button>
+                    </div>
+                    <div id="surUpdateMsg" style="margin-top:8px;display:none;"></div>
+                </div>
+                <!-- Surgery Records Table -->
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>Surgery Records</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadSurgeries()">↻ Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>Patient</th><th>Surgeon</th><th>Surgery Type</th><th>Est. Cost ₹</th><th>Neg. Cost ₹</th><th>Date</th><th>Status</th></tr></thead>
+                        <tbody id="surgeriesBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pharmacy Section -->
+            <div id="pharmacy" class="section">
+                <h2>💊 Pharmacy Management</h2>
+                <!-- Alerts Row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+                    <div class="stat-card" style="border-left:4px solid #f97316;">
+                        <h3>LOW STOCK ITEMS</h3>
+                        <div class="number" id="pharmLowStockCount" style="color:#f97316;">0</div>
+                        <button class="btn" style="font-size:11px;margin-top:8px;" onclick="loadLowStock()">View Alerts</button>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #ef4444;">
+                        <h3>EXPIRY ALERTS (90 days)</h3>
+                        <div class="number" id="pharmExpiryCount" style="color:#ef4444;">0</div>
+                        <button class="btn" style="font-size:11px;margin-top:8px;" onclick="loadExpiryAlerts()">View Alerts</button>
+                    </div>
+                </div>
+                <!-- Add Stock Form -->
+                <div class="table-container" style="background:#f0fdf4;border-left:4px solid #22c55e;margin-bottom:20px;">
+                    <h3 style="color:#16a34a;margin-bottom:12px;">📦 Add Medicine Batch</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div class="labeled-field">
+                            <label>Medicine ID * <small style="color:#888;font-weight:normal;">(from Medicines list)</small></label>
+                            <input id="pharMedId" type="number" placeholder="Enter medicine ID" class="form-input">
+                        </div>
+                        <div class="labeled-field"><label>Batch Number</label><input id="pharBatch" type="text" placeholder="e.g. BATCH-2024-01" class="form-input"></div>
+                        <div class="labeled-field"><label>Expiry Date</label><input id="pharExpiry" type="date" class="form-input"></div>
+                        <div class="labeled-field"><label>Quantity *</label><input id="pharQty" type="number" placeholder="No. of units" class="form-input" value="0"></div>
+                        <div class="labeled-field"><label>Purchase Price (₹)</label><input id="pharPurchase" type="number" placeholder="0.00" class="form-input" value="0" step="0.01"></div>
+                        <div class="labeled-field"><label>Selling Price (₹)</label><input id="pharSell" type="number" placeholder="0.00" class="form-input" value="0" step="0.01"></div>
+                        <div class="labeled-field"><label>Supplier Name</label><input id="pharSupplier" type="text" placeholder="e.g. MedSupply Corp" class="form-input"></div>
+                        <div class="labeled-field"><label>Min Qty Alert (reorder level)</label><input id="pharMinQty" type="number" placeholder="10" class="form-input" value="10"></div>
+                    </div>
+                    <button class="btn btn-success" onclick="addMedicineStock()">Add Stock</button>
+                    <div id="pharAddMsg" style="margin-top:8px;display:none;"></div>
+                </div>
+                <!-- Full Inventory Table -->
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>Pharmacy Inventory</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadPharmacyInventory()">↻ Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>Medicine</th><th>Batch</th><th>Expiry</th><th>Qty</th><th>Min</th><th>Sell ₹</th><th>Supplier</th><th>Status</th></tr></thead>
+                        <tbody id="pharmInventoryBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading…</td></tr></tbody>
+                    </table>
+                </div>
+                <!-- Alerts Tables -->
+                <div id="lowStockAlerts" style="display:none;">
+                    <div class="table-container" style="border-left:4px solid #f97316;">
+                        <h3 style="color:#c2410c;">⚠️ Low Stock Alerts</h3>
+                        <table>
+                            <thead><tr><th>Medicine</th><th>Batch</th><th>Current Qty</th><th>Min Qty</th><th>Sell ₹</th><th>Supplier</th></tr></thead>
+                            <tbody id="lowStockBody"><tr><td colspan="6" style="text-align:center;">No alerts</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="expiryAlerts" style="display:none;">
+                    <div class="table-container" style="border-left:4px solid #ef4444;">
+                        <h3 style="color:#dc2626;">🗓️ Expiry Alerts (Expiring within 90 days)</h3>
+                        <table>
+                            <thead><tr><th>Medicine</th><th>Batch</th><th>Expiry Date</th><th>Days Left</th><th>Qty</th><th>Supplier</th></tr></thead>
+                            <tbody id="expiryBody"><tr><td colspan="6" style="text-align:center;">No alerts</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Logs Section -->
+            <div id="system-logs" class="section">
+                <h2>System Logs</h2>
+                <div class="table-container">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <h3>Recent Activity</h3>
+                        <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadSystemLogs()">&#8635; Refresh</button>
+                    </div>
+                    <table>
+                        <thead><tr><th>#</th><th>User</th><th>Role</th><th>Action</th><th>Details</th><th>Time</th></tr></thead>
+                        <tbody id="logsBody"><tr><td colspan="6" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Navigation handling
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const sectionId = this.dataset.section;
+                
+                // Hide all sections
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                
+                // Remove active from all nav items
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                
+                // Show selected section
+                document.getElementById(sectionId).classList.add('active');
+                
+                // Mark nav item as active
+                this.classList.add('active');
+                
+                // Load fresh data
+                loadAdminData();
+            });
+        });
+        
+        // Load admin data from server
+        function loadAdminData() {
+            fetch('/api/admin/data')
+                .then(r => r.json())
+                .then(data => {
+                    // Update dashboard stats
+                    document.getElementById('totalAppointments').textContent = data.total_appointments || 0;
+                    document.getElementById('todayPatients').textContent = data.today_patients || 0;
+                    document.getElementById('doctorsOnDuty').textContent = data.doctors_on_duty || 2;
+                    
+                    // Calculate pending
+                    const pending = data.appointments ? data.appointments.filter(a => a.status === 'pending').length : 0;
+                    document.getElementById('pendingApprovals').textContent = pending;
+                    
+                    // Update recent appointments
+                    if (data.appointments && data.appointments.length > 0) {
+                        const recentRows = data.appointments.slice(0, 5).map(a => `
+                            <tr>
+                                <td>${a.name || 'N/A'}</td>
+                                <td>${a.doctor || 'N/A'}</td>
+                                <td>${a.time || 'N/A'}</td>
+                                <td><span class="badge ${a.status || 'pending'}">${a.status || 'Pending'}</span></td>
+                            </tr>
+                        `).join('');
+                        document.getElementById('recentAppointmentsBody').innerHTML = recentRows;
+                    }
+                    
+                    // Update appointments management table
+                    if (data.appointments && data.appointments.length > 0) {
+                        const appointmentRows = data.appointments.map((a, idx) => `
+                            <tr>
+                                <td>${a.name || 'N/A'}</td>
+                                <td>${a.phone || 'N/A'}</td>
+                                <td>${a.doctor || 'N/A'}</td>
+                                <td>${a.issue || 'N/A'}</td>
+                                <td>${a.time || 'N/A'}</td>
+                                <td><span class="badge ${a.status || 'pending'}">${a.status || 'Pending'}</span></td>
+                                <td>
+                                    <button class="btn btn-success" onclick="updateAppointment(${a.id || idx}, 'confirmed')">Confirm</button>
+                                    <button class="btn btn-danger" onclick="updateAppointment(${a.id || idx}, 'cancelled')">Cancel</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                        document.getElementById('appointmentsBody').innerHTML = appointmentRows;
+                    }
+                    
+                    // Update attendance table (uses attendance_today from PostgreSQL)
+                    const attList = data.attendance_today || data.attendance || [];
+                    if (attList.length > 0) {
+                        const attendanceRows = attList.map(a => `
+                            <tr>
+                                <td>${a.staff_name || 'N/A'}</td>
+                                <td>${(a.date || a.recorded_at || 'N/A').slice(11, 19) || (a.date || 'N/A')}</td>
+                                <td><span class="badge ${a.action === 'checkin' ? 'confirmed' : 'pending'}">${a.action === 'checkin' ? '✅ Checked In' : '🔴 Checked Out'}</span></td>
+                            </tr>
+                        `).join('');
+                        document.getElementById('attendanceBody').innerHTML = attendanceRows;
+                    } else {
+                        document.getElementById('attendanceBody').innerHTML = '<tr><td colspan="3" style="text-align:center;">No attendance recorded today</td></tr>';
+                    }
+
+                    // Update doctor rounds table
+                    const rnds = data.doctor_rounds || [];
+                    if (rnds.length > 0) {
+                        const roundRows = rnds.map(r => `
+                            <tr>
+                                <td>${r.doctor_name || 'N/A'}</td>
+                                <td>${r.ward || 'N/A'}</td>
+                                <td>${r.round_time || 'N/A'}</td>
+                                <td><span class="badge ${r.status === 'completed' ? 'confirmed' : 'pending'}">${r.status === 'completed' ? '✅ Completed' : '⏳ Pending'}</span></td>
+                                <td>${r.status !== 'completed' ? `<button class="btn btn-success" onclick="completeRound(${r.id})">Mark Done</button>` : '—'}</td>
+                            </tr>
+                        `).join('');
+                        if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = roundRows;
+                    } else {
+                        if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">No rounds scheduled</td></tr>';
+                    }
+                    
+                    // Update reports
+                    document.getElementById('reportTotalPatients').textContent = data.total_appointments || 0;
+                    document.getElementById('reportTotalAppointments').textContent = data.total_appointments || 0;
+                    
+                    // Update timestamp
+                    const now = new Date();
+                    document.getElementById('lastUpdate').textContent = now.toLocaleTimeString();
+                })
+                .catch(e => {
+                    console.error('Error loading admin data:', e);
+                });
+        }
+        
+        // Record staff attendance
+        function recordAttendance() {
+            const staffName = document.getElementById('staffName').value.trim();
+            const action = document.getElementById('attendanceAction').value;
+            const msgDiv = document.getElementById('attendanceMessage');
+            
+            if (!staffName) {
+                msgDiv.textContent = 'Please enter staff name';
+                msgDiv.className = 'message error';
+                return;
+            }
+            
+            fetch('/api/admin/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ staff_name: staffName, action: action })
+            })
+            .then(r => r.json())
+            .then(data => {
+                msgDiv.textContent = data.message || 'Attendance recorded successfully';
+                msgDiv.className = 'message success';
+                document.getElementById('staffName').value = '';
+                setTimeout(() => { msgDiv.className = 'message'; }, 3000);
+                loadAdminData();
+            })
+            .catch(e => {
+                msgDiv.textContent = 'Error: ' + e;
+                msgDiv.className = 'message error';
+            });
+        }
+        
+        // Doctor check-in
+        function doctorCheckin() {
+            const name = document.getElementById('doctorSelect').value;
+            const msg  = document.getElementById('doctorAttendanceMessage');
+            if (!name) { msg.textContent='Please select a doctor'; msg.className='message error'; return; }
+            fetch('/api/admin/doctor/checkin', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({doctor_name: name})
+            }).then(r=>r.json()).then(d=>{
+                msg.textContent = d.message || 'Check-in recorded';
+                msg.className = d.status==='success' ? 'message success' : 'message error';
+                setTimeout(()=>{ msg.className='message'; }, 3000);
+                loadAdminData();
+            }).catch(e=>{ msg.textContent='Error: '+e; msg.className='message error'; });
+        }
+
+        // Doctor check-out
+        function doctorCheckout() {
+            const name = document.getElementById('doctorSelect').value;
+            const msg  = document.getElementById('doctorAttendanceMessage');
+            if (!name) { msg.textContent='Please select a doctor'; msg.className='message error'; return; }
+            fetch('/api/admin/doctor/checkout', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({doctor_name: name})
+            }).then(r=>r.json()).then(d=>{
+                msg.textContent = d.message || 'Check-out recorded';
+                msg.className = d.status==='success' ? 'message success' : 'message error';
+                setTimeout(()=>{ msg.className='message'; }, 3000);
+                loadAdminData();
+            }).catch(e=>{ msg.textContent='Error: '+e; msg.className='message error'; });
+        }
+
+        // Reset all doctors to off-duty
+        async function resetAllDoctorsDuty() {
+            if (!confirm('This will mark ALL doctors as Off Duty.\n\nUse this to clear stale "on duty" flags.\nContinue?')) return;
+            const msg = document.getElementById('doctorAttendanceMessage');
+            try {
+                const r = await fetch('/api/admin/doctors/reset-duty', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
+                });
+                const d = await r.json();
+                msg.textContent = d.message || 'All doctors reset to off-duty';
+                msg.className = d.status === 'ok' ? 'message success' : 'message error';
+                setTimeout(() => { msg.className = 'message'; }, 4000);
+                loadAdminData();
+                loadDoctorDropdowns();
+            } catch(e) { msg.textContent = 'Error: ' + e; msg.className = 'message error'; }
+        }
+
+        // Add doctor round
+        function addRound() {
+            const doctor = document.getElementById('roundDoctor').value;
+            const ward   = document.getElementById('roundWard').value.trim();
+            const rtime  = document.getElementById('roundTime').value.trim();
+            const msg    = document.getElementById('roundMessage');
+            if (!doctor || !ward) { msg.textContent='Doctor and Ward are required'; msg.className='message error'; return; }
+            fetch('/api/admin/rounds/add', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({doctor_name: doctor, ward: ward, round_time: rtime})
+            }).then(r=>r.json()).then(d=>{
+                msg.textContent = d.message || 'Round scheduled';
+                msg.className = d.status==='success' ? 'message success' : 'message error';
+                document.getElementById('roundWard').value='';
+                document.getElementById('roundTime').value='';
+                setTimeout(()=>{ msg.className='message'; }, 3000);
+                loadAdminData();
+            }).catch(e=>{ msg.textContent='Error: '+e; msg.className='message error'; });
+        }
+
+        // Complete a round
+        function completeRound(roundId) {
+            fetch('/api/admin/rounds/complete', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({round_id: roundId})
+            }).then(r=>r.json()).then(d=>{
+                loadAdminData();
+            }).catch(e=>console.error('Complete round error:', e));
+        }
+
+        // Update appointment status
+        function updateAppointment(id, status) {
+            fetch('/api/admin/appointments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ appointment_id: id, status: status })
+            })
+            .then(r => r.json())
+            .then(data => {
+                const msgDiv = document.getElementById('appointmentMessage');
+                msgDiv.textContent = data.message || 'Appointment updated successfully';
+                msgDiv.className = 'message success';
+                setTimeout(() => { 
+                    msgDiv.className = 'message';
+                    msgDiv.textContent = '';
+                }, 3000);
+                // Force immediate reload
+                setTimeout(() => loadAdminData(), 100);
+            })
+            .catch(e => {
+                const msgDiv = document.getElementById('appointmentMessage');
+                msgDiv.textContent = 'Error updating appointment: ' + e;
+                msgDiv.className = 'message error';
+            });
+        }
+        
+        // Load data on page load
+        
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', async function() {
+            if (confirm('Are you sure you want to logout?')) {
+                try {
+                    await fetch('/api/logout', { method: 'POST' });
+                    window.location.href = '/login';
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    window.location.href = '/login';
+                }
+            }
+        });
+        
+        // Refresh data every 30 seconds
+        setInterval(loadAdminData, 30000);
+
+        // ── Staff Users ──────────────────────────────────────────────────────
+        async function loadStaffUsers() {
+            try {
+                const r = await fetch('/api/staff/list');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('staffTableBody');
+                if (!d.users || d.users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No staff users found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = d.users.map(u => `
+                    <tr>
+                        <td>${u.username}</td>
+                        <td>${u.full_name || '-'}</td>
+                        <td><span class="badge ${u.role==='ADMIN'?'confirmed':'active'}">${u.role}</span></td>
+                        <td>${u.department || '-'}</td>
+                        <td>${u.is_active ? '✅' : '❌'}</td>
+                        <td>${u.username === 'admin' ? '-' : `<button class="btn" style="padding:3px 8px;font-size:12px;background:#e74c3c;color:white;" onclick="deleteStaff(${u.id},'${u.username}')">Remove</button>`}</td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadStaffUsers:', e); }
+        }
+
+        async function createStaffUser() {
+            const full_name  = document.getElementById('newStaffName').value.trim();
+            const username   = document.getElementById('newStaffUser').value.trim();
+            const password   = document.getElementById('newStaffPass').value.trim();
+            const department = document.getElementById('newStaffDept').value.trim();
+            const role       = document.getElementById('newStaffRole').value;
+            const msg        = document.getElementById('staffCreateMsg');
+
+            if (!username || !password) { alert('Username and password are required'); return; }
+            try {
+                const r = await fetch('/api/staff/create', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({username, password, role, department, full_name})
+                });
+                const d = await r.json();
+                if (d.status === 'ok') {
+                    msg.style.color = 'green';
+                    msg.textContent = `✅ User "${username}" created with role ${role}`;
+                    msg.style.display = 'block';
+                    document.getElementById('newStaffUser').value = '';
+                    document.getElementById('newStaffPass').value = '';
+                    document.getElementById('newStaffName').value = '';
+                    loadStaffUsers();
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = '❌ ' + (d.error || 'Failed');
+                    msg.style.display = 'block';
+                }
+            } catch(e) { console.error('createStaff:', e); }
+        }
+
+        async function deleteStaff(id, name) {
+            if (!confirm(`Remove user "${name}"? They will lose system access.`)) return;
+            const r = await fetch('/api/staff/delete', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({id})
+            });
+            const d = await r.json();
+            if (d.status === 'ok') loadStaffUsers();
+        }
+
+        // ── Inventory ────────────────────────────────────────────────────────
+        async function loadStock() {
+            try {
+                const r = await fetch('/api/stock/list');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('stockTableBody');
+                if (!d.stock || d.stock.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No stock items found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = d.stock.map(s => {
+                    const low = s.quantity <= s.min_quantity;
+                    return `
+                    <tr>
+                        <td>${s.item_name}</td>
+                        <td>${s.category}</td>
+                        <td style="font-weight:bold;color:${low?'#e74c3c':'#27ae60'}">${s.quantity}</td>
+                        <td>${s.unit}</td>
+                        <td>${s.min_quantity}</td>
+                        <td><span class="badge ${low?'pending':'confirmed'}">${low?'Low Stock':'OK'}</span></td>
+                        <td style="display:flex;gap:5px;">
+                            <input type="number" id="sqty_${s.id}" value="${s.quantity}" style="width:70px;padding:3px;">
+                            <button class="btn" style="padding:3px 8px;font-size:12px;" onclick="updateStockQty(${s.id})">Save</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch(e) { console.error('loadStock:', e); }
+        }
+
+        async function addStockItem() {
+            const item_name    = document.getElementById('stockName').value.trim();
+            const category     = document.getElementById('stockCat').value.trim();
+            const quantity     = parseInt(document.getElementById('stockQty').value) || 0;
+            const unit         = document.getElementById('stockUnit').value.trim();
+            const min_quantity = parseInt(document.getElementById('stockMin').value) || 10;
+            const msg          = document.getElementById('stockAddMsg');
+
+            if (!item_name) { alert('Item name required'); return; }
+            const r = await fetch('/api/stock/add', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({item_name, category, quantity, unit, min_quantity})
+            });
+            const d = await r.json();
+            if (d.status === 'ok') {
+                msg.style.color = 'green';
+                msg.textContent = `✅ "${item_name}" added`;
+                msg.style.display = 'block';
+                document.getElementById('stockName').value = '';
+                loadStock();
+            } else {
+                msg.style.color = 'red';
+                msg.textContent = '❌ ' + (d.error || 'Failed');
+                msg.style.display = 'block';
+            }
+        }
+
+        async function updateStockQty(id) {
+            const qty = parseInt(document.getElementById(`sqty_${id}`).value);
+            const r = await fetch('/api/stock/update', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({id, quantity: qty})
+            });
+            const d = await r.json();
+            if (d.status === 'ok') loadStock();
+        }
+
+        // Load dynamic sections when nav is clicked
+        document.addEventListener('DOMContentLoaded', () => {
+            // ── Load dynamic hospital name ─────────────────────────────────
+            async function loadHospitalBranding() {
+                try {
+                    // Try sessionStorage first (set at login)
+                    const storedName = sessionStorage.getItem('hospital_name');
+                    const storedSlug = sessionStorage.getItem('tenant_slug');
+                    if (storedName) {
+                        document.getElementById('sidebarHospitalName').textContent = '🏥 ' + storedName;
+                        document.getElementById('mainHospitalName').textContent    = '🏥 ' + storedName + ' – Admin Panel';
+                        document.title = storedName + ' – Admin Dashboard | SRP MediFlow';
+                    }
+                    // Enrich with live config (city, phone, etc.)
+                    const r = await fetch('/api/config');
+                    if (r.ok) {
+                        const cfg = await r.json();
+                        const name = cfg.hospital_name || storedName || 'Hospital';
+                        document.getElementById('sidebarHospitalName').textContent = '🏥 ' + name;
+                        document.getElementById('mainHospitalName').textContent    = '🏥 ' + name + ' – Admin Panel';
+                        document.title = name + ' – Admin Dashboard | SRP MediFlow';
+                        let details = [];
+                        if (cfg.city)           details.push(cfg.city);
+                        if (cfg.hospital_phone) details.push(cfg.hospital_phone);
+                        if (details.length)
+                            document.getElementById('hospitalDetails').textContent = details.join(' | ');
+                    }
+                    // Show logged-in username from session
+                    const sr = await fetch('/api/session/me');
+                    if (sr.ok) {
+                        const sd = await sr.json();
+                        if (sd.user) {
+                            document.getElementById('welcomeUsername').textContent =
+                                (sd.user.full_name || sd.user.username || 'Admin');
+                        }
+                    }
+                } catch(e) { /* non-critical */ }
+            }
+            loadHospitalBranding();
+
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const sec = item.dataset.section;
+                    if (sec === 'staff')          loadStaffUsers();
+                    if (sec === 'inventory')      loadStock();
+                    if (sec === 'patients')       loadPatients();
+                    if (sec === 'doctors')        loadDoctors();
+                    if (sec === 'lab-reports')    loadLabReports();
+                    if (sec === 'billing')        loadBills();
+                    if (sec === 'system-logs')    loadSystemLogs();
+                    if (sec === 'ipd-admissions') loadAdmissions();
+                    if (sec === 'surgery')        loadSurgeries();
+                    if (sec === 'pharmacy')       loadPharmacyInventory();
+                    if (sec === 'attendance')     loadAdminData();
+                    if (sec === 'doctor-rounds')  loadAdminData();
+                    if (sec === 'reports')        loadReportsSection();
+                });
+            });
+            // Initial doctor dropdown population
+            loadDoctorDropdowns();
+        });
+
+        // ── Patients ─────────────────────────────────────────────────────────
+        async function loadPatients() {
+            try {
+                const r = await fetch('/api/admin/data');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('patientsBody');
+                const list  = d.registrations || [];
+                if (!list.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No patients yet</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = list.slice(0,100).map((p,i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${p.name||'-'}</td>
+                        <td>${p.phone||'-'}</td>
+                        <td>${p.age||'-'}</td>
+                        <td>${p.issue||'-'}</td>
+                        <td>${p.doctor||'-'}</td>
+                        <td><small>${(p.timestamp||'').slice(0,16)}</small></td>
+                        <td><span class="badge ${p.status||'pending'}">${p.status||'pending'}</span></td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadPatients:', e); }
+        }
+
+        // ── Doctors ──────────────────────────────────────────────────────────
+        async function loadDoctors() {
+            try {
+                const r = await fetch('/api/admin/doctors');
+                if (!r.ok) {
+                    // Fallback: use admin data doctors list
+                    const r2 = await fetch('/api/admin/data');
+                    const d2 = await r2.json();
+                    renderDoctorsTable(d2.doctors || []);
+                    return;
+                }
+                const d = await r.json();
+                renderDoctorsTable(d.doctors || []);
+            } catch(e) { console.error('loadDoctors:', e); }
+        }
+        function renderDoctorsTable(docs) {
+            const tbody = document.getElementById('doctorsBody');
+            if (!docs.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No doctors found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = docs.map((doc,i) => `
+                <tr>
+                    <td>${i+1}</td>
+                    <td><strong>${doc.name||'-'}</strong></td>
+                    <td>${doc.department||'-'}</td>
+                    <td>${doc.specialization||'-'}</td>
+                    <td><span class="badge ${doc.status==='available'?'confirmed':'pending'}">${doc.status||'Unknown'}</span></td>
+                    <td>${doc.on_duty ? '<span class="badge active">On Duty</span>' : '<span class="badge absent">Off Duty</span>'}</td>
+                </tr>`).join('');
+        }
+
+        // ── Lab Reports ───────────────────────────────────────────────────────
+        async function loadLabReports() {
+            try {
+                const r = await fetch('/api/lab/orders');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('labReportsBody');
+                const orders = d.orders || [];
+                if (!orders.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No lab orders yet</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = orders.slice(0,100).map((o,i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${o.patient_name||'-'}<br><small>${o.patient_phone||''}</small></td>
+                        <td><span class="badge ${o.test_type==='LAB'?'active':'confirmed'}">${o.test_type||'-'}</span></td>
+                        <td>${o.test_name||'-'}</td>
+                        <td>${o.doctor_username||'-'}</td>
+                        <td><span class="badge ${o.status==='COMPLETED'?'completed':'pending'}">${o.status||'-'}</span></td>
+                        <td><small>${(o.result_text||'Pending').slice(0,50)}</small></td>
+                        <td><small>${(o.created_at||'').slice(0,16)}</small></td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadLabReports:', e); }
+        }
+
+        // ── Billing ───────────────────────────────────────────────────────────
+        async function createBill() {
+            const msg = document.getElementById('billMsg');
+            const patient_name    = document.getElementById('billPatient').value.trim();
+            const patient_phone   = document.getElementById('billPhone').value.trim();
+            const bill_type       = document.getElementById('billType').value;
+            const consultation_fee = parseFloat(document.getElementById('billConsult').value)||0;
+            const lab_charges     = parseFloat(document.getElementById('billLab').value)||0;
+            const pharmacy_charges = parseFloat(document.getElementById('billPharmacy').value)||0;
+            const imaging_charges = parseFloat(document.getElementById('billImaging').value)||0;
+            const misc_charges    = parseFloat(document.getElementById('billMisc').value)||0;
+            const discount        = parseFloat(document.getElementById('billDiscount').value)||0;
+            if (!patient_name) { alert('Patient name is required'); return; }
+            try {
+                const r = await fetch('/api/admin/billing/create', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({patient_name, patient_phone, bill_type,
+                        consultation_fee, lab_charges, pharmacy_charges,
+                        imaging_charges, misc_charges, discount})
+                });
+                const d = await r.json();
+                msg.style.display = 'block';
+                if (d.status === 'ok') {
+                    msg.style.color = 'green';
+                    const total = consultation_fee + lab_charges + pharmacy_charges + imaging_charges + misc_charges;
+                    msg.textContent = `✅ Bill #${d.id} created for ${patient_name} — Net: ₹${(total - discount).toFixed(2)}`;
+                    loadBills();
+                } else {
+                    msg.style.color = 'red';
+                    msg.textContent = '❌ ' + (d.error || 'Failed to create bill');
+                }
+            } catch(e) { msg.style.display='block'; msg.style.color='red'; msg.textContent='❌ ' + e; }
+        }
+
+        async function loadBills() {
+            try {
+                const r = await fetch('/api/admin/billing/list');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('billsBody');
+                const bills = d.bills || [];
+                if (!bills.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No bills yet</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = bills.map((b,i) => `
+                    <tr>
+                        <td>${b.id}</td>
+                        <td>${b.patient_name||'-'}<br><small>${b.patient_phone||''}</small></td>
+                        <td>${b.bill_type||'-'}</td>
+                        <td>₹${parseFloat(b.total_amount||0).toFixed(2)}</td>
+                        <td>₹${parseFloat(b.discount||0).toFixed(2)}</td>
+                        <td><strong>₹${parseFloat(b.net_amount||0).toFixed(2)}</strong></td>
+                        <td><span class="badge ${b.status==='paid'?'confirmed':b.status==='partial'?'active':'pending'}">${b.status||'unpaid'}</span></td>
+                        <td><small>${(b.created_at||'').slice(0,16)}</small></td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadBills:', e); }
+        }
+
+        // ── System Logs ───────────────────────────────────────────────────────
+        async function loadSystemLogs() {
+            try {
+                const r = await fetch('/api/admin/logs');
+                if (!r.ok) {
+                    document.getElementById('logsBody').innerHTML =
+                        '<tr><td colspan="6" style="text-align:center;color:#888;">Logs endpoint not yet available</td></tr>';
+                    return;
+                }
+                const d = await r.json();
+                const tbody = document.getElementById('logsBody');
+                const logs  = d.logs || [];
+                if (!logs.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No activity logged yet</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = logs.map((l,i) => `
+                    <tr>
+                        <td>${i+1}</td>
+                        <td>${l.username||'-'}</td>
+                        <td><span class="badge ${l.role==='ADMIN'?'confirmed':'active'}">${l.role||'-'}</span></td>
+                        <td>${l.action||'-'}</td>
+                        <td><small>${(l.details||'').slice(0,80)}</small></td>
+                        <td><small>${(l.logged_at||'').slice(0,16)}</small></td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadSystemLogs:', e); }
+        }
+        // ── Extended Dashboard data (Phase-2) ────────────────────────────────
+        async function loadExtendedData() {
+            try {
+                const r = await fetch('/api/admin/extended-data');
+                if (!r.ok) return;
+                const d = await r.json();
+                if (document.getElementById('totalAdmissions'))
+                    document.getElementById('totalAdmissions').textContent = d.total_admissions || 0;
+                if (document.getElementById('lowStockCount'))
+                    document.getElementById('lowStockCount').textContent = d.low_stock_count || 0;
+                if (document.getElementById('todayRevenue'))
+                    document.getElementById('todayRevenue').textContent =
+                        '₹' + Math.round(d.total_revenue || 0).toLocaleString('en-IN');
+                if (document.getElementById('pendingSurgeries'))
+                    document.getElementById('pendingSurgeries').textContent =
+                        (d.surgery_records || []).filter(s => s.status === 'scheduled').length;
+            } catch(e) { console.error('loadExtendedData:', e); }
+        }
+
+        // ── IPD Admissions ────────────────────────────────────────────────────
+        async function admitPatient() {
+            const msg = document.getElementById('admitMsg');
+            const payload = {
+                patient_name:    document.getElementById('admitName').value.trim(),
+                patient_phone:   document.getElementById('admitPhone').value.trim(),
+                patient_aadhar:  document.getElementById('admitAadhar').value.trim(),
+                age:             document.getElementById('admitAge').value.trim(),
+                gender:          document.getElementById('admitGender').value,
+                blood_group:     document.getElementById('admitBlood').value.trim(),
+                ward_name:       document.getElementById('admitWard').value.trim(),
+                bed_number:      document.getElementById('admitBed').value.trim(),
+                admitting_doctor:document.getElementById('admitDoctor').value.trim(),
+                department:      document.getElementById('admitDept').value.trim(),
+                diagnosis:       document.getElementById('admitDiag').value.trim(),
+                admission_notes: document.getElementById('admitNotes').value.trim(),
+            };
+            if (!payload.patient_name) {
+                msg.textContent = 'Patient name is required'; msg.style.color = '#e74c3c';
+                msg.style.display = 'block'; return;
+            }
+            try {
+                const r = await fetch('/api/ipd/admit', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                if (d.status === 'ok') {
+                    msg.textContent = `✅ ${d.message} (ID: ${d.admission_id})`;
+                    msg.style.color = '#27ae60';
+                    loadAdmissions();
+                } else {
+                    msg.textContent = '❌ ' + (d.error || 'Admission failed');
+                    msg.style.color = '#e74c3c';
+                }
+            } catch(e) { msg.textContent = '❌ Network error'; msg.style.color='#e74c3c'; }
+            msg.style.display = 'block';
+        }
+
+        async function loadAdmissions() {
+            try {
+                const r = await fetch('/api/ipd/admissions');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('admissionsBody');
+                const adms  = d.admissions || [];
+                if (!adms.length) {
+                    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#888;">No admissions found</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = adms.map((a,i) => `
+                    <tr>
+                        <td>${a.id}</td>
+                        <td><strong>${a.patient_name}</strong></td>
+                        <td>${a.patient_phone||'-'}</td>
+                        <td>${a.ward_name||'-'}</td>
+                        <td>${a.bed_number||'-'}</td>
+                        <td>${a.admitting_doctor||'-'}</td>
+                        <td><small>${(a.diagnosis||'').slice(0,40)}</small></td>
+                        <td><small>${(a.admission_date||'').slice(0,16)}</small></td>
+                        <td><span class="badge ${a.status==='admitted'?'active':'confirmed'}">${a.status}</span></td>
+                        <td>
+                            ${a.status==='admitted' ?
+                              `<button class="btn btn-danger" style="font-size:11px;" onclick="showDischargeModal(${a.id},'${a.patient_name}')">Discharge</button>` :
+                              '—'}
+                        </td>
+                    </tr>`).join('');
+            } catch(e) { console.error('loadAdmissions:', e); }
+        }
+
+        function showDischargeModal(admId, patName) {
+            const finalDiag   = prompt(`Discharge: ${patName}\n\nFinal Diagnosis:`, '');
+            if (finalDiag === null) return;
+            const treatment   = prompt('Treatment Given:', '');
+            const medicines   = prompt('Discharge Medicines:', '');
+            const followUp    = prompt('Follow-up Date (YYYY-MM-DD, or blank):', '');
+            const followNotes = prompt('Follow-up Instructions:', '');
+            fetch('/api/ipd/discharge', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    admission_id: admId,
+                    final_diagnosis: finalDiag, treatment_given: treatment,
+                    discharge_medicines: medicines, follow_up_date: followUp || null,
+                    follow_up_notes: followNotes })
+            }).then(r=>r.json()).then(d=>{
+                if (d.status==='ok') { alert('✅ Patient discharged. Summary ID: '+d.discharge_summary_id); loadAdmissions(); }
+                else alert('❌ '+(d.error||'Discharge failed'));
+            }).catch(e=>alert('Error: '+e));
+        }
+
+        // ── Surgery ───────────────────────────────────────────────────────────
+        async function createSurgery() {
+            const msg = document.getElementById('surMsg');
+            const payload = {
+                patient_name:   document.getElementById('surPatient').value.trim(),
+                patient_phone:  document.getElementById('surPhone').value.trim(),
+                admission_id:   parseInt(document.getElementById('surAdmId').value)||null,
+                surgery_type:   document.getElementById('surType').value.trim(),
+                anesthesia_type:document.getElementById('surAnes').value,
+                operation_date: document.getElementById('surDate').value||null,
+                estimated_cost: parseFloat(document.getElementById('surEstCost').value)||0,
+                negotiated_cost:parseFloat(document.getElementById('surNegCost').value)||0,
+                operation_notes:document.getElementById('surNotes').value.trim(),
+            };
+            if (!payload.patient_name || !payload.surgery_type) {
+                msg.textContent='Patient name and surgery type are required';
+                msg.style.color='#e74c3c'; msg.style.display='block'; return;
+            }
+            try {
+                const r = await fetch('/api/surgery/create',{
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify(payload)});
+                const d = await r.json();
+                if (d.status==='ok') {
+                    msg.textContent='✅ Surgery recorded (ID: '+d.surgery_id+')';
+                    msg.style.color='#27ae60'; loadSurgeries();
+                } else { msg.textContent='❌ '+(d.error||'Failed'); msg.style.color='#e74c3c'; }
+            } catch(e){msg.textContent='❌ Network error';msg.style.color='#e74c3c';}
+            msg.style.display='block';
+        }
+
+        async function updateSurgeryCost() {
+            const msg = document.getElementById('surUpdateMsg');
+            const surId = parseInt(document.getElementById('surUpdateId').value);
+            const negCost = parseFloat(document.getElementById('surNegUpdate').value)||0;
+            const notes = document.getElementById('surNegNotes').value.trim();
+            if (!surId||negCost<0){msg.textContent='Surgery ID and price required';msg.style.color='#e74c3c';msg.style.display='block';return;}
+            try {
+                const r = await fetch('/api/surgery/update-cost',{
+                    method:'POST',headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({surgery_id:surId,negotiated_cost:negCost,notes})});
+                const d=await r.json();
+                msg.textContent=d.status==='ok'?'✅ Updated successfully':'❌ Update failed';
+                msg.style.color=d.status==='ok'?'#27ae60':'#e74c3c';
+                if(d.status==='ok') loadSurgeries();
+            } catch(e){msg.textContent='❌ Network error';msg.style.color='#e74c3c';}
+            msg.style.display='block';
+        }
+
+        async function loadSurgeries() {
+            try {
+                const r = await fetch('/api/surgery/list');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('surgeriesBody');
+                const surs  = d.surgeries || [];
+                if (!surs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888;">No surgery records found</td></tr>';return;}
+                tbody.innerHTML = surs.map(s=>`
+                    <tr>
+                        <td>${s.id}</td>
+                        <td><strong>${s.patient_name}</strong></td>
+                        <td>${s.surgeon_name||'-'}</td>
+                        <td>${s.surgery_type}</td>
+                        <td>₹${parseFloat(s.estimated_cost||0).toFixed(0)}</td>
+                        <td style="color:#27ae60;font-weight:bold;">₹${parseFloat(s.negotiated_cost||0).toFixed(0)}</td>
+                        <td><small>${(s.operation_date||'').slice(0,16)||'-'}</small></td>
+                        <td><span class="badge ${s.status==='completed'?'confirmed':s.status==='cancelled'?'pending':'active'}">${s.status}</span></td>
+                    </tr>`).join('');
+            } catch(e){console.error('loadSurgeries:',e);}
+        }
+
+        // ── Pharmacy ──────────────────────────────────────────────────────────
+        async function addMedicineStock() {
+            const msg = document.getElementById('pharAddMsg');
+            const med_id = parseInt(document.getElementById('pharMedId').value)||0;
+            const qty    = parseInt(document.getElementById('pharQty').value)||0;
+            if (!med_id || qty<=0) {
+                msg.textContent='Medicine ID and quantity required';msg.style.color='#e74c3c';msg.style.display='block';return;}
+            const payload = {
+                medicine_id:   med_id,
+                batch_number:  document.getElementById('pharBatch').value.trim(),
+                expiry_date:   document.getElementById('pharExpiry').value||null,
+                quantity:      qty,
+                purchase_price:parseFloat(document.getElementById('pharPurchase').value)||0,
+                sell_price:    parseFloat(document.getElementById('pharSell').value)||0,
+                supplier:      document.getElementById('pharSupplier').value.trim(),
+                min_quantity:  parseInt(document.getElementById('pharMinQty').value)||10,
+            };
+            try {
+                const r = await fetch('/api/pharmacy/add-stock',{
+                    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+                const d = await r.json();
+                if(d.status==='ok'){msg.textContent='✅ Stock added (ID:'+d.id+')';msg.style.color='#27ae60';loadPharmacyInventory();}
+                else{msg.textContent='❌ '+(d.error||'Failed');msg.style.color='#e74c3c';}
+            } catch(e){msg.textContent='❌ Error';msg.style.color='#e74c3c';}
+            msg.style.display='block';
+        }
+
+        async function loadPharmacyInventory() {
+            try {
+                const r = await fetch('/api/pharmacy/inventory');
+                if (!r.ok) return;
+                const d = await r.json();
+                const tbody = document.getElementById('pharmInventoryBody');
+                const inv = d.inventory || [];
+                if (!inv.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888;">No inventory found</td></tr>';return;}
+                tbody.innerHTML = inv.map(i=>{
+                    const lowStyle = i.low_stock ? 'color:#e74c3c;font-weight:bold;' : '';
+                    const expStyle = i.near_expiry ? 'color:#e74c3c;' : '';
+                    return `<tr>
+                        <td><strong>${i.medicine_name}</strong><br><small style="color:#888;">${i.generic_name||''}</small></td>
+                        <td>${i.batch_number||i.batch_no||'-'}</td>
+                        <td style="${expStyle}">${i.expiry_date||'-'}</td>
+                        <td style="${lowStyle}">${i.quantity}</td>
+                        <td>${i.min_quantity}</td>
+                        <td>₹${parseFloat(i.sell_price||0).toFixed(2)}</td>
+                        <td>${i.supplier||'-'}</td>
+                        <td>
+                            ${i.low_stock?'<span class="badge pending">⚠️ Low</span>':''}
+                            ${i.near_expiry?'<span class="badge pending">📅 Expiry</span>':''}
+                            ${!i.low_stock&&!i.near_expiry?'<span class="badge confirmed">✅ OK</span>':''}
+                        </td>
+                    </tr>`;
+                }).join('');
+                // Update counters
+                if(document.getElementById('pharmLowStockCount'))
+                    document.getElementById('pharmLowStockCount').textContent = inv.filter(i=>i.low_stock).length;
+                if(document.getElementById('pharmExpiryCount'))
+                    document.getElementById('pharmExpiryCount').textContent = inv.filter(i=>i.near_expiry).length;
+            } catch(e){console.error('loadPharmacyInventory:',e);}
+        }
+
+        async function loadLowStock() {
+            try {
+                const r = await fetch('/api/pharmacy/alerts/low-stock');
+                if (!r.ok) return;
+                const d = await r.json();
+                const items = d.low_stock || [];
+                document.getElementById('lowStockAlerts').style.display='block';
+                document.getElementById('lowStockBody').innerHTML = items.length ?
+                    items.map(i=>`<tr>
+                        <td><strong>${i.medicine_name}</strong></td>
+                        <td>${i.batch_number||i.batch_no||'-'}</td>
+                        <td style="color:#e74c3c;font-weight:bold;">${i.quantity}</td>
+                        <td>${i.min_quantity}</td>
+                        <td>₹${parseFloat(i.sell_price||0).toFixed(2)}</td>
+                        <td>${i.supplier||'-'}</td>
+                    </tr>`).join('') :
+                    '<tr><td colspan="6" style="text-align:center;color:green;">No low stock alerts ✅</td></tr>';
+            } catch(e){console.error('loadLowStock:',e);}
+        }
+
+        async function loadExpiryAlerts() {
+            try {
+                const r = await fetch('/api/pharmacy/alerts/expiry');
+                if (!r.ok) return;
+                const d = await r.json();
+                const items = d.expiring || [];
+                document.getElementById('expiryAlerts').style.display='block';
+                document.getElementById('expiryBody').innerHTML = items.length ?
+                    items.map(i=>`<tr>
+                        <td><strong>${i.medicine_name}</strong></td>
+                        <td>${i.batch_number||i.batch_no||'-'}</td>
+                        <td style="color:#e74c3c;">${i.expiry_date||'-'}</td>
+                        <td style="font-weight:bold;">${i.days_to_expiry} days</td>
+                        <td>${i.quantity}</td>
+                        <td>${i.supplier||'-'}</td>
+                    </tr>`).join('') :
+                    '<tr><td colspan="6" style="text-align:center;color:green;">No expiry alerts ✅</td></tr>';
+            } catch(e){console.error('loadExpiryAlerts:',e);}
+        }
+
+        // Auto-load extended data on page load
+        window.addEventListener('load', () => {
+            loadAdminData();
+            loadExtendedData();
+            loadDoctorDropdowns();
+        });
+
+        // ── Doctor Dropdowns (dynamic from DB) ───────────────────────────────
+        async function loadDoctorDropdowns() {
+            try {
+                const r = await fetch('/api/admin/doctors');
+                if (!r.ok) return;
+                const d = await r.json();
+                const docs = d.doctors || [];
+                const opts = '<option value="">-- Select Doctor --</option>' +
+                    docs.map(doc => `<option value="${doc.name}">${doc.name}${doc.department ? ' (' + doc.department + ')' : ''}</option>`).join('');
+                ['doctorSelect', 'roundDoctor'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = opts;
+                });
+            } catch(e) { console.error('loadDoctorDropdowns:', e); }
+        }
+
+        // ── Reports Section Charts + KPIs ────────────────────────────────────
+        let _chartAppt = null, _chartRev = null, _chartDoc = null, _chartIPD = null;
+
+        async function loadReportsSection() {
+            // Load admin data for KPIs
+            try {
+                const r = await fetch('/api/admin/data');
+                const d = await r.json();
+                const appts = d.appointments || [];
+                document.getElementById('reportTotalPatients').textContent = d.total_appointments || 0;
+                document.getElementById('reportTotalAppointments').textContent = d.total_appointments || 0;
+
+                // Appointments by status chart
+                const statusCounts = {};
+                appts.forEach(a => { const s = a.status || 'pending'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
+                renderDoughnut('chartAppointments', _chartAppt, Object.keys(statusCounts), Object.values(statusCounts), (c) => _chartAppt = c);
+
+                // Doctor workload chart
+                const docCounts = {};
+                appts.forEach(a => { const doc = a.doctor || 'Unknown'; docCounts[doc] = (docCounts[doc] || 0) + 1; });
+                const topDocs = Object.entries(docCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+                renderBar('chartDoctors', _chartDoc, topDocs.map(d=>d[0]), topDocs.map(d=>d[1]), 'Appointments', '#667eea', (c) => _chartDoc = c);
+
+            } catch(e) { console.error('loadReportsSection data:', e); }
+
+            // Load billing data for revenue charts
+            try {
+                const r = await fetch('/api/admin/billing/list');
+                const d = await r.json();
+                const bills = d.bills || [];
+                const totalRev = bills.reduce((s,b) => s + parseFloat(b.net_amount||0), 0);
+                document.getElementById('reportTotalRevenue').textContent = '₹' + Math.round(totalRev).toLocaleString('en-IN');
+                document.getElementById('reportTotalBills').textContent = bills.length;
+
+                // Revenue by bill type
+                const revByType = {};
+                bills.forEach(b => { const t = b.bill_type || 'Unknown'; revByType[t] = (revByType[t] || 0) + parseFloat(b.net_amount||0); });
+                renderBar('chartRevenue', _chartRev, Object.keys(revByType), Object.values(revByType).map(v => Math.round(v)), 'Revenue ₹', '#00b894', (c) => _chartRev = c);
+
+                // IPD vs OPD
+                const opdCount = bills.filter(b => b.bill_type === 'OPD').length;
+                const ipdCount = bills.filter(b => b.bill_type === 'IPD').length;
+                renderDoughnut('chartIPDvsOPD', _chartIPD, ['OPD', 'IPD'], [opdCount, ipdCount], (c) => _chartIPD = c);
+
+            } catch(e) { console.error('loadReportsSection billing:', e); }
+        }
+
+        function renderDoughnut(canvasId, existingChart, labels, data, callback) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            if (existingChart) existingChart.destroy();
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: ['#667eea','#00b894','#fd79a8','#e17055','#6c5ce7','#ffeaa7','#74b9ff','#a29bfe'] }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+            callback(chart);
+        }
+
+        function renderBar(canvasId, existingChart, labels, data, label, color, callback) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            if (existingChart) existingChart.destroy();
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label, data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1 }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } } }
+            });
+            callback(chart);
+        }
+
+        // ── Export Functions ──────────────────────────────────────────────────
+        async function exportData(type) {
+            const fmt   = document.getElementById('exportFormat').value;
+            const range = document.getElementById('exportRange').value;
+            const msg   = document.getElementById('exportMsg');
+            msg.style.display = 'block';
+            msg.style.color   = '#0369a1';
+            msg.textContent   = '⏳ Preparing export...';
+            try {
+                const url = `/api/admin/export/${type}?format=${fmt}&range=${range}`;
+                const r   = await fetch(url);
+                if (!r.ok) throw new Error(await r.text());
+                const blob = await r.blob();
+                const cd   = r.headers.get('Content-Disposition') || '';
+                const fn   = cd.match(/filename="([^"]+)"/) ? cd.match(/filename="([^"]+)"/)[1] : `${type}_export.${fmt === 'excel' ? 'xlsx' : fmt}`;
+                const a    = document.createElement('a');
+                a.href     = URL.createObjectURL(blob);
+                a.download = fn;
+                a.click();
+                msg.style.color = '#27ae60';
+                msg.textContent = `✅ ${type} export downloaded (${fn})`;
+            } catch(e) {
+                msg.style.color = '#e74c3c';
+                msg.textContent = '❌ Export failed: ' + e.message;
+            }
+        }
+
+        async function exportFullReport() {
+            const msg   = document.getElementById('exportMsg');
+            msg.style.display = 'block';
+            msg.style.color   = '#0369a1';
+            msg.textContent   = '⏳ Compiling full report (patients + appointments + billing)...';
+            const range = document.getElementById('exportRange').value;
+            const fmt   = document.getElementById('exportFormat').value;
+            const types = ['patients', 'appointments', 'billing'];
+            for (const t of types) {
+                try {
+                    const url = `/api/admin/export/${t}?format=${fmt}&range=${range}`;
+                    const r   = await fetch(url);
+                    if (!r.ok) continue;
+                    const blob = await r.blob();
+                    const cd   = r.headers.get('Content-Disposition') || '';
+                    const fn   = cd.match(/filename="([^"]+)"/) ? cd.match(/filename="([^"]+)"/)[1] : `${t}.${fmt === 'excel' ? 'xlsx' : fmt}`;
+                    const a    = document.createElement('a');
+                    a.href     = URL.createObjectURL(blob);
+                    a.download = fn;
+                    a.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch(e) { console.error(t, e); }
+            }
+            msg.style.color = '#27ae60';
+            msg.textContent = '✅ Full report files downloaded!';
+        }
+    </script>
+
+    <!-- SRP MediFlow product footer -->
+    <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+                   font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+                   border-top:1px solid #222;">
+        Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+        &nbsp;&bull;&nbsp; Hospital Management System
+        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+    </footer>
+    <div style="height:32px;"></div>
+</body>
+</html>

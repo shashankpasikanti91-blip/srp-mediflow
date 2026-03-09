@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SRP MediFlow — Founder Dashboard</title>
+  <style>
+    :root {
+      --srp-blue: #1a73e8;
+      --srp-green: #00b896;
+      --srp-dark: #1a1f36;
+      --srp-mid: #2d3452;
+      --srp-panel: #252b45;
+      --srp-border: #3a4060;
+      --text-main: #e8eaf0;
+      --text-muted: #8892b0;
+      --ok: #00e676;
+      --warn: #ffca28;
+      --err: #ff5252;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--srp-dark);
+      color: var(--text-main);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #0d1117 0%, var(--srp-mid) 100%);
+      border-bottom: 2px solid var(--srp-blue);
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--srp-blue), var(--srp-green));
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .logo h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .logo p  { font-size: 0.78rem; color: var(--srp-green); letter-spacing: 1px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .founder-badge {
+      background: linear-gradient(90deg, #7c4dff 0%, #448aff 100%);
+      border-radius: 20px; padding: 6px 16px;
+      font-size: 0.82rem; font-weight: 600; color: #fff;
+    }
+    .logout-btn {
+      background: rgba(255,82,82,0.15); border: 1px solid var(--err);
+      color: var(--err); border-radius: 8px; padding: 7px 16px;
+      cursor: pointer; font-size: 0.82rem; transition: all .2s;
+    }
+    .logout-btn:hover { background: rgba(255,82,82,0.3); }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    main { max-width: 1400px; margin: 0 auto; padding: 28px 24px; }
+    .section-title {
+      font-size: 1.1rem; font-weight: 700; color: var(--srp-blue);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 18px; border-left: 4px solid var(--srp-blue);
+      padding-left: 12px;
+    }
+
+    /* ── Stats Row ──────────────────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px; margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--srp-panel);
+      border: 1px solid var(--srp-border);
+      border-radius: 14px; padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 6px;
+      transition: transform .15s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+    .stat-value { font-size: 2rem; font-weight: 800; }
+    .stat-sub   { font-size: 0.75rem; color: var(--text-muted); }
+    .c-blue  { color: var(--srp-blue); }
+    .c-green { color: var(--srp-green); }
+    .c-warn  { color: var(--warn); }
+    .c-ok    { color: var(--ok); }
+    .c-err   { color: var(--err); }
+    .c-purple{ color: #ce93d8; }
+
+    /* ── Tabs ───────────────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+    .tab-btn {
+      background: var(--srp-panel); border: 1px solid var(--srp-border);
+      color: var(--text-muted); border-radius: 8px;
+      padding: 9px 20px; cursor: pointer; font-size: 0.88rem; transition: all .2s;
+    }
+    .tab-btn.active, .tab-btn:hover {
+      background: var(--srp-blue); border-color: var(--srp-blue);
+      color: #fff;
+    }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Clients Table ──────────────────────────────────────────────── */
+    .clients-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 18px;
+    }
+    .client-card {
+      background: var(--srp-panel);
+      border: 1px solid var(--srp-border);
+      border-radius: 14px; padding: 20px;
+      transition: box-shadow .2s;
+    }
+    .client-card:hover { box-shadow: 0 0 0 2px var(--srp-blue); }
+    .client-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .client-name { font-size: 1rem; font-weight: 700; }
+    .client-city { font-size: 0.75rem; color: var(--text-muted); }
+    .db-badge {
+      border-radius: 20px; padding: 4px 12px; font-size: 0.75rem; font-weight: 600;
+    }
+    .db-connected   { background: rgba(0,230,118,.15); color: var(--ok); }
+    .db-unreachable { background: rgba(255,82,82,.15);  color: var(--err); }
+    .client-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+    .meta-item { font-size: 0.8rem; }
+    .meta-item span { color: var(--text-muted); }
+    .client-actions { margin-top: 14px; display: flex; gap: 8px; }
+    .btn-sm {
+      border-radius: 6px; padding: 6px 14px; font-size: 0.8rem;
+      cursor: pointer; border: 1px solid transparent; transition: all .2s;
+    }
+    .btn-blue  { background: rgba(26,115,232,.2); border-color: var(--srp-blue); color: var(--srp-blue); }
+    .btn-blue:hover  { background: var(--srp-blue); color: #fff; }
+    .btn-green { background: rgba(0,184,150,.2); border-color: var(--srp-green); color: var(--srp-green); }
+    .btn-green:hover { background: var(--srp-green); color: #fff; }
+
+    /* ── All-Users Table ────────────────────────────────────────────── */
+    .data-table {
+      width: 100%; border-collapse: collapse; font-size: 0.86rem;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 14px; text-align: left;
+      border-bottom: 1px solid var(--srp-border);
+    }
+    .data-table th {
+      background: var(--srp-mid); color: var(--srp-blue);
+      text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px;
+    }
+    .data-table tbody tr:hover { background: rgba(255,255,255,.04); }
+    .role-pill {
+      border-radius: 12px; padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
+    }
+    .role-ADMIN     { background: rgba(26,115,232,.2); color: var(--srp-blue); }
+    .role-DOCTOR    { background: rgba(0,230,118,.15); color: var(--ok); }
+    .role-NURSE     { background: rgba(206,147,216,.2); color: #ce93d8; }
+    .role-LAB       { background: rgba(255,202,40,.15); color: var(--warn); }
+    .role-STOCK     { background: rgba(255,152,0,.2);   color: #ffa726; }
+    .role-RECEPTION { background: rgba(38,198,218,.2);  color: #26c6da; }
+    .role-XRAY      { background: rgba(239,83,80,.2);   color: #ef5350; }
+    .role-FOUNDER   { background: rgba(124,77,255,.3);  color: #b388ff; }
+
+    /* ── Isolation Test ─────────────────────────────────────────────── */
+    .test-btn {
+      background: linear-gradient(90deg, #7c4dff, var(--srp-blue));
+      border: none; color: #fff; border-radius: 10px;
+      padding: 12px 28px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; margin-bottom: 20px;
+      transition: opacity .2s;
+    }
+    .test-btn:hover { opacity: .85; }
+    .test-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .test-result-box {
+      background: var(--srp-panel);
+      border: 1px solid var(--srp-border);
+      border-radius: 14px; padding: 20px;
+    }
+    .test-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 0; border-bottom: 1px solid var(--srp-border);
+      font-size: 0.88rem;
+    }
+    .test-row:last-child { border-bottom: none; }
+    .test-icon { font-size: 1.2rem; }
+    .verdict-pass { color: var(--ok); font-weight: 700; font-size: 1rem; }
+    .verdict-fail { color: var(--err); font-weight: 700; font-size: 1rem; }
+    .verdict-review { color: var(--warn); font-weight: 700; font-size: 1rem; }
+
+    /* ── System Status ──────────────────────────────────────────────── */
+    .sys-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    }
+    @media (max-width: 600px) { .sys-grid { grid-template-columns: 1fr; } }
+    .sys-card {
+      background: var(--srp-panel);
+      border: 1px solid var(--srp-border);
+      border-radius: 14px; padding: 18px 20px;
+    }
+    .sys-card h3 { font-size: 0.9rem; margin-bottom: 12px; color: var(--srp-blue); }
+    .sys-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.83rem; border-bottom: 1px solid rgba(255,255,255,.05); }
+    .sys-item:last-child { border-bottom: none; }
+
+    /* ── Loading ────────────────────────────────────────────────────── */
+    .loading { text-align: center; padding: 40px; color: var(--text-muted); }
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--srp-border);
+      border-top-color: var(--srp-blue);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Modal ──────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.7); z-index: 1000;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--srp-mid);
+      border: 1px solid var(--srp-border);
+      border-radius: 16px; padding: 28px;
+      max-width: 700px; width: 95%; max-height: 85vh;
+      overflow-y: auto; position: relative;
+    }
+    .modal h2 { font-size: 1.1rem; margin-bottom: 16px; }
+    .modal-close {
+      position: absolute; top: 16px; right: 18px;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.4rem; cursor: pointer;
+    }
+    .alert-banner { background: rgba(255,202,40,.12); border: 1px solid var(--warn); border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 0.85rem; color: var(--warn); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🏥</div>
+    <div>
+      <h1>SRP MediFlow</h1>
+      <p>PLATFORM CONTROL CENTER</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="founder-badge">👑 FOUNDER ACCESS</div>
+    <span id="founderName" style="font-size:.85rem;color:var(--text-muted)"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<main>
+  <!-- Stats Row -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-label">Total Clients</div><div class="stat-value c-blue" id="statClients">—</div><div class="stat-sub">Hospital tenants</div></div>
+    <div class="stat-card"><div class="stat-label">Connected DBs</div><div class="stat-value c-green" id="statDbsOk">—</div><div class="stat-sub">Online databases</div></div>
+    <div class="stat-card"><div class="stat-label">Total Staff</div><div class="stat-value c-purple" id="statStaff">—</div><div class="stat-sub">Across all clients</div></div>
+    <div class="stat-card"><div class="stat-label">System Status</div><div class="stat-value c-ok" id="statStatus">—</div><div class="stat-sub" id="statStatusSub">Checking…</div></div>
+    <div class="stat-card"><div class="stat-label">Platform</div><div class="stat-value" style="font-size:1.1rem;color:#ce93d8">SRP MediFlow</div><div class="stat-sub">v4.0 SaaS</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('tab-clients', this)">🏥 Client Hospitals</button>
+    <button class="tab-btn" onclick="showTab('tab-users', this)">👥 All Staff Users</button>
+    <button class="tab-btn" onclick="showTab('tab-isolation', this)">🔒 DB Isolation Test</button>
+    <button class="tab-btn" onclick="showTab('tab-system', this)">⚙️ System Status</button>
+  </div>
+
+  <!-- TAB: Clients -->
+  <div id="tab-clients" class="tab-pane active">
+    <p class="section-title">Registered Hospital Clients</p>
+    <div id="clientsGrid" class="clients-grid">
+      <div class="loading"><div class="spinner"></div>Loading clients…</div>
+    </div>
+  </div>
+
+  <!-- TAB: All Users -->
+  <div id="tab-users" class="tab-pane">
+    <p class="section-title">All Staff Across All Clients</p>
+    <div id="allUsersContainer">
+      <div class="loading"><div class="spinner"></div>Loading users…</div>
+    </div>
+  </div>
+
+  <!-- TAB: Isolation Test -->
+  <div id="tab-isolation" class="tab-pane">
+    <p class="section-title">Database Isolation Verification</p>
+    <div class="alert-banner">
+      ℹ️ This test verifies that each client's database is fully isolated — Client A data cannot
+      be accessed from Client B's database. This is essential for HIPAA-compliant multi-tenant operation.
+    </div>
+    <button class="test-btn" id="runTestBtn" onclick="runIsolationTest()">▶ Run DB Isolation Test</button>
+    <div id="isolationResults"></div>
+  </div>
+
+  <!-- TAB: System Status -->
+  <div id="tab-system" class="tab-pane">
+    <p class="section-title">Platform System Status</p>
+    <div id="systemStatusContainer">
+      <div class="loading"><div class="spinner"></div>Loading status…</div>
+    </div>
+  </div>
+</main>
+
+<!-- Client Detail Modal -->
+<div class="modal-overlay" id="clientModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h2 id="modalTitle">Client Details</h2>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+  // ── Session check ────────────────────────────────────────────────────────
+  async function checkSession() {
+    try {
+      const r = await fetch('/api/session/me');
+      const d = await r.json();
+      if (!d.user || d.user.role !== 'FOUNDER') {
+        window.location.href = '/login';
+        return;
+      }
+      document.getElementById('founderName').textContent = d.user.username;
+    } catch {
+      window.location.href = '/login';
+    }
+  }
+
+  // ── Tab switching ────────────────────────────────────────────────────────
+  function showTab(id, btn) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+    if (id === 'tab-users') loadAllUsers();
+    if (id === 'tab-system') loadSystemStatus();
+  }
+
+  // ── Load clients ────────────────────────────────────────────────────────
+  async function loadClients() {
+    try {
+      const r = await fetch('/api/founder/clients');
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      const clients = d.clients || [];
+
+      document.getElementById('statClients').textContent = clients.length;
+      const connected = clients.filter(c => c.db_status === 'connected').length;
+      document.getElementById('statDbsOk').textContent = connected;
+      const totalStaff = clients.reduce((s, c) => s + (c.staff_count || 0), 0);
+      document.getElementById('statStaff').textContent = totalStaff;
+
+      if (clients.length === 0) {
+        document.getElementById('clientsGrid').innerHTML =
+          '<p style="color:var(--text-muted);padding:20px">No clients registered yet.</p>';
+        return;
+      }
+
+      document.getElementById('clientsGrid').innerHTML = clients.map(c => `
+        <div class="client-card">
+          <div class="client-header">
+            <div>
+              <div class="client-name">🏥 ${c.display_name}</div>
+              <div class="client-city">📍 ${c.city || 'N/A'}</div>
+            </div>
+            <span class="db-badge ${c.db_status === 'connected' ? 'db-connected' : 'db-unreachable'}">
+              ${c.db_status === 'connected' ? '● Connected' : '● Offline'}
+            </span>
+          </div>
+          <div class="client-meta">
+            <div class="meta-item"><span>DB:</span> ${c.db_name}</div>
+            <div class="meta-item"><span>Staff:</span> ${c.staff_count}</div>
+            <div class="meta-item"><span>Admin:</span> ${c.admin_user}</div>
+          </div>
+          ${c.phone ? `<div style="font-size:.8rem;color:var(--text-muted);margin-top:8px">📞 ${c.phone}</div>` : ''}
+          <div class="client-actions">
+            <button class="btn-sm btn-blue" onclick="viewClient('${c.slug}', ${JSON.stringify(c).replace(/"/g,"'")})">View Details</button>
+            <button class="btn-sm btn-green" onclick="viewStaff('${c.slug}')">Staff Users</button>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      document.getElementById('clientsGrid').innerHTML =
+        `<p style="color:var(--err);padding:20px">Error loading clients: ${e.message}</p>`;
+    }
+  }
+
+  // ── View client detail ────────────────────────────────────────────────────
+  async function viewClient(slug) {
+    document.getElementById('modalTitle').textContent = 'Loading…';
+    document.getElementById('modalBody').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    document.getElementById('clientModal').classList.add('open');
+    try {
+      const r = await fetch(`/api/founder/client/${slug}`);
+      const d = await r.json();
+      document.getElementById('modalTitle').textContent = `${d.info?.display_name || slug} — Details`;
+      document.getElementById('modalBody').innerHTML = `
+        <div style="margin-bottom:16px;font-size:.85rem;color:var(--text-muted)">
+          <b>Database:</b> ${d.info?.db_name} &nbsp;|&nbsp;
+          <b>City:</b> ${d.info?.city || '—'} &nbsp;|&nbsp;
+          <b>Created:</b> ${d.info?.created_at?.slice(0,10) || '—'}
+        </div>
+        <div style="margin-bottom:8px;font-size:.8rem;color:var(--text-muted)">
+          Tables: <code style="color:var(--srp-green)">${(d.tables||[]).join(', ') || 'none'}</code>
+        </div>
+        <h3 style="margin:14px 0 10px;font-size:.9rem;color:var(--srp-blue)">Staff Users (${d.total_staff})</h3>
+        <table class="data-table">
+          <thead><tr><th>Username</th><th>Role</th><th>Full Name</th><th>Dept</th><th>Active</th></tr></thead>
+          <tbody>
+            ${(d.staff_users||[]).map(u => `<tr>
+              <td>${u.username}</td>
+              <td><span class="role-pill role-${u.role}">${u.role}</span></td>
+              <td>${u.full_name || '—'}</td>
+              <td>${u.department || '—'}</td>
+              <td>${u.is_active ? '✅' : '❌'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      document.getElementById('modalBody').innerHTML = `<p style="color:var(--err)">Error: ${e.message}</p>`;
+    }
+  }
+
+  async function viewStaff(slug) { viewClient(slug); }
+  function closeModal() { document.getElementById('clientModal').classList.remove('open'); }
+
+  // ── All Users ─────────────────────────────────────────────────────────────
+  async function loadAllUsers() {
+    const el = document.getElementById('allUsersContainer');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading…</div>';
+    try {
+      const r = await fetch('/api/founder/all-users');
+      const d = await r.json();
+      const users = d.users || [];
+      if (users.length === 0) {
+        el.innerHTML = '<p style="color:var(--text-muted);padding:20px">No users found.</p>';
+        return;
+      }
+      // Group by role for filter options
+      const roles = [...new Set(users.map(u => u.role))].sort();
+      let filter = '';
+      const filterSel = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+      el.innerHTML = `
+        <div style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <input id="userSearch" type="text" placeholder="Search username…"
+            oninput="filterUsers()" style="
+              background:var(--srp-panel);border:1px solid var(--srp-border);
+              color:var(--text-main);border-radius:8px;padding:8px 14px;font-size:.85rem;width:220px">
+          <select id="roleFilter" onchange="filterUsers()" style="
+              background:var(--srp-panel);border:1px solid var(--srp-border);
+              color:var(--text-main);border-radius:8px;padding:8px 14px;font-size:.85rem">
+            <option value="">All Roles</option>${filterSel}
+          </select>
+          <span style="color:var(--text-muted);font-size:.8rem" id="userCount">${users.length} users</span>
+        </div>
+        <table class="data-table" id="usersTable">
+          <thead><tr><th>#</th><th>Client</th><th>Username</th><th>Role</th><th>Full Name</th><th>Active</th></tr></thead>
+          <tbody id="usersBody">
+            ${users.map((u,i) => `<tr data-client="${u.client}" data-username="${u.username}" data-role="${u.role}">
+              <td style="color:var(--text-muted)">${i+1}</td>
+              <td><span style="color:var(--srp-green)">${u.client}</span></td>
+              <td>${u.username}</td>
+              <td><span class="role-pill role-${u.role}">${u.role}</span></td>
+              <td>${u.full_name || '—'}</td>
+              <td>${u.is_active ? '✅' : '❌'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--err);padding:20px">Error: ${e.message}</p>`;
+    }
+  }
+
+  function filterUsers() {
+    const term = document.getElementById('userSearch')?.value?.toLowerCase() || '';
+    const role = document.getElementById('roleFilter')?.value || '';
+    const rows = document.querySelectorAll('#usersBody tr');
+    let shown = 0;
+    rows.forEach(r => {
+      const uname = r.dataset.username?.toLowerCase() || '';
+      const client = r.dataset.client?.toLowerCase() || '';
+      const urole = r.dataset.role || '';
+      const matchText = uname.includes(term) || client.includes(term);
+      const matchRole = !role || urole === role;
+      r.style.display = matchText && matchRole ? '' : 'none';
+      if (matchText && matchRole) shown++;
+    });
+    const el = document.getElementById('userCount');
+    if (el) el.textContent = `${shown} users`;
+  }
+
+  // ── Isolation Test ─────────────────────────────────────────────────────────
+  async function runIsolationTest() {
+    const btn = document.getElementById('runTestBtn');
+    btn.disabled = true; btn.textContent = '⏳ Running test…';
+    const el = document.getElementById('isolationResults');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div>Testing DB isolation…</div>';
+    try {
+      const r = await fetch('/api/founder/db-isolation-test');
+      const d = await r.json();
+      const verdict = d.verdict;
+      const verdictClass = verdict === 'ISOLATED' ? 'verdict-pass' : verdict === 'NEEDS_REVIEW' ? 'verdict-review' : 'verdict-fail';
+      const icon = verdict === 'ISOLATED' ? '✅' : '⚠️';
+
+      let html = `<div class="test-result-box">
+        <div style="font-size:1.1rem;margin-bottom:16px">
+          Overall: <span class="${verdictClass}">${icon} ${verdict}</span>
+        </div>`;
+
+      // Per-DB results
+      html += `<div style="margin-bottom:6px;font-size:.85rem;font-weight:700;color:var(--text-muted)">Per-Database Check</div>`;
+      (d.isolation_test || []).forEach(t => {
+        const ok = t.isolated;
+        html += `<div class="test-row">
+          <span class="test-icon">${ok ? '✅' : '⚠️'}</span>
+          <div style="flex:1">
+            <b>${t.db_name}</b>
+            <div style="color:var(--text-muted);font-size:.78rem">${t.slug}</div>
+          </div>
+          <div style="text-align:right;font-size:.8rem">
+            <div>${t.details}</div>
+            <div style="color:var(--text-muted)">Staff: ${t.staff_count || 0}</div>
+            ${t.sample_users?.length ? `<div style="color:var(--srp-green)">${t.sample_users.join(', ')}</div>` : ''}
+          </div>
+        </div>`;
+      });
+
+      // Cross-DB checks
+      if (d.cross_db_checks?.length) {
+        html += `<div style="margin:14px 0 6px;font-size:.85rem;font-weight:700;color:var(--text-muted)">Cross-DB Leak Test</div>`;
+        d.cross_db_checks.forEach(c => {
+          const pass = c.result?.includes('PASS');
+          html += `<div class="test-row">
+            <span class="test-icon">${pass ? '✅' : '❌'}</span>
+            <div style="flex:1">${c.check}</div>
+            <div style="font-size:.8rem;font-weight:700;color:${pass ? 'var(--ok)' : 'var(--err)'}">${c.result}</div>
+          </div>`;
+        });
+      }
+      html += '</div>';
+      el.innerHTML = html;
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--err);padding:20px">Error: ${e.message}</p>`;
+    }
+    btn.disabled = false; btn.textContent = '▶ Run DB Isolation Test';
+  }
+
+  // ── System Status ──────────────────────────────────────────────────────────
+  async function loadSystemStatus() {
+    const el = document.getElementById('systemStatusContainer');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div>Loading status…</div>';
+    try {
+      const r = await fetch('/api/founder/system-status');
+      const d = await r.json();
+
+      document.getElementById('statStatus').textContent = d.server_status === 'running' ? '● UP' : '● DOWN';
+      document.getElementById('statStatusSub').textContent = `DB: ${d.database_health?.reachable ? 'Connected' : 'Offline'}`;
+
+      const bilingFlat = d.billing_summary || {};
+      el.innerHTML = `
+        <div class="sys-grid">
+          <div class="sys-card">
+            <h3>🖥️ Server Health</h3>
+            <div class="sys-item"><span>Status</span><span style="color:var(--ok)">${d.server_status}</span></div>
+            <div class="sys-item"><span>Database</span><span style="color:${d.database_health?.reachable ? 'var(--ok)' : 'var(--err)'}">${d.database_health?.reachable ? 'Connected' : 'Offline'}</span></div>
+            <div class="sys-item"><span>Worker Threads</span><span>${d.worker_processes}</span></div>
+            <div class="sys-item"><span>Last Backup</span><span style="color:var(--text-muted)">${d.last_backup || 'N/A'}</span></div>
+            <div class="sys-item"><span>Active Clients</span><span>${d.active_clients}</span></div>
+          </div>
+          <div class="sys-card">
+            <h3>💳 Billing Overview</h3>
+            <div class="sys-item"><span>Total Accounts</span><span>${bilingFlat.total || 0}</span></div>
+            <div class="sys-item"><span>Trial</span><span style="color:var(--warn)">${bilingFlat.trial || 0}</span></div>
+            <div class="sys-item"><span>Paid</span><span style="color:var(--ok)">${bilingFlat.paid || 0}</span></div>
+            <div class="sys-item"><span>Expired</span><span style="color:var(--err)">${bilingFlat.expired || 0}</span></div>
+            <div class="sys-item"><span>Suspended</span><span style="color:var(--err)">${bilingFlat.suspended || 0}</span></div>
+          </div>
+          <div class="sys-card" style="grid-column:1/-1">
+            <h3>📋 Recent System Alerts</h3>
+            ${(d.recent_alerts || []).length
+              ? d.recent_alerts.slice(-10).reverse().map(a =>
+                  `<div style="font-size:.78rem;padding:4px 0;border-bottom:1px solid var(--srp-border);color:${a.includes('ERROR') || a.includes('FAIL') ? 'var(--err)' : a.includes('WARN') ? 'var(--warn)' : 'var(--text-muted)'}">
+                    ${a}
+                  </div>`).join('')
+              : '<div style="color:var(--text-muted);font-size:.82rem">No recent alerts — system running cleanly.</div>'
+            }
+          </div>
+        </div>
+        <div style="margin-top:20px">
+          <div class="section-title" style="margin-bottom:12px">All Client DBs</div>
+          <table class="data-table">
+            <thead><tr><th>Hospital</th><th>City</th><th>DB Status</th><th>Health</th><th>Plan</th><th>Billing</th></tr></thead>
+            <tbody>
+              ${(d.client_activity_summary || []).map(c => `<tr>
+                <td>${c.hospital_name}</td>
+                <td>${c.city || '—'}</td>
+                <td><span style="color:${c.db_status === 'connected' ? 'var(--ok)' : 'var(--err)'}">● ${c.db_status}</span></td>
+                <td><span style="color:${c.system_health === 'ok' ? 'var(--ok)' : 'var(--warn)'}">● ${c.system_health || '—'}</span></td>
+                <td>${c.plan_type || '—'}</td>
+                <td>${c.billing_status || '—'}</td>
+              </tr>`).join('') || '<tr><td colspan="6" style="color:var(--text-muted)">No client data available</td></tr>'}
+            </tbody>
+          </table>
+        </div>`;
+    } catch (e) {
+      el.innerHTML = `<p style="color:var(--err);padding:20px">Error: ${e.message}</p>`;
+    }
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  // Close modal on overlay click
+  document.getElementById('clientModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  (async () => {
+    await checkSession();
+    await loadClients();
+    // Pre-load system status quietly for stats
+    try {
+      const r = await fetch('/api/founder/system-status');
+      const d = await r.json();
+      document.getElementById('statStatus').textContent = d.server_status === 'running' ? '● UP' : '● DOWN';
+      document.getElementById('statStatusSub').textContent =
+        `DB: ${d.database_health?.reachable ? 'Connected' : 'Offline'}`;
+    } catch {}
+  })();
+</script>
+</body>
+</html>

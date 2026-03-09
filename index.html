@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Hospital – SRP MediFlow | Kothagudem</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="hospital-info">
+                <h1>⭐ Star Hospital</h1>
+                <p>Karur Vysya Bank Lane, Ganesh Basthi, Kothagudem 507101 &nbsp;|&nbsp; 📞 +91 7981971015</p>
+                <p style="font-size:0.75rem;opacity:0.85;">24x7 Emergency Medical Services Available &nbsp;|&nbsp; Powered by SRP MediFlow</p>
+            </div>
+            <div class="header-controls">
+                <div class="language-selector">
+                    <button class="lang-btn" onclick="switchLanguage('en')">English</button>
+                    <button class="lang-btn" onclick="switchLanguage('te')">Telugu</button>
+                    <button class="lang-btn" onclick="switchLanguage('hi')">Hindi</button>
+                </div>
+                <a href="/admin" target="_blank" class="admin-btn" title="Admin Panel">Admin</a>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <!-- Sidebar Info -->
+            <div class="sidebar">
+                <div class="info-card">
+                    <h3>Services</h3>
+                    <p><strong>X-Ray:</strong> 9:00 AM - 7:00 PM</p>
+                    <p><strong>Lab:</strong> 8:00 AM - 6:00 PM</p>
+                </div>
+                
+                <div class="info-card">
+                    <h3>Our Doctors</h3>
+                    <p><strong>Dr. Srujan</strong><br>Orthopedics (DNB Ortho FIJR)</p>
+                    <p><strong>Dr. K. Ramyanadh</strong><br>General Medicine &amp; Diabetology</p>
+                    <p><strong>Dr. B. Ramachandra Nayak</strong><br>General Surgery (M.B.B.S., M.S.)</p>
+                    <p><strong>Dental &amp; ENT</strong><br>Visiting Consultants</p>
+                </div>
+
+                <div class="info-card emergency">
+                    <h3>🚨 Emergency</h3>
+                    <p><strong>+91 7981971015</strong></p>
+                    <p>24x7 Available</p>
+                    <p style="font-size:0.8rem;margin-top:4px;">Ambulance: 108</p>
+                </div>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="chat-area">
+                <div class="messages-container" id="messagesContainer">
+                    <div class="message bot-message">
+                        <p>Hello! I'm the SRP MediFlow AI Assistant. How can I help you today?</p>
+                        <small>08:00 AM</small>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="quick-actions">
+                    <button class="action-btn" onclick="sendMessage('What are your timings?')">Timings</button>
+                    <button class="action-btn" onclick="sendMessage('I want to book an appointment')">Book Appointment</button>
+                    <button class="action-btn" onclick="openRegisterForm()">Register OPD</button>
+                    <button class="action-btn emergency-btn" onclick="sendMessage('Emergency')">Emergency</button>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="input-area">
+                    <button class="voice-btn" id="voiceBtn" title="Click to speak">Speak</button>
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Type your message..." 
+                        onkeypress="handleKeyPress(event)"
+                    >
+                    <button onclick="sendMessage()" class="send-btn">Send</button>
+                </div>
+                <div id="voiceStatus" style="text-align: center; font-size: 11px; color: #999; padding: 5px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeRegisterForm()">&times;</span>
+            <h2>Register OPD Appointment</h2>
+            <form id="registerForm" onsubmit="submitRegisterForm(event)">
+                <div class="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Age *</label>
+                    <input type="number" name="age" min="1" max="150" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number *</label>
+                    <input type="tel" name="phone" pattern="[0-9]{10}" required>
+                </div>
+                <div class="form-group">
+                    <label>Aadhar Number *</label>
+                    <input type="text" name="aadhar" pattern="[0-9]{12}" required>
+                </div>
+                <div class="form-group">
+                    <label>Health Issue *</label>
+                    <textarea name="issue" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Preferred Doctor *</label>
+                    <select name="doctor" required>
+                        <option value="">Select Doctor</option>
+                        <option value="Dr. Ramesh">Dr. Ramesh (Orthopedic)</option>
+                        <option value="Dr. Suresh">Dr. Suresh (General Medicine)</option>
+                        <option value="Dr. Priya">Dr. Priya (Gynecology)</option>
+                        <option value="Dr. Kumar">Dr. Kumar (Cardiology)</option>
+                        <option value="Dr. Lakshmi">Dr. Lakshmi (Pediatrics)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Preferred Time *</label>
+                    <input type="time" name="time" required>
+                </div>
+                <button type="submit" class="submit-btn">Register</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <!-- SRP MediFlow product footer -->
+    <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+                   font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+                   border-top:1px solid #222;">
+        Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+        &nbsp;&bull;&nbsp; Hospital Management System
+        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+    </footer>
+    <div style="height:32px;"></div>
+</body>
+</html>

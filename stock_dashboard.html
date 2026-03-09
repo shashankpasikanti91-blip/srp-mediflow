@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Hospital – Stock / Inventory | SRP MediFlow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#e67e22;color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:1.2rem;font-weight:600}
+.logout-btn{background:#fff;color:#e67e22;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.layout{display:flex;flex:1}
+.sidebar{width:200px;background:#fff;border-right:1px solid #ddd;padding:20px 0}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:.95rem;color:#444;transition:all .2s}
+.nav-item:hover,.nav-item.active{background:#fef3e2;color:#e67e22;font-weight:600;border-left:3px solid #e67e22}
+.main{flex:1;padding:24px;overflow-y:auto}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+h2{font-size:1.3rem;margin-bottom:16px;color:#e67e22}
+h3{font-size:1rem;color:#333;margin-bottom:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;text-align:left;border-bottom:1px solid #eee;font-size:.9rem}
+th{background:#f8f9fa;font-weight:600;color:#555}
+.badge{padding:3px 10px;border-radius:12px;font-size:.8rem;font-weight:600}
+.badge.ok{background:#d1fae5;color:#065f46}
+.badge.low{background:#fee2e2;color:#991b1b}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+input,select{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:.9rem}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-primary{background:#e67e22;color:#fff}
+.btn-primary:hover{background:#ca6f1e}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.stat{background:#fff;border-radius:10px;padding:16px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.stat-num{font-size:2rem;font-weight:700;color:#e67e22}
+.stat-label{font-size:.85rem;color:#666;margin-top:4px}
+.msg{margin-top:8px;font-size:.9rem;display:none}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>⭐ Star Hospital – Inventory &amp; Stock</h1>
+    <small style="opacity:.8;font-size:.8rem;">Kothagudem, Telangana | +91 7981971015 | 24x7 Emergency</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <span id="stockUser" style="font-size:.9rem;opacity:.85">Loading…</span>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-item active" data-sec="overview">Overview</div>
+    <div class="nav-item" data-sec="add-item">Add Item</div>
+    <div class="nav-item" data-sec="all-items">All Items</div>
+    <div class="nav-item" data-sec="low-stock">Low Stock Alerts</div>
+    <div class="nav-item" data-sec="pharm-inventory">💊 Pharmacy Batches</div>
+    <div class="nav-item" data-sec="expiry-alerts">📅 Expiry Alerts</div>
+    <div class="nav-item" data-sec="add-batch">➕ Add Medicine Batch</div>
+  </div>
+
+  <div class="main">
+    <!-- Overview -->
+    <div id="overview" class="section active">
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-num" id="statTotal">-</div><div class="stat-label">Total Items</div></div>
+        <div class="stat"><div class="stat-num" id="statLow" style="color:#e74c3c;">-</div><div class="stat-label">Low Stock Alerts</div></div>
+        <div class="stat"><div class="stat-num" id="statCats">-</div><div class="stat-label">Categories</div></div>
+      </div>
+      <div class="card">
+        <h2>Urgent Low Stock Items</h2>
+        <table>
+          <thead><tr><th>Item</th><th>Category</th><th>Current Qty</th><th>Min Required</th><th>Quick Update</th></tr></thead>
+          <tbody id="overviewLow"><tr><td colspan="5" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Add Item -->
+    <div id="add-item" class="section">
+      <div class="card">
+        <h2>Add New Stock Item</h2>
+        <div class="form-grid">
+          <input id="aiName" type="text"   placeholder="Item Name *">
+          <input id="aiCat"  type="text"   placeholder="Category" value="Medicine">
+          <input id="aiQty"  type="number" placeholder="Initial Qty" value="0">
+          <input id="aiUnit" type="text"   placeholder="Unit (tablets, boxes…)" value="units">
+          <input id="aiMin"  type="number" placeholder="Min Stock Alert Level" value="10">
+          <button class="btn btn-primary" onclick="addItem()" style="align-self:end;">Add Item</button>
+        </div>
+        <div class="msg" id="addMsg"></div>
+      </div>
+    </div>
+
+    <!-- All Items -->
+    <div id="all-items" class="section">
+      <div class="card">
+        <h2>All Stock Items</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadAllItems()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>Item</th><th>Category</th><th>Qty</th><th>Unit</th><th>Min</th><th>Status</th><th>Update</th></tr></thead>
+          <tbody id="allItemsBody"><tr><td colspan="7" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Low Stock -->
+    <div id="low-stock" class="section">
+      <div class="card">
+        <h2>⚠️ Low Stock Alerts</h2>
+        <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadLowStock()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>Item</th><th>Category</th><th>Have</th><th>Need Min</th><th>Shortage</th><th>Update Qty</th></tr></thead>
+          <tbody id="lowStockBody"><tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let stockData = [];
+
+async function checkSession() {
+  const r = await fetch('/api/session/me');
+  if (!r.ok) { window.location.href='/login'; return; }
+  const d = await r.json();
+  if (!d.user || d.user.role !== 'STOCK') { window.location.href='/login'; return; }
+  document.getElementById('stockUser').textContent = d.user.full_name || d.user.username;
+  loadAllItems();
+}
+
+async function loadAllItems() {
+  const r = await fetch('/api/stock/list');
+  if (!r.ok) return;
+  const d = await r.json();
+  stockData = d.stock || [];
+  renderStats();
+  renderAllTable();
+  renderOverviewLow();
+}
+
+function renderStats() {
+  document.getElementById('statTotal').textContent = stockData.length;
+  const low = stockData.filter(s => s.quantity <= s.min_quantity);
+  document.getElementById('statLow').textContent = low.length;
+  const cats = [...new Set(stockData.map(s => s.category))].length;
+  document.getElementById('statCats').textContent = cats;
+}
+
+function renderAllTable() {
+  const tbody = document.getElementById('allItemsBody');
+  if (!stockData.length) {
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888">No items yet</td></tr>'; return;
+  }
+  tbody.innerHTML = stockData.map(s => {
+    const low = s.quantity <= s.min_quantity;
+    return `<tr>
+      <td>${s.item_name}</td><td>${s.category}</td>
+      <td style="font-weight:bold;color:${low?'#e74c3c':'#27ae60'}">${s.quantity}</td>
+      <td>${s.unit}</td><td>${s.min_quantity}</td>
+      <td><span class="badge ${low?'low':'ok'}">${low?'Low':'OK'}</span></td>
+      <td style="display:flex;gap:4px;">
+        <input type="number" id="uqty_${s.id}" value="${s.quantity}" style="width:70px;padding:3px;">
+        <button class="btn btn-primary" style="padding:3px 8px;font-size:12px;" onclick="updateQty(${s.id})">Save</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderOverviewLow() {
+  const low = stockData.filter(s => s.quantity <= s.min_quantity);
+  const tbody = document.getElementById('overviewLow');
+  if (!low.length) {
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:green">✅ All stock levels OK</td></tr>'; return;
+  }
+  tbody.innerHTML = low.map(s => `
+    <tr>
+      <td style="font-weight:600">${s.item_name}</td>
+      <td>${s.category}</td>
+      <td style="color:#e74c3c;font-weight:bold">${s.quantity} ${s.unit}</td>
+      <td>${s.min_quantity} ${s.unit}</td>
+      <td style="display:flex;gap:4px;">
+        <input type="number" id="ovqty_${s.id}" value="${s.quantity}" style="width:70px;padding:3px;">
+        <button class="btn btn-primary" style="padding:3px 8px;font-size:12px;" onclick="updateQtyOv(${s.id})">Save</button>
+      </td>
+    </tr>`).join('');
+}
+
+function loadLowStock() {
+  loadAllItems().then(() => {
+    const low = stockData.filter(s => s.quantity <= s.min_quantity);
+    const tbody = document.getElementById('lowStockBody');
+    if (!low.length) {
+      tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:green">✅ No low stock!</td></tr>'; return;
+    }
+    tbody.innerHTML = low.map(s => `
+      <tr>
+        <td>${s.item_name}</td><td>${s.category}</td>
+        <td style="color:#e74c3c;font-weight:bold">${s.quantity}</td>
+        <td>${s.min_quantity}</td>
+        <td style="color:#e74c3c">${Math.max(0, s.min_quantity - s.quantity)} ${s.unit} short</td>
+        <td style="display:flex;gap:4px;">
+          <input type="number" id="lsqty_${s.id}" value="${s.quantity}" style="width:70px;padding:3px;">
+          <button class="btn btn-primary" style="padding:3px 8px;font-size:12px;" onclick="updateQtyLs(${s.id})">Save</button>
+        </td>
+      </tr>`).join('');
+  });
+}
+
+async function updateQtyById(id, inputId) {
+  const qty = parseInt(document.getElementById(inputId).value);
+  const r = await fetch('/api/stock/update', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id, quantity: qty})
+  });
+  const d = await r.json();
+  if (d.status === 'ok') loadAllItems();
+  else alert('Update failed');
+}
+function updateQty(id)   { updateQtyById(id, `uqty_${id}`); }
+function updateQtyOv(id) { updateQtyById(id, `ovqty_${id}`); }
+function updateQtyLs(id) { updateQtyById(id, `lsqty_${id}`); }
+
+async function addItem() {
+  const item_name    = document.getElementById('aiName').value.trim();
+  const category     = document.getElementById('aiCat').value.trim();
+  const quantity     = parseInt(document.getElementById('aiQty').value)||0;
+  const unit         = document.getElementById('aiUnit').value.trim();
+  const min_quantity = parseInt(document.getElementById('aiMin').value)||10;
+  const msg          = document.getElementById('addMsg');
+  if (!item_name) { alert('Item name required'); return; }
+  const r = await fetch('/api/stock/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({item_name, category, quantity, unit, min_quantity})
+  });
+  const d = await r.json();
+  msg.style.display='block';
+  if (d.status==='ok') {
+    msg.style.color='green'; msg.textContent=`✅ "${item_name}" added to inventory`;
+    document.getElementById('aiName').value='';
+    loadAllItems();
+  } else { msg.style.color='red'; msg.textContent='❌ '+(d.error||'Failed'); }
+}
+
+function doLogout() {
+  fetch('/api/logout',{method:'POST'}).finally(()=>{ window.location.href='/login'; });
+}
+
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    const sec = item.dataset.sec;
+    document.getElementById(sec).classList.add('active');
+    if (sec === 'overview')          loadAllItems();
+    if (sec === 'all-items')         loadAllItems();
+    if (sec === 'low-stock')         loadLowStock();
+    if (sec === 'pharm-inventory')   loadPharmBatches();
+    if (sec === 'expiry-alerts')     loadStockExpiry();
+    if (sec === 'add-batch')         {}
+  });
+});
+
+// ── Pharmacy batch inventory ────────────────────────────────────────────────
+async function loadPharmBatches() {
+  try {
+    const r = await fetch('/api/pharmacy/inventory');
+    if (!r.ok) return;
+    const d = await r.json();
+    const inv = d.inventory||[];
+    document.getElementById('pharmTotalBatches').textContent = inv.length;
+    document.getElementById('pharmLowStockCount').textContent = inv.filter(i=>i.low_stock).length;
+    document.getElementById('pharmExpiryCount').textContent   = inv.filter(i=>i.near_expiry).length;
+    const tbody = document.getElementById('pharmBatchBody');
+    if (!inv.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888;">No pharmacy batches found</td></tr>';return;}
+    tbody.innerHTML = inv.map(i=>{
+      const ls = i.low_stock   ? 'color:#e74c3c;font-weight:bold;':'';
+      const ex = i.near_expiry ? 'color:#e74c3c;':'';
+      return `<tr>
+        <td><strong>${i.medicine_name}</strong><br><small>${i.generic_name||''}</small></td>
+        <td>${i.batch_number||i.batch_no||'-'}</td>
+        <td style="${ex}">${i.expiry_date||'-'}</td>
+        <td style="${ls}">${i.quantity}</td>
+        <td>${i.min_quantity}</td>
+        <td>₹${parseFloat(i.sell_price||0).toFixed(2)}</td>
+        <td>${i.supplier||'-'}</td>
+        <td>
+          ${i.low_stock   ?'<span class="badge low">⚠️ Low</span>':''}
+          ${i.near_expiry ?'<span class="badge low">📅 Expiring</span>':''}
+          ${!i.low_stock&&!i.near_expiry?'<span class="badge ok">✅ OK</span>':''}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e){console.error(e);}
+}
+
+async function loadStockExpiry() {
+  try {
+    const r = await fetch('/api/pharmacy/alerts/expiry');
+    const d = await r.json();
+    const items = d.expiring||[];
+    const tbody = document.getElementById('stockExpiryBody');
+    if(!items.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:green;">✅ No expiry alerts</td></tr>';return;}
+    tbody.innerHTML = items.map(i=>`<tr>
+      <td><strong>${i.medicine_name}</strong></td>
+      <td>${i.batch_number||i.batch_no||'-'}</td>
+      <td style="color:#e74c3c;">${i.expiry_date||'-'}</td>
+      <td style="font-weight:bold;">${i.days_to_expiry} days</td>
+      <td>${i.quantity}</td>
+      <td>${i.supplier||'-'}</td>
+    </tr>`).join('');
+  } catch(e){console.error(e);}
+}
+
+async function addBatch() {
+  const msg     = document.getElementById('bsMsg');
+  const med_id  = parseInt(document.getElementById('bsMedId').value)||0;
+  const qty     = parseInt(document.getElementById('bsQty').value)||0;
+  if (!med_id||qty<=0){msg.textContent='Medicine ID and qty required';msg.style.color='#e74c3c';msg.style.display='block';return;}
+  const payload = {
+    medicine_id:   med_id,
+    batch_number:  document.getElementById('bsBatch').value.trim(),
+    expiry_date:   document.getElementById('bsExpiry').value||null,
+    quantity:      qty,
+    purchase_price:parseFloat(document.getElementById('bsPurchase').value)||0,
+    sell_price:    parseFloat(document.getElementById('bsSell').value)||0,
+    supplier:      document.getElementById('bsSupplier').value.trim(),
+    min_quantity:  parseInt(document.getElementById('bsMinQty').value)||10,
+  };
+  try {
+    const r = await fetch('/api/pharmacy/add-stock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    msg.textContent = d.status==='ok' ? '✅ Batch added (ID:'+d.id+')' : '❌ '+(d.error||'Failed');
+    msg.style.color  = d.status==='ok' ? '#27ae60':'#e74c3c';
+  } catch(e){msg.textContent='❌ Error';msg.style.color='#e74c3c';}
+  msg.style.display='block';
+}
+
+checkSession();
+</script>
+    <!-- SRP MediFlow product footer -->
+    <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+                   font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+                   border-top:1px solid #222;">
+        Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+        &nbsp;&bull;&nbsp; Hospital Management System
+        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+    </footer>
+    <div style="height:32px;"></div>
+</body>
+</html>
