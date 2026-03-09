@@ -257,7 +257,9 @@ except ImportError as _hms_err:
         @staticmethod
         def create_hms_v4_tables(): pass
 
-PORT = int(os.getenv('PORT', 7500))
+PORT    = int(os.getenv('PORT', 7500))
+# Public-facing URL — set APP_URL env var on Hetzner to your real domain
+APP_URL = os.getenv('APP_URL', f'http://localhost:{PORT}')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Session storage (conversation sessions for chatbot only; auth sessions managed by auth.py)
@@ -1862,9 +1864,22 @@ class Handler(BaseHTTPRequestHandler):
             return False
         return True
 
+    def _is_https(self) -> bool:
+        """True when the request arrived over HTTPS (e.g. via Cloudflare or Nginx).
+        Cloudflare always sets X-Forwarded-Proto: https for HTTPS traffic."""
+        return (
+            self.headers.get('X-Forwarded-Proto', '') == 'https'
+            or self.headers.get('X-Forwarded-Ssl', '') == 'on'
+        )
+
+    def _cookie_flags(self, max_age: int = 28800) -> str:
+        """Return cookie flags string — adds Secure on HTTPS, uses SameSite=Lax."""
+        secure = '; Secure' if self._is_https() else ''
+        return f'Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}{secure}'
+
     def _redirect_to_login(self):
         self.send_response(302)
-        self.send_header('Set-Cookie', 'admin_session=; Path=/; HttpOnly; Max-Age=0')
+        self.send_header('Set-Cookie', f'admin_session=; {self._cookie_flags(0)}')
         self.send_header('Location', '/login')
         self.end_headers()
 
@@ -1946,7 +1961,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Set-Cookie',
-                f'admin_session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=28800')
+                f'admin_session={token}; {self._cookie_flags(28800)}')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps({
@@ -2058,7 +2073,7 @@ class Handler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
-        self.send_header('Set-Cookie', 'admin_session=; Path=/; HttpOnly; Max-Age=0')
+        self.send_header('Set-Cookie', f'admin_session=; {self._cookie_flags(0)}')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps({'status': 'success'}).encode())
@@ -3187,9 +3202,15 @@ class Handler(BaseHTTPRequestHandler):
                 return super().default(o)
         self.send_response(code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
+        # CORS — allow the configured APP_URL and localhost for dev
+        _req_origin = self.headers.get('Origin', '')
+        _allowed = {APP_URL, f'http://localhost:{PORT}', 'http://127.0.0.1:7500'}
+        _cors = _req_origin if _req_origin in _allowed else '*'
+        self.send_header('Access-Control-Allow-Origin', _cors)
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Cookie')
+        if _cors != '*':
+            self.send_header('Access-Control-Allow-Credentials', 'true')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False, cls=_Enc).encode('utf-8'))
     
@@ -3293,13 +3314,19 @@ if __name__ == '__main__':
     if not _acquire_pid_lock():
         sys.exit(1)
 
-    # Start ngrok tunnel first
-    public_url = start_ngrok_tunnel()
+    # Start ngrok tunnel only if explicitly enabled (not needed on Hetzner with real domain)
+    public_url = None
+    if os.getenv('ENABLE_NGROK', '0') == '1':
+        public_url = start_ngrok_tunnel()
+    else:
+        print("ℹ️  Ngrok disabled — set ENABLE_NGROK=1 to enable")
 
     # Initialise RBAC tables and seed default admin
     if _DB_AVAILABLE:
         hospital_db.create_all_tables()
-        hospital_db.ensure_default_admin(auth.hash_password('hospital2024'))
+        # Password from env var — override DEFAULT_ADMIN_PASSWORD on production
+        _default_pw = os.getenv('DEFAULT_ADMIN_PASSWORD', 'hospital2024')
+        hospital_db.ensure_default_admin(auth.hash_password(_default_pw))
         # Phase-2 and Phase-3 tables + Star Hospital seed data
         try:
             hospital_db.create_hms_tables()
@@ -3361,8 +3388,11 @@ if __name__ == '__main__':
     # Start daily backup scheduler (runs at BACKUP_HOUR, default 02:00)
     _start_backup_scheduler()
 
-    print(f"🌐 Local Server: http://localhost:{PORT}")
-    print(f"🔐 Local Admin: http://localhost:{PORT}/admin")
+    print(f"🌐 Server URL:   {APP_URL}")
+    print(f"🔐 Admin Panel:  {APP_URL}/admin")
+    print(f"👑 Founder:      {APP_URL}/founder")
+    if APP_URL != f'http://localhost:{PORT}':
+        print(f"💻 Local:        http://localhost:{PORT}")
     print("📱 Patients: OPD / IPD / Chatbot booking")
     print("👥 Staff: Secure RBAC login (7 roles)")
     print("="*80)

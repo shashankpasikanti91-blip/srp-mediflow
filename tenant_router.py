@@ -165,11 +165,17 @@ def detect_tenant(host_header: str) -> str:
     if not host_header:
         return _DEFAULT_SLUG
 
-    # Strip port  →  'starhospital.srpailabs.com'
+    # Strip port  →  'mediflow.srpailabs.com'
     hostname = host_header.split(':')[0].strip().lower()
 
     # Localhost / IP → default
     if hostname in ('localhost', '127.0.0.1', '0.0.0.0') or not hostname:
+        return _DEFAULT_SLUG
+
+    # Root domain (no subdomain) → default tenant (star_hospital)
+    # e.g. mediflow.srpailabs.com is the root app domain — not a tenant slug
+    _ROOT_DOMAIN = os.getenv('ROOT_DOMAIN', 'mediflow.srpailabs.com')
+    if hostname == _ROOT_DOMAIN or hostname == _ROOT_DOMAIN.lstrip('www.'):
         return _DEFAULT_SLUG
 
     # Take first label (subdomain)

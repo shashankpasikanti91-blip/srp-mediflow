@@ -1,7 +1,34 @@
 # 🚀 SRP MediFlow — Hetzner Production Deployment Guide
 
 > Last updated: 2026-03-09  
-> Server: Hetzner VPS (Ubuntu 22.04 recommended)
+> Server: Hetzner VPS (Ubuntu 22.04)  
+> **Live URL**: https://mediflow.srpailabs.com  
+> DNS/SSL: Cloudflare (proxy enabled — SSL terminates at Cloudflare)
+
+---
+
+## 0. Architecture Overview
+
+```
+Browser (HTTPS)
+    │
+    ▼
+Cloudflare  ──  mediflow.srpailabs.com  (SSL termination)
+    │  X-Forwarded-Proto: https
+    │  X-Forwarded-For: <client IP>
+    ▼
+Hetzner VPS  :443 (Nginx) OR direct :80 → :7500
+    │
+    ▼
+Python  srp_mediflow_server.py  :7500  (HTTP internally)
+    │
+    ▼
+PostgreSQL  :5432  (localhost only, firewall blocks external)
+```
+
+> The Python server runs on **port 7500 internally**.  
+> Cloudflare proxies HTTPS → port 7500 on the server.  
+> PostgreSQL only listens on **localhost** — never exposed publicly.
 
 ---
 
@@ -69,7 +96,11 @@ PG_DB=hospital_ai
 PG_USER=ats_user
 PG_PASSWORD=YOUR_STRONG_PASSWORD_HERE
 PLATFORM_DB_NAME=srp_platform_db
-HOSPITAL_PORT=7500
+PORT=7500
+APP_URL=https://mediflow.srpailabs.com
+ROOT_DOMAIN=mediflow.srpailabs.com
+ENABLE_NGROK=0
+DEFAULT_ADMIN_PASSWORD=YOUR_STRONG_ADMIN_PASSWORD_HERE
 ```
 
 ---
@@ -99,7 +130,7 @@ PGPASSWORD=$PG_PASSWORD psql -U ats_user -d srp_platform_db -f srp_platform_sche
 #   - Tests every single login
 #   - Saves credentials to ADMIN_LOGIN_CREDENTIALS.md (local, NOT on GitHub)
 
-python3 _reset_all_logins.py
+python3 setup_logins.py
 ```
 
 After running you will see:
@@ -132,13 +163,16 @@ echo $! > server.pid
 ## 7. Test All Logins via API
 
 ```bash
-# Test health endpoint first
-curl http://localhost:7500/health
+# Test health endpoint
+curl https://mediflow.srpailabs.com/health
 
-# Test a login (replace with actual tenant_slug and password)
-curl -X POST http://localhost:7500/api/login \
+# Test a login via the real domain
+curl -X POST https://mediflow.srpailabs.com/api/login \
   -H "Content-Type: application/json" \
   -d '{"username":"star_hospital_admin","password":"Star@Admin2026!","tenant_slug":"star_hospital"}'
+
+# Or test locally from the server:
+curl http://localhost:7500/health
 ```
 
 ---
@@ -197,7 +231,7 @@ sudo systemctl status srp-mediflow
 ```bash
 cd /home/ubuntu/srp-mediflow
 git pull origin main         # Pull latest code
-python3 _reset_all_logins.py # Reset all logins fresh
+python3 setup_logins.py       # Wipe old + create fresh + auto-test all logins
 sudo systemctl restart srp-mediflow
 ```
 
@@ -206,25 +240,28 @@ sudo systemctl restart srp-mediflow
 ## 11. Firewall
 
 ```bash
-# Allow only necessary ports
-sudo ufw allow 22    # SSH
-sudo ufw allow 80    # HTTP (if using reverse proxy)
-sudo ufw allow 443   # HTTPS
-sudo ufw allow 7500  # MediFlow (or restrict to your IP)
+# Allow SSH always; allow HTTP/HTTPS publicly (Cloudflare fronts the app)
+sudo ufw allow 22      # SSH
+sudo ufw allow 80      # HTTP (Cloudflare → server, redirect to HTTPS)
+sudo ufw allow 443     # HTTPS
+# Port 7500 only needs to be open if NOT behind Cloudflare proxy
+# If using Cloudflare: block 7500 from public internet for extra security
+# sudo ufw deny 7500
 sudo ufw enable
 ```
 
 ---
 
-## 12. Quick Credential Reference (After Running _reset_all_logins.py)
+## 12. Quick Credential Reference (After Running `setup_logins.py`)
 
-| Hospital | Admin Username | Password Pattern |
-|----------|---------------|-----------------|
-| Star Hospital | `star_hospital_admin` | `Star@Admin2026!` |
-| Sai Care | `sai_care_admin` | `Sai_@Admin2026!` |
-| City Medical | `city_medical_admin` | `City@Admin2026!` |
-| Apollo Warangal | `apollo_warangal_admin` | `Apol@Admin2026!` |
-| Green Cross | `green_cross_admin` | `Gree@Admin2026!` |
+| Hospital | Admin Username | Password | Live URL |
+|----------|---------------|----------|----------|
+| Star Hospital | `star_hospital_admin` | `Star@Admin2026!` | https://mediflow.srpailabs.com/admin |
+| Sai Care | `sai_care_admin` | `Sai_@Admin2026!` | https://mediflow.srpailabs.com/admin |
+| City Medical | `city_medical_admin` | `City@Admin2026!` | https://mediflow.srpailabs.com/admin |
+| Apollo Warangal | `apollo_warangal_admin` | `Apol@Admin2026!` | https://mediflow.srpailabs.com/admin |
+| Green Cross | `green_cross_admin` | `Gree@Admin2026!` | https://mediflow.srpailabs.com/admin |
+| **Founder** | `founder` | `Srp@Founder2026!` | https://mediflow.srpailabs.com/founder |
 | **Founder** | `founder` | `Srp@Founder2026!` |
 
 Staff password pattern: `<Role>@<Slug4>2026!`  

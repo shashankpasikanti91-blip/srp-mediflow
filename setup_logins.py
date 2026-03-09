@@ -222,11 +222,12 @@ def update_tenant_registry():
 # ─── Update ADMIN_LOGIN_CREDENTIALS.md ────────────────────────────────────────
 
 def update_credentials_doc():
+    app_url = os.getenv('APP_URL', 'https://mediflow.srpailabs.com')
     lines = [
-        "# 🔐 SRP MediFlow — Complete Login Credentials",
+        "# \ud83d\udd10 SRP MediFlow \u2014 Complete Login Credentials",
         "",
         f"> **Last reset**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}  ",
-        f"> **System URL**: http://localhost:7500  ",
+        f"> **System URL**: {app_url}  ",
         "> **Version**: 4.0 SaaS (Multi-Tenant)",
         "",
         "---",
