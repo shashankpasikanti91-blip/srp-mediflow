@@ -635,6 +635,33 @@ pyngrok           # ngrok tunnel (dev only, optional)
 
 ## 📝 Changelog
 
+### v6.2 — Dashboard Fix · Per-Client Chatbot URLs · Telegram on Registration (March 2026)
+
+#### 🐛 Critical Bug Fixes — Admin Dashboard Data Loading
+- **`registrations` table empty → dashboard showed "Loading..." / "No patients yet"** — Fixed `get_all_registrations()` in `db.py` to use a fall-through cascade: `registrations` → `patient_visits` (with OP tickets) → `op_tickets` → `patients` table directly; data now always loads
+- **`p.age` UndefinedColumn error** — `patients` table stores `dob` not `age`; fixed fallback SQL to use `EXTRACT(YEAR FROM AGE(COALESCE(p.dob, CURRENT_DATE)))::INTEGER AS age`
+- **Doctors count showed 0** — `get_doctors_on_duty()` filtered to `on_duty=True` only (all doctors had `on_duty=False`); changed to `get_all_doctors()` so dashboard always shows all doctors
+- **`GET /api/appointments` → 404** — route only existed as `/api/appointments/list`; added alias so both paths work
+
+#### 🤖 Per-Client Chatbot URLs (Mobile-Friendly)
+- **`GET /chat/{hospital_slug}`** — new route serving `index.html` with `window.TENANT_SLUG = "{slug}"` injected; every client gets a unique shareable chatbot link (e.g. `/chat/star_hospital`)
+- **`GET /chat`** — generic chatbot without tenant context
+- **`index.html` branding fix** — `applyHospitalBranding()` now reads `window.TENANT_SLUG` (or `?tenant=` URL param) and passes it to `/api/config?tenant=SLUG` so the correct hospital name/logo loads immediately on the chatbot page
+- **`GET /api/config?tenant=SLUG`** — accepts optional `tenant` query param to return branding config for any hospital without requiring session login
+
+#### 📲 Telegram Notifications Wired to Reception
+- **`POST /api/patients/register` now fires Telegram** — `notify_new_registration()` called after every successful reception-side registration (was previously only on chatbot self-registration)
+- Staff/admin receive instant Telegram alert: patient name, phone, chief complaint, assigned doctor
+
+#### 🔌 New Endpoints
+- **`GET /api/hospital/config`** — public endpoint returning hospital name, logo, contact, doctors list (suitable for patient-facing pages without auth)
+
+#### ✅ E2E Test Suite — 29/29 PASS
+- Full test file: `_e2e_test_v62.py`
+- Covers: Config API, per-client chatbot injection, admin login, dashboard counts, appointments alias, doctors list, reception register, visit create, prescription create, PDF download (%PDF binary verified), patient timeline, visits list, admin stats
+
+---
+
 ### v6.1 — Patient Timeline · Full DB Provisioning · Function Aliases (March 2026)
 
 #### 📋 Patient History Timeline (New Feature)
@@ -1471,4 +1498,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*SRP MediFlow v6.0 · Built for Indian hospitals · Powered by SRP AI Labs*
+*SRP MediFlow v6.2 · Built for Indian hospitals · Powered by SRP AI Labs*

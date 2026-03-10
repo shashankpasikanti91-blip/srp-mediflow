@@ -467,8 +467,45 @@ class Handler(BaseHTTPRequestHandler):
         # Strip query string so route comparisons work with and without params
         path = self.path.split('?')[0]
 
-        if path == '/' or path == '/index.html':
+        if path == '/' or path == '/index.html' or path == '/chat':
             self.serve_file('index.html', 'text/html')
+        elif path.startswith('/chat/'):
+            # Per-client chatbot URL: /chat/{tenant_slug}
+            # Serve index.html with injected TENANT_SLUG so /api/config loads correct branding
+            slug = path[6:].strip('/') or 'star_hospital'
+            try:
+                html_path = os.path.join(BASE_DIR, 'index.html')
+                with open(html_path, 'r', encoding='utf-8') as _f:
+                    html_content = _f.read()
+                inject_js = f'<script>window.TENANT_SLUG = "{slug}";</script>'
+                html_content = html_content.replace('</head>', inject_js + '\n</head>')
+                html_bytes = html_content.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(html_bytes)))
+                self.end_headers()
+                self.wfile.write(html_bytes)
+            except Exception:
+                self.serve_file('index.html', 'text/html')
+        elif path == '/api/hospital/config':
+            # Public endpoint — returns hospital branding for the chatbot
+            try:
+                import hospital_config as _hc
+                cfg = {
+                    'hospital_name':    getattr(_hc, 'HOSPITAL_NAME',    'Hospital'),
+                    'hospital_address': getattr(_hc, 'HOSPITAL_ADDRESS', ''),
+                    'hospital_phone':   getattr(_hc, 'HOSPITAL_PHONE',   ''),
+                    'hospital_tagline': getattr(_hc, 'HOSPITAL_TAGLINE', ''),
+                }
+                # Also pull live doctors from DB if possible
+                if _DB_AVAILABLE:
+                    try:
+                        cfg['doctors'] = hospital_db.get_all_doctors()
+                    except Exception:
+                        cfg['doctors'] = []
+                self.send_json(cfg)
+            except Exception as e:
+                self.send_json({'hospital_name': 'Hospital', 'error': str(e)})
         elif path == '/admin' or path == '/admin/':
             user = self.get_session_user()
             if user and roles.has_permission(user['role'], 'view_dashboard'):
@@ -730,9 +767,13 @@ class Handler(BaseHTTPRequestHandler):
             cfg = _get_client_cfg(host_hdr)
             # Enrich with resolved tenant slug (from subdomain detection)
             resolved_slug = getattr(self, 'current_tenant_slug', 'star_hospital')
-            # Try session tenant first, then subdomain-resolved slug
+            # Try: ?tenant= query param → session tenant → subdomain-resolved slug
+            from urllib.parse import parse_qs, urlparse as _uparse
+            _qs_tenant = parse_qs(_uparse(self.path).query).get('tenant', [None])[0]
             user = self.get_session_user()
-            active_slug = (user.get('tenant_slug') if user else None) or resolved_slug
+            active_slug = (_qs_tenant or
+                           (user.get('tenant_slug') if user else None) or
+                           resolved_slug)
             if active_slug:
                 try:
                     import json as _j, os as _o
@@ -1140,7 +1181,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json(data_out)
 
         # ── Appointments (Reception Module) ───────────────────────────────────
-        elif path == '/api/appointments/list':
+        elif path in ('/api/appointments', '/api/appointments/list'):
+            # /api/appointments is an alias for /api/appointments/list
             if self.require_role('ADMIN', 'RECEPTION', 'DOCTOR', 'NURSE'):
                 if _DB_AVAILABLE:
                     appts = hospital_db.get_all_registrations(200)
@@ -2150,6 +2192,17 @@ class Handler(BaseHTTPRequestHandler):
                         f"ticket={result.get('op_ticket_no','')} "
                         f"by={data.get('created_by','')}"
                     )
+                    # Telegram alert for new OPD patient (reception registration)
+                    try:
+                        from telegram_bot import notify_new_registration
+                        notify_new_registration(
+                            name=result.get('full_name', data.get('full_name', '')),
+                            phone=result.get('phone', data.get('phone', '')),
+                            issue=data.get('chief_complaint', data.get('issue', '')),
+                            doctor=data.get('doctor', data.get('doctor_assigned', '')),
+                        )
+                    except Exception:
+                        pass
                     self.send_json(result, 201)
 
         # ── 1b. Visit / OPD record  (v6.1) ──────────────────────────────────────

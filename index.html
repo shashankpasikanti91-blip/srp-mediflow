@@ -137,7 +137,13 @@
     <script>
     (async function applyHospitalBranding() {
         try {
-            const r = await fetch('/api/config');
+            // Support per-client URL: /chat/{slug} injects window.TENANT_SLUG
+            const tenantParam = window.TENANT_SLUG
+                ? '?tenant=' + encodeURIComponent(window.TENANT_SLUG)
+                : (new URLSearchParams(window.location.search).get('tenant')
+                    ? '?tenant=' + encodeURIComponent(new URLSearchParams(window.location.search).get('tenant'))
+                    : '');
+            const r = await fetch('/api/config' + tenantParam);
             if (!r.ok) return;
             const cfg = await r.json();
 

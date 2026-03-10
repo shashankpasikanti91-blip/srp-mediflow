@@ -6,3 +6,4 @@ Modules: billing=True export=True analytics=True backup=True
 INFO:founder_alerts:[SERVER_START] Founder Telegram alert delivered.
 INFO:telegram_bot:📤 Telegram sent | msg_id=234
 INFO:notifications.service:[NotificationService] Using Telegram provider
+INFO:notifications.service:[NotificationService] Using Telegram provider

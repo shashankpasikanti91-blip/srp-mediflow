@@ -1,4 +1,4 @@
-﻿"""
+"""
 Hospital AI - PostgreSQL Database Module
 Handles all DB operations for registrations, attendance, doctors, and rounds.
 
@@ -241,7 +241,7 @@ def save_registration(record: dict) -> int:
 def get_all_registrations(limit: int = 200) -> list:
     """Return latest registrations/appointments as list of dicts.
     Falls back to patient_visits or op_tickets if the legacy 'registrations'
-    table does not exist on this tenant DB.
+    table does not exist on this tenant DB, or is empty.
     """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
@@ -255,21 +255,23 @@ def get_all_registrations(limit: int = 200) -> list:
                     ORDER BY created_at DESC
                     LIMIT %s
                 """, (limit,))
-                return [dict(r) for r in cur.fetchall()]
+                rows = [dict(r) for r in cur.fetchall()]
+                if rows:  # Only return if we actually have data; fall through if empty
+                    return rows
             except Exception:
                 conn.rollback()
 
-            # Fallback 1: patient_visits table
+            # Fallback 1: patient_visits table (no p.age column – compute from dob)
             try:
                 cur.execute("""
-                    SELECT pv.id,
+                    SELECT pv.visit_id AS id,
                            p.full_name AS name,
-                           p.age,
+                           EXTRACT(YEAR FROM AGE(COALESCE(p.dob, CURRENT_DATE)))::INTEGER AS age,
                            p.phone,
-                           '' AS aadhar,
-                           pv.chief_complaint AS issue,
-                           pv.doctor_name AS doctor,
-                           TO_CHAR(pv.visit_date, 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
+                           COALESCE(p.aadhar, '') AS aadhar,
+                           COALESCE(pv.chief_complaint, pv.doctor_assigned, '') AS issue,
+                           COALESCE(pv.doctor_assigned, pv.doctor_name, '') AS doctor,
+                           TO_CHAR(COALESCE(pv.visit_date, pv.created_at), 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
                            COALESCE(pv.status, 'pending') AS status,
                            'local' AS source,
                            TO_CHAR(pv.created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
@@ -278,21 +280,23 @@ def get_all_registrations(limit: int = 200) -> list:
                     ORDER BY pv.created_at DESC
                     LIMIT %s
                 """, (limit,))
-                return [dict(r) for r in cur.fetchall()]
+                rows = [dict(r) for r in cur.fetchall()]
+                if rows:
+                    return rows
             except Exception:
                 conn.rollback()
 
-            # Fallback 2: op_tickets
+            # Fallback 2: op_tickets (no p.age column – compute from dob)
             try:
                 cur.execute("""
                     SELECT t.id,
                            p.full_name AS name,
-                           p.age,
+                           EXTRACT(YEAR FROM AGE(COALESCE(p.dob, CURRENT_DATE)))::INTEGER AS age,
                            p.phone,
                            '' AS aadhar,
-                           t.complaint AS issue,
-                           t.doctor_name AS doctor,
-                           TO_CHAR(t.ticket_time, 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
+                           COALESCE(t.complaint, '') AS issue,
+                           COALESCE(t.doctor_name, '') AS doctor,
+                           TO_CHAR(COALESCE(t.ticket_time, t.created_at), 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
                            COALESCE(t.status, 'pending') AS status,
                            'local' AS source,
                            TO_CHAR(t.created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
@@ -301,7 +305,9 @@ def get_all_registrations(limit: int = 200) -> list:
                     ORDER BY t.created_at DESC
                     LIMIT %s
                 """, (limit,))
-                return [dict(r) for r in cur.fetchall()]
+                rows = [dict(r) for r in cur.fetchall()]
+                if rows:
+                    return rows
             except Exception:
                 conn.rollback()
 
@@ -322,6 +328,30 @@ def get_all_registrations(limit: int = 200) -> list:
                            TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
                     FROM appointments
                     ORDER BY created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                rows = [dict(r) for r in cur.fetchall()]
+                if rows:
+                    return rows
+            except Exception:
+                conn.rollback()
+
+            # Last fallback: return patients as bare registration records
+            try:
+                cur.execute("""
+                    SELECT p.id,
+                           p.full_name AS name,
+                           EXTRACT(YEAR FROM AGE(COALESCE(p.dob, CURRENT_DATE)))::INTEGER AS age,
+                           p.phone,
+                           COALESCE(p.aadhar, '') AS aadhar,
+                           '' AS issue,
+                           '' AS doctor,
+                           TO_CHAR(p.created_at, 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
+                           'registered' AS status,
+                           'local' AS source,
+                           TO_CHAR(p.created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
+                    FROM patients p
+                    ORDER BY p.created_at DESC
                     LIMIT %s
                 """, (limit,))
                 return [dict(r) for r in cur.fetchall()]
@@ -603,25 +633,43 @@ def check_duplicate_patient(patient_name: str, patient_aadhar: str) -> dict | No
 # â”€â”€â”€ ADMIN DASHBOARD DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def get_admin_dashboard_data() -> dict:
     """Aggregate data for the admin dashboard."""
-    registrations  = get_all_registrations(200)
+    registrations    = get_all_registrations(200)
     attendance_today = get_attendance_today()
-    doctors_on_duty  = get_doctors_on_duty()
+    all_doctors      = get_all_doctors()          # Always show all doctors
+    doctors_on_duty  = [d for d in all_doctors if d.get('on_duty')]
     rounds           = get_doctor_rounds()
 
     today_str = time.strftime('%Y-%m-%d')
     today_registrations = [r for r in registrations if r.get('timestamp', '').startswith(today_str)]
 
+    # Build patients list from registrations (deduped by phone)
+    seen_phones: set = set()
+    patients_list: list = []
+    for r in registrations:
+        p = r.get('phone', '')
+        if p not in seen_phones:
+            seen_phones.add(p)
+            patients_list.append({
+                'name':      r.get('name', ''),
+                'phone':     r.get('phone', ''),
+                'age':       r.get('age', ''),
+                'status':    r.get('status', 'registered'),
+                'timestamp': r.get('timestamp', ''),
+            })
+
     return {
-        "status":           "online",
-        "timestamp":        time.time(),
-        "registrations":    registrations,
-        "appointments":     registrations,
+        "status":             "online",
+        "timestamp":          time.time(),
+        "registrations":      registrations,
+        "appointments":       registrations,
+        "patients":           patients_list,
         "total_appointments": len(registrations),
-        "today_patients":   len(today_registrations),
-        "doctors_on_duty":  len(doctors_on_duty),
-        "doctors":          doctors_on_duty,
-        "attendance_today": attendance_today,
-        "doctor_rounds":    rounds,
+        "total_patients":     len(patients_list),
+        "today_patients":     len(today_registrations),
+        "doctors_on_duty":    len(doctors_on_duty),
+        "doctors":            all_doctors,         # All doctors (not just on-duty)
+        "attendance_today":   attendance_today,
+        "doctor_rounds":      rounds,
     }
 
 
