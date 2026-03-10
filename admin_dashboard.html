@@ -1224,16 +1224,16 @@
                     // Update appointments management table
                     if (data.appointments && data.appointments.length > 0) {
                         const appointmentRows = data.appointments.map((a, idx) => `
-                            <tr>
+                            <tr id="appt-row-${a.id != null ? a.id : idx}">
                                 <td>${a.name || 'N/A'}</td>
                                 <td>${a.phone || 'N/A'}</td>
                                 <td>${a.doctor || 'N/A'}</td>
                                 <td>${a.issue || 'N/A'}</td>
-                                <td>${a.time || 'N/A'}</td>
-                                <td><span class="badge ${a.status || 'pending'}">${a.status || 'Pending'}</span></td>
+                                <td>${a.appointment_time || a.time || a.timestamp || 'N/A'}</td>
+                                <td><span class="badge ${a.status || 'pending'}" id="appt-badge-${a.id != null ? a.id : idx}">${a.status || 'Pending'}</span></td>
                                 <td>
-                                    <button class="btn btn-success" onclick="updateAppointment(${a.id || idx}, 'confirmed')">Confirm</button>
-                                    <button class="btn btn-danger" onclick="updateAppointment(${a.id || idx}, 'cancelled')">Cancel</button>
+                                    <button class="btn btn-success" onclick="updateAppointment(${a.id != null ? a.id : idx}, 'confirmed', this)">Confirm</button>
+                                    <button class="btn btn-danger" onclick="updateAppointment(${a.id != null ? a.id : idx}, 'cancelled', this)">Cancel</button>
                                 </td>
                             </tr>
                         `).join('');
@@ -1450,7 +1450,20 @@
         }
 
         // Update appointment status
-        function updateAppointment(id, status) {
+        function updateAppointment(id, status, btn) {
+            const msgDiv = document.getElementById('appointmentMessage');
+            // Instant visual feedback
+            if (btn) {
+                const row = btn.closest('tr');
+                if (row) {
+                    const badge = row.querySelector('.badge');
+                    if (badge) {
+                        badge.textContent = status;
+                        badge.className = 'badge ' + (status === 'confirmed' ? 'confirmed' : status === 'cancelled' ? 'cancelled' : 'pending');
+                    }
+                    row.querySelectorAll('button').forEach(b => b.disabled = true);
+                }
+            }
             authFetch('/api/admin/appointments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1458,20 +1471,22 @@
             })
             .then(r => r.json())
             .then(data => {
-                const msgDiv = document.getElementById('appointmentMessage');
-                msgDiv.textContent = data.message || 'Appointment updated successfully';
-                msgDiv.className = 'message success';
-                setTimeout(() => { 
-                    msgDiv.className = 'message';
-                    msgDiv.textContent = '';
-                }, 3000);
-                // Force immediate reload
-                setTimeout(() => loadAdminData(), 100);
+                if (data.error) {
+                    msgDiv.textContent = '❌ ' + data.error;
+                    msgDiv.className = 'message error';
+                    // Re-enable buttons on error
+                    if (btn) btn.closest('tr').querySelectorAll('button').forEach(b => b.disabled = false);
+                } else {
+                    msgDiv.textContent = '✅ ' + (data.message || 'Appointment updated successfully');
+                    msgDiv.className = 'message success';
+                    setTimeout(() => loadAdminData(), 600);
+                }
+                setTimeout(() => { msgDiv.className = 'message'; msgDiv.textContent = ''; }, 3500);
             })
             .catch(e => {
-                const msgDiv = document.getElementById('appointmentMessage');
-                msgDiv.textContent = 'Error updating appointment: ' + e;
+                msgDiv.textContent = '❌ Error: ' + e;
                 msgDiv.className = 'message error';
+                if (btn) btn.closest('tr').querySelectorAll('button').forEach(b => b.disabled = false);
             });
         }
         

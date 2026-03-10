@@ -364,7 +364,7 @@ def get_all_registrations(limit: int = 200) -> list:
 
 def update_registration_status(reg_id: int, status: str) -> bool:
     """Update appointment status (confirmed / cancelled / pending)."""
-    sql = "UPDATE registrations SET status=%s, updated_at=NOW() WHERE id=%s"
+    sql = "UPDATE registrations SET status=%s WHERE id=%s"
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(sql, (status, reg_id))
