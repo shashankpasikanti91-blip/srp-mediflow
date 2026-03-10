@@ -670,6 +670,33 @@ pyngrok           # ngrok tunnel (dev only, optional)
 
 ## 📝 Changelog
 
+### v6.8 — Full E2E Database Verification · All 5 Clients Seeded & Tested (March 10, 2026)
+
+#### ✅ End-to-End PostgreSQL Test — ALL 5 CLIENTS PASS
+
+Complete fake records seeded and verified across all 5 tenant databases:
+
+| Client | DB | Registrations | Appointments | Patients | Lab Orders | Surgeries | Billing | Isolation |
+|--------|-----|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Star Hospital | `hospital_ai` | 5 | 3 | 3 | 4 | 1 | 2 | ✅ PASS |
+| Sai Care | `srp_sai_care` | 3 | 3 | 3 | 7 | 2 | 2 | ✅ PASS |
+| City Medical | `srp_city_medical` | 3 | 3 | 3 | 7 | 2 | 2 | ✅ PASS |
+| Apollo Warangal | `srp_apollo_warangal` | 3 | 3 | 3 | 7 | 2 | 2 | ✅ PASS |
+| Green Cross | `srp_green_cross` | 3 | 3 | 3 | 7 | 2 | 2 | ✅ PASS |
+
+**Per-client doctors seeded:**
+- **Star Hospital** — Dr. Srujan (Ortho), Dr. K. Ramyanadh (Gen Medicine), Dr. B. Ramachandra Nayak (Surgery)
+- **Sai Care** — Dr. Pooja Reddy (Gynae), Dr. Mahesh Varma (Cardiology), Dr. Anita Singh (Pediatrics)
+- **City Medical** — Dr. Ravi Shankar (Neurology), Dr. Sunita Iyer (Dermatology), Dr. Kiran Babu (Ortho)
+- **Apollo Warangal** — Dr. Prasad Naidu (Surgery), Dr. Leela Devi (Obs & Gynae), Dr. Suresh Kumar (Medicine)
+- **Green Cross** — Dr. Vijay Teja (ENT), Dr. Rekha Rao (Gen Medicine), Dr. Anil Reddy (Pulmonology)
+
+**Staff roles verified** in every DB: `ADMIN`, `DOCTOR`, `NURSE`, `LAB`, `STOCK`, `RECEPTION` (Star Hospital also has `FOUNDER`)
+
+**Data isolation confirmed**: patient phone numbers from one hospital do not appear in any other hospital's database — cross-checked all 20 combinations.
+
+---
+
 ### v6.7 — Full Responsive Dashboards · Founder Mobile · Per-Client Chatbots (March 10, 2026)
 
 #### 📱 All Dashboards Fully Responsive (Mobile / Tablet / Laptop / Desktop)
