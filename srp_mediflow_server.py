@@ -424,7 +424,11 @@ class Handler(BaseHTTPRequestHandler):
             if path_raw.startswith('/api/platform/'):
                 pass  # fall through to API routing below
             elif not path_raw.startswith('/api/') and not path_raw.startswith('/style') and \
-                 not path_raw.startswith('/script') and path_raw not in ('/login', '/health', '/founder', '/founder/'):
+                 not path_raw.startswith('/script') and path_raw not in (
+                     '/login', '/health', '/founder', '/founder/',
+                     '/admin', '/admin/', '/hospital_signup', '/hospital-signup',
+                     '/change-password', '/forgot-password',
+                 ):
                 # Unknown non-API path on root domain → landing page
                 self.serve_file('platform_landing.html', 'text/html')
                 return
@@ -739,6 +743,7 @@ class Handler(BaseHTTPRequestHandler):
                 'product_name':     cfg.get('product_name', 'SRP MediFlow'),
                 'tenant_slug':      cfg.get('tenant_slug', 'star_hospital'),
                 'subdomain':        cfg.get('subdomain', ''),
+                'doctors':          self._get_public_doctors(active_slug),
             })
 
         elif path == '/api/tenants/list':
@@ -770,19 +775,34 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_founder_system_status()
 
         elif path == '/api/doctors/directory':
-            # Returns full doctor directory with qualifications & registration_no
+            # Returns full doctor directory — reads from staff_users where role=DOCTOR
+            # (A separate 'doctors' table may not exist on all tenant DBs)
             if _DB_AVAILABLE:
                 try:
                     import psycopg2.extras as _px
                     with hospital_db.get_conn() as _conn:
                         _cur = _conn.cursor(cursor_factory=_px.RealDictCursor)
-                        _cur.execute(
-                            "SELECT id, name, department, specialization, "
-                            "qualifications, registration_no, status, on_duty "
-                            "FROM doctors ORDER BY department, name"
-                        )
+                        # Try dedicated doctors table first, fall back to staff_users
+                        try:
+                            _cur.execute(
+                                "SELECT id, name, department, specialization, "
+                                "qualifications, registration_no, status, on_duty "
+                                "FROM doctors ORDER BY department, name"
+                            )
+                        except Exception:
+                            _conn.rollback()
+                            _cur.execute(
+                                "SELECT id, username AS name, department, "
+                                "'' AS specialization, '' AS qualifications, "
+                                "'' AS registration_no, "
+                                "CASE WHEN is_active THEN 'active' ELSE 'inactive' END AS status, "
+                                "TRUE AS on_duty "
+                                "FROM staff_users WHERE role='DOCTOR' "
+                                "ORDER BY department, full_name"
+                            )
                         _rows = [dict(r) for r in _cur.fetchall()]
                         _cur.close()
+                    # Prefer full_name if available
                     self.send_json({'doctors': _rows, 'count': len(_rows)})
                 except Exception as _e:
                     self.send_json({'error': str(_e)}, 500)
@@ -2241,10 +2261,62 @@ class Handler(BaseHTTPRequestHandler):
             or self.headers.get('X-Forwarded-Ssl', '') == 'on'
         )
 
+    def _get_public_doctors(self, tenant_slug: str) -> list:
+        """Return a list of public-facing doctor dicts for the given tenant.
+        Used by /api/config so the public booking page can list the real doctors.
+        Falls back to an empty list on any DB / schema error.
+        """
+        import db as _db
+        import psycopg2
+        try:
+            db_name = _db.DB_NAME  # default: falls back to main tenant DB
+            # Try to find the tenant's own DB name from the registry
+            import json as _j, os as _o
+            reg_path = _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json')
+            try:
+                with open(reg_path, encoding='utf-8') as _f:
+                    reg = _j.load(_f)
+                db_name = reg.get(tenant_slug or '', {}).get('db_name', db_name)
+            except Exception:
+                pass
+
+            conn = psycopg2.connect(
+                host=_db.DB_HOST, port=_db.DB_PORT, database=db_name,
+                user=_db.DB_USER, password=_db.DB_PASS,
+                connect_timeout=3)
+            cur = conn.cursor()
+            # Try the dedicated doctors table first; fall back to staff_users
+            try:
+                cur.execute("""
+                    SELECT COALESCE(name, ''), COALESCE(specialization, department, '')
+                    FROM doctors
+                    WHERE status IS DISTINCT FROM 'inactive'
+                    ORDER BY id LIMIT 20
+                """)
+            except Exception:
+                conn.rollback()
+                cur.execute("""
+                    SELECT COALESCE(full_name, username, ''),
+                           COALESCE(department, '')
+                    FROM staff_users
+                    WHERE role='DOCTOR' AND is_active IS NOT FALSE
+                    ORDER BY id LIMIT 20
+                """)
+            rows = cur.fetchall()
+            cur.close(); conn.close()
+            return [{'name': r[0], 'specialty': r[1]} for r in rows if r[0]]
+        except Exception:
+            return []
+
     def _cookie_flags(self, max_age: int = 28800) -> str:
-        """Return cookie flags string — adds Secure on HTTPS, uses SameSite=Lax."""
-        secure = '; Secure' if self._is_https() else ''
-        return f'Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}{secure}'
+        """Return cookie flags string.
+        On HTTPS (Cloudflare / nginx): SameSite=None; Secure — works in all
+        cross-subdomain and proxy scenarios (e.g. star-hospital.mediflow…).
+        On HTTP (local dev):          SameSite=Lax — no Secure flag needed.
+        """
+        if self._is_https():
+            return f'Path=/; HttpOnly; SameSite=None; Secure; Max-Age={max_age}'
+        return f'Path=/; HttpOnly; SameSite=Lax; Max-Age={max_age}'
 
     def _redirect_to_login(self):
         self.send_response(302)

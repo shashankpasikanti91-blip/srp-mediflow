@@ -972,6 +972,36 @@
     </div>
     
     <script>
+        // ── Auth fetch helper — always sends session cookie, handles expiry ──────
+        // credentials:'include' is belt-and-suspenders: it works even when
+        // SameSite rules or proxy headers would otherwise silently drop cookies.
+        function authFetch(url, options = {}) {
+            const opts = Object.assign({ credentials: 'include' }, options);
+            return fetch(url, opts).then(resp => {
+                if (resp.status === 401 || resp.status === 403) {
+                    console.warn('Session expired (' + resp.status + '). Redirecting to /login');
+                    window.location.href = '/login';
+                    return Promise.reject(new Error('Unauthenticated'));
+                }
+                return resp;
+            });
+        }
+
+        // ── Verify session before painting the page ──────────────────────────
+        async function checkAuth() {
+            try {
+                const r = await fetch('/api/session/me', { credentials: 'include' });
+                if (!r.ok) { window.location.href = '/login'; return false; }
+                const d = await r.json();
+                if (!d.user)  { window.location.href = '/login'; return false; }
+                return true;
+            } catch(e) {
+                return true; // server down / network error — show stale page
+            }
+        }
+        // Run auth check immediately on load
+        checkAuth();
+
         // ── Compact date/time helper ── "DD/MM HH:MM"
         function fmtDT(dt) {
             if (!dt) return '—';
@@ -1006,7 +1036,7 @@
         
         // Load admin data from server
         function loadAdminData() {
-            fetch('/api/admin/data')
+            authFetch('/api/admin/data')
                 .then(r => r.json())
                 .then(data => {
                     // Update dashboard stats
@@ -1108,7 +1138,7 @@
                 return;
             }
             
-            fetch('/api/admin/attendance', {
+            authFetch('/api/admin/attendance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ staff_name: staffName, action: action })
@@ -1132,7 +1162,7 @@
             const name = document.getElementById('doctorSelect').value;
             const msg  = document.getElementById('doctorAttendanceMessage');
             if (!name) { msg.textContent='Please select a doctor'; msg.className='message error'; return; }
-            fetch('/api/admin/doctor/checkin', {
+            authFetch('/api/admin/doctor/checkin', {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({doctor_name: name})
             }).then(r=>r.json()).then(d=>{
@@ -1148,7 +1178,7 @@
             const name = document.getElementById('doctorSelect').value;
             const msg  = document.getElementById('doctorAttendanceMessage');
             if (!name) { msg.textContent='Please select a doctor'; msg.className='message error'; return; }
-            fetch('/api/admin/doctor/checkout', {
+            authFetch('/api/admin/doctor/checkout', {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({doctor_name: name})
             }).then(r=>r.json()).then(d=>{
@@ -1164,7 +1194,7 @@
             if (!confirm('This will mark ALL doctors as Off Duty.\n\nUse this to clear stale "on duty" flags.\nContinue?')) return;
             const msg = document.getElementById('doctorAttendanceMessage');
             try {
-                const r = await fetch('/api/admin/doctors/reset-duty', {
+                const r = await authFetch('/api/admin/doctors/reset-duty', {
                     method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'
                 });
                 const d = await r.json();
@@ -1184,7 +1214,7 @@
             const msg    = document.getElementById('roundMessage');
             if (!doctor || !ward) { msg.textContent='Doctor and Ward are required'; msg.className='message error'; return; }
             if (!rdt) { msg.textContent='Visit Date & Time is required'; msg.className='message error'; return; }
-            fetch('/api/admin/rounds/add', {
+            authFetch('/api/admin/rounds/add', {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({doctor_name: doctor, ward: ward, round_time: rdt, round_datetime: rdt})
             }).then(r=>r.json()).then(d=>{
@@ -1199,7 +1229,7 @@
 
         // Complete a round
         function completeRound(roundId) {
-            fetch('/api/admin/rounds/complete', {
+            authFetch('/api/admin/rounds/complete', {
                 method:'POST', headers:{'Content-Type':'application/json'},
                 body: JSON.stringify({round_id: roundId})
             }).then(r=>r.json()).then(d=>{
@@ -1209,7 +1239,7 @@
 
         // Update appointment status
         function updateAppointment(id, status) {
-            fetch('/api/admin/appointments', {
+            authFetch('/api/admin/appointments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ appointment_id: id, status: status })
@@ -1254,7 +1284,7 @@
         // ── Staff Users ──────────────────────────────────────────────────────
         async function loadStaffUsers() {
             try {
-                const r = await fetch('/api/staff/list');
+                const r = await authFetch('/api/staff/list');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('staffTableBody');
@@ -1284,7 +1314,7 @@
 
             if (!username || !password) { alert('Username and password are required'); return; }
             try {
-                const r = await fetch('/api/staff/create', {
+                const r = await authFetch('/api/staff/create', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({username, password, role, department, full_name})
@@ -1308,7 +1338,7 @@
 
         async function deleteStaff(id, name) {
             if (!confirm(`Remove user "${name}"? They will lose system access.`)) return;
-            const r = await fetch('/api/staff/delete', {
+            const r = await authFetch('/api/staff/delete', {
                 method: 'POST',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({id})
@@ -1320,7 +1350,7 @@
         // ── Inventory ────────────────────────────────────────────────────────
         async function loadStock() {
             try {
-                const r = await fetch('/api/stock/list');
+                const r = await authFetch('/api/stock/list');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('stockTableBody');
@@ -1356,7 +1386,7 @@
             const msg          = document.getElementById('stockAddMsg');
 
             if (!item_name) { alert('Item name required'); return; }
-            const r = await fetch('/api/stock/add', {
+            const r = await authFetch('/api/stock/add', {
                 method: 'POST',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({item_name, category, quantity, unit, min_quantity})
@@ -1377,7 +1407,7 @@
 
         async function updateStockQty(id) {
             const qty = parseInt(document.getElementById(`sqty_${id}`).value);
-            const r = await fetch('/api/stock/update', {
+            const r = await authFetch('/api/stock/update', {
                 method: 'POST',
                 headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({id, quantity: qty})
@@ -1400,7 +1430,7 @@
                         document.title = storedName + ' – Admin Dashboard | SRP MediFlow';
                     }
                     // Enrich with live config (city, phone, etc.)
-                    const r = await fetch('/api/config');
+                    const r = await authFetch('/api/config');
                     if (r.ok) {
                         const cfg = await r.json();
                         const name = cfg.hospital_name || storedName || 'Hospital';
@@ -1414,7 +1444,7 @@
                             document.getElementById('hospitalDetails').textContent = details.join(' | ');
                     }
                     // Show logged-in username from session
-                    const sr = await fetch('/api/session/me');
+                    const sr = await fetch('/api/session/me', { credentials: 'include' });
                     if (sr.ok) {
                         const sd = await sr.json();
                         if (sd.user) {
@@ -1451,7 +1481,7 @@
         // ── Patients ─────────────────────────────────────────────────────────
         async function loadPatients() {
             try {
-                const r = await fetch('/api/admin/data');
+                const r = await authFetch('/api/admin/data');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('patientsBody');
@@ -1477,10 +1507,10 @@
         // ── Doctors ──────────────────────────────────────────────────────────
         async function loadDoctors() {
             try {
-                const r = await fetch('/api/admin/doctors');
+                const r = await authFetch('/api/admin/doctors');
                 if (!r.ok) {
                     // Fallback: use admin data doctors list
-                    const r2 = await fetch('/api/admin/data');
+                    const r2 = await authFetch('/api/admin/data');
                     const d2 = await r2.json();
                     renderDoctorsTable(d2.doctors || []);
                     return;
@@ -1509,7 +1539,7 @@
         // ── Lab Reports ───────────────────────────────────────────────────────
         async function loadLabReports() {
             try {
-                const r = await fetch('/api/lab/orders');
+                const r = await authFetch('/api/lab/orders');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('labReportsBody');
@@ -1552,7 +1582,7 @@
             const discount        = parseFloat(document.getElementById('billDiscount').value)||0;
             if (!patient_name) { alert('Patient name is required'); return; }
             try {
-                const r = await fetch('/api/admin/billing/create', {
+                const r = await authFetch('/api/admin/billing/create', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
                     body: JSON.stringify({patient_name, patient_phone, bill_type,
@@ -1575,7 +1605,7 @@
 
         async function loadBills() {
             try {
-                const r = await fetch('/api/admin/billing/list');
+                const r = await authFetch('/api/admin/billing/list');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('billsBody');
@@ -1601,7 +1631,7 @@
         // ── System Logs ───────────────────────────────────────────────────────
         async function loadSystemLogs() {
             try {
-                const r = await fetch('/api/admin/logs');
+                const r = await authFetch('/api/admin/logs');
                 if (!r.ok) {
                     document.getElementById('logsBody').innerHTML =
                         '<tr><td colspan="6" style="text-align:center;color:#888;">Logs endpoint not yet available</td></tr>';
@@ -1628,7 +1658,7 @@
         // ── Extended Dashboard data (Phase-2) ────────────────────────────────
         async function loadExtendedData() {
             try {
-                const r = await fetch('/api/admin/extended-data');
+                const r = await authFetch('/api/admin/extended-data');
                 if (!r.ok) return;
                 const d = await r.json();
                 if (document.getElementById('totalAdmissions'))
@@ -1672,7 +1702,7 @@
                 msg.style.color = '#e67e22'; msg.style.display = 'block'; return;
             }
             try {
-                const r = await fetch('/api/ipd/admit', {
+                const r = await authFetch('/api/ipd/admit', {
                     method: 'POST', headers: {'Content-Type':'application/json'},
                     body: JSON.stringify(payload)
                 });
@@ -1710,7 +1740,7 @@
 
         async function loadAdmissions() {
             try {
-                const r = await fetch('/api/ipd/admissions');
+                const r = await authFetch('/api/ipd/admissions');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('admissionsBody');
@@ -1746,7 +1776,7 @@
             const medicines   = prompt('Discharge Medicines:', '');
             const followUp    = prompt('Follow-up Date (YYYY-MM-DD, or blank):', '');
             const followNotes = prompt('Follow-up Instructions:', '');
-            fetch('/api/ipd/discharge', {
+            authFetch('/api/ipd/discharge', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
                     admission_id: admId,
@@ -1778,7 +1808,7 @@
                 msg.style.color='#e74c3c'; msg.style.display='block'; return;
             }
             try {
-                const r = await fetch('/api/surgery/create',{
+                const r = await authFetch('/api/surgery/create',{
                     method:'POST', headers:{'Content-Type':'application/json'},
                     body:JSON.stringify(payload)});
                 const d = await r.json();
@@ -1797,7 +1827,7 @@
             const notes = document.getElementById('surNegNotes').value.trim();
             if (!surId||negCost<0){msg.textContent='Surgery ID and price required';msg.style.color='#e74c3c';msg.style.display='block';return;}
             try {
-                const r = await fetch('/api/surgery/update-cost',{
+                const r = await authFetch('/api/surgery/update-cost',{
                     method:'POST',headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({surgery_id:surId,negotiated_cost:negCost,notes})});
                 const d=await r.json();
@@ -1810,7 +1840,7 @@
 
         async function loadSurgeries() {
             try {
-                const r = await fetch('/api/surgery/list');
+                const r = await authFetch('/api/surgery/list');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('surgeriesBody');
@@ -1848,7 +1878,7 @@
                 min_quantity:  parseInt(document.getElementById('pharMinQty').value)||10,
             };
             try {
-                const r = await fetch('/api/pharmacy/add-stock',{
+                const r = await authFetch('/api/pharmacy/add-stock',{
                     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
                 const d = await r.json();
                 if(d.status==='ok'){msg.textContent='✅ Stock added (ID:'+d.id+')';msg.style.color='#27ae60';loadPharmacyInventory();}
@@ -1859,7 +1889,7 @@
 
         async function loadPharmacyInventory() {
             try {
-                const r = await fetch('/api/pharmacy/inventory');
+                const r = await authFetch('/api/pharmacy/inventory');
                 if (!r.ok) return;
                 const d = await r.json();
                 const tbody = document.getElementById('pharmInventoryBody');
@@ -1893,7 +1923,7 @@
 
         async function loadLowStock() {
             try {
-                const r = await fetch('/api/pharmacy/alerts/low-stock');
+                const r = await authFetch('/api/pharmacy/alerts/low-stock');
                 if (!r.ok) return;
                 const d = await r.json();
                 const items = d.low_stock || [];
@@ -1913,7 +1943,7 @@
 
         async function loadExpiryAlerts() {
             try {
-                const r = await fetch('/api/pharmacy/alerts/expiry');
+                const r = await authFetch('/api/pharmacy/alerts/expiry');
                 if (!r.ok) return;
                 const d = await r.json();
                 const items = d.expiring || [];
@@ -1941,7 +1971,7 @@
         // ── Doctor Dropdowns (dynamic from DB) ───────────────────────────────
         async function loadDoctorDropdowns() {
             try {
-                const r = await fetch('/api/admin/doctors');
+                const r = await authFetch('/api/admin/doctors');
                 if (!r.ok) return;
                 const d = await r.json();
                 const docs = d.doctors || [];
@@ -1960,7 +1990,7 @@
         async function loadReportsSection() {
             // Load admin data for KPIs
             try {
-                const r = await fetch('/api/admin/data');
+                const r = await authFetch('/api/admin/data');
                 const d = await r.json();
                 const appts = d.appointments || [];
                 document.getElementById('reportTotalPatients').textContent = d.total_appointments || 0;
@@ -1981,7 +2011,7 @@
 
             // Load billing data for revenue charts
             try {
-                const r = await fetch('/api/admin/billing/list');
+                const r = await authFetch('/api/admin/billing/list');
                 const d = await r.json();
                 const bills = d.bills || [];
                 const totalRev = bills.reduce((s,b) => s + parseFloat(b.net_amount||0), 0);

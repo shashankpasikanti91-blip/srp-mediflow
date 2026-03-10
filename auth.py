@@ -10,6 +10,8 @@ import secrets
 import hashlib
 import random
 import time
+import json
+import os
 from typing import Optional
 
 try:
@@ -19,9 +21,129 @@ except ImportError:
     _BCRYPT = False
     print("⚠️  bcrypt not installed — using SHA-256 fallback.  Run: pip install bcrypt")
 
-# ── In-memory session store ───────────────────────────────────────────────────
+# ── In-memory session store (primary, fast) ───────────────────────────────────
 _sessions: dict = {}
 SESSION_TTL = 8 * 3600  # 8 hours
+
+# ── PostgreSQL-backed session persistence (survives restarts) ──────────────────
+try:
+    import psycopg2 as _pg2
+    _PG_SESSION = True
+except ImportError:
+    _PG2 = None
+    _PG_SESSION = False
+
+def _pg_conn():
+    """Return a psycopg2 connection to the platform DB, or None on error."""
+    if not _PG_SESSION:
+        return None
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        return _pg2.connect(
+            host=os.getenv('PG_HOST', 'localhost'),
+            port=int(os.getenv('PG_PORT', 5432)),
+            dbname=os.getenv('PLATFORM_DB', 'srp_platform_db'),
+            user=os.getenv('PG_USER', 'postgres'),
+            password=os.getenv('PG_PASS', ''),
+            connect_timeout=3,
+        )
+    except Exception:
+        return None
+
+def _init_session_table():
+    """Create sessions table in platform DB if it doesn't exist."""
+    conn = _pg_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS auth_sessions (
+                        token      TEXT PRIMARY KEY,
+                        data       TEXT NOT NULL,
+                        expires_at DOUBLE PRECISION NOT NULL
+                    )
+                """)
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON auth_sessions(expires_at)")
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def _save_session_db(token: str, session_data: dict):
+    """Persist session to DB (non-blocking — ignores errors)."""
+    conn = _pg_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO auth_sessions (token, data, expires_at)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (token) DO UPDATE
+                        SET data = EXCLUDED.data,
+                            expires_at = EXCLUDED.expires_at
+                """, (token, json.dumps(session_data), session_data['expires']))
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+def _load_session_db(token: str) -> dict | None:
+    """Load session from DB — used as fallback when not in memory."""
+    conn = _pg_conn()
+    if not conn:
+        return None
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT data FROM auth_sessions WHERE token = %s AND expires_at > %s",
+                    (token, time.time())
+                )
+                row = cur.fetchone()
+                if row:
+                    return json.loads(row[0])
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    return None
+
+def _delete_session_db(token: str):
+    """Delete session record from DB."""
+    conn = _pg_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM auth_sessions WHERE token = %s", (token,))
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+# Initialise the sessions table at import time (best-effort, non-blocking)
+try:
+    _init_session_table()
+except Exception:
+    pass
 
 # ── Account lockout store ─────────────────────────────────────────────────────
 #   key  = (username.lower(), tenant_slug)
@@ -73,7 +195,7 @@ def create_session(user: dict) -> str:
     """
     role = user.get('role', 'RECEPTION').upper()
     token = secrets.token_hex(32)
-    _sessions[token] = {
+    sess = {
         'user_id':      user.get('id'),
         'username':     user.get('username', ''),
         'role':         role,
@@ -83,25 +205,52 @@ def create_session(user: dict) -> str:
         'db_layer':     'PLATFORM' if role == 'FOUNDER' else 'TENANT',
         'expires':      time.time() + SESSION_TTL,
     }
+    _sessions[token] = sess
+    # Persist to DB so sessions survive server restarts
+    try:
+        _save_session_db(token, sess)
+    except Exception:
+        pass
     return token
 
 
 def get_session(token: str) -> dict | None:
-    """Return session dict if valid and not expired, else None."""
+    """Return session dict if valid and not expired, else None.
+    Checks in-memory first for speed; falls back to PostgreSQL on cache miss
+    (handles server restarts where in-memory dict was cleared).
+    """
     if not token:
         return None
+    # 1. Fast path — in-memory
     session = _sessions.get(token)
-    if not session:
-        return None
-    if session['expires'] < time.time():
-        del _sessions[token]
-        return None
-    return session
+    if session:
+        if session['expires'] < time.time():
+            del _sessions[token]
+            _delete_session_db(token)
+            return None
+        return session
+    # 2. Fallback — PostgreSQL (server restart / new process)
+    try:
+        session = _load_session_db(token)
+    except Exception:
+        session = None
+    if session:
+        if session.get('expires', 0) < time.time():
+            _delete_session_db(token)
+            return None
+        # Re-hydrate in-memory cache
+        _sessions[token] = session
+        return session
+    return None
 
 
 def destroy_session(token: str):
-    """Invalidate a session token."""
+    """Invalidate a session token (memory + DB)."""
     _sessions.pop(token, None)
+    try:
+        _delete_session_db(token)
+    except Exception:
+        pass
 
 
 def extract_token(cookie_header: str) -> str:

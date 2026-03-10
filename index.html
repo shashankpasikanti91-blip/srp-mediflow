@@ -131,6 +131,77 @@
     </div>
 
     <script src="script.js"></script>
+
+    <!-- Dynamic hospital branding — fetched from /api/config at runtime.
+         Falls back silently to the static values above if the API is unavailable. -->
+    <script>
+    (async function applyHospitalBranding() {
+        try {
+            const r = await fetch('/api/config');
+            if (!r.ok) return;
+            const cfg = await r.json();
+
+            // Page title
+            if (cfg.hospital_name) {
+                document.title = cfg.hospital_name + ' – SRP MediFlow' +
+                    (cfg.city ? ' | ' + cfg.city : '');
+            }
+
+            // Header h1 + address
+            const h1 = document.querySelector('.hospital-info h1');
+            if (h1 && cfg.hospital_name) h1.textContent = '⭐ ' + cfg.hospital_name;
+
+            const addrEl = document.querySelector('.hospital-info p');
+            if (addrEl) {
+                const addr  = cfg.hospital_address || '';
+                const phone = cfg.hospital_phone   || '';
+                if (addr || phone) {
+                    addrEl.innerHTML = (addr ? addr + (phone ? ' &nbsp;|&nbsp; 📞 ' + phone : '') : '📞 ' + phone);
+                }
+            }
+
+            // Sidebar emergency phone
+            if (cfg.hospital_phone) {
+                const emEl = document.querySelector('.info-card.emergency strong');
+                if (emEl) emEl.textContent = cfg.hospital_phone;
+            }
+
+            // Sidebar doctor list
+            if (Array.isArray(cfg.doctors) && cfg.doctors.length) {
+                const docCard = document.querySelector('.info-card:nth-child(2)');
+                if (docCard) {
+                    const title = docCard.querySelector('h3');
+                    docCard.innerHTML = '';
+                    if (title) docCard.appendChild(title);
+                    cfg.doctors.forEach(function(d) {
+                        const p = document.createElement('p');
+                        const name = d.name || d.doctor_name || d;
+                        const spec = d.specialty || d.specialization || '';
+                        p.innerHTML = '<strong>' + name + '</strong>' + (spec ? '<br>' + spec : '');
+                        docCard.appendChild(p);
+                    });
+                }
+
+                // Booking form doctor <select>
+                const sel = document.querySelector('select[name="doctor"]');
+                if (sel) {
+                    sel.innerHTML = '<option value="">Select Doctor</option>';
+                    cfg.doctors.forEach(function(d) {
+                        const opt = document.createElement('option');
+                        const name = d.name || d.doctor_name || d;
+                        const spec = d.specialty || d.specialization || '';
+                        opt.value = name;
+                        opt.textContent = name + (spec ? ' (' + spec + ')' : '');
+                        sel.appendChild(opt);
+                    });
+                }
+            }
+        } catch(e) {
+            // Silently ignore — static fallback content remains visible
+        }
+    })();
+    </script>
+
     <!-- SRP MediFlow product footer -->
     <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
                    font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;

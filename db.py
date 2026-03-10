@@ -239,19 +239,74 @@ def save_registration(record: dict) -> int:
 
 
 def get_all_registrations(limit: int = 200) -> list:
-    """Return latest registrations as list of dicts."""
-    sql = """
-        SELECT id, name, age, phone, aadhar, issue, doctor,
-               appointment_time, status, source,
-               TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
-        FROM registrations
-        ORDER BY created_at DESC
-        LIMIT %s
+    """Return latest registrations/appointments as list of dicts.
+    Falls back to patient_visits or op_tickets if the legacy 'registrations'
+    table does not exist on this tenant DB.
     """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (limit,))
-            return [dict(r) for r in cur.fetchall()]
+            # Try the canonical (legacy) registrations table
+            try:
+                cur.execute("""
+                    SELECT id, name, age, phone, aadhar, issue, doctor,
+                           appointment_time, status, source,
+                           TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
+                    FROM registrations
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+
+            # Fallback 1: patient_visits table
+            try:
+                cur.execute("""
+                    SELECT pv.id,
+                           p.full_name AS name,
+                           p.age,
+                           p.phone,
+                           '' AS aadhar,
+                           pv.chief_complaint AS issue,
+                           pv.doctor_name AS doctor,
+                           TO_CHAR(pv.visit_date, 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
+                           COALESCE(pv.status, 'pending') AS status,
+                           'local' AS source,
+                           TO_CHAR(pv.created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
+                    FROM patient_visits pv
+                    JOIN patients p ON p.id = pv.patient_id
+                    ORDER BY pv.created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+
+            # Fallback 2: op_tickets
+            try:
+                cur.execute("""
+                    SELECT t.id,
+                           p.full_name AS name,
+                           p.age,
+                           p.phone,
+                           '' AS aadhar,
+                           t.complaint AS issue,
+                           t.doctor_name AS doctor,
+                           TO_CHAR(t.ticket_time, 'YYYY-MM-DD HH24:MI:SS') AS appointment_time,
+                           COALESCE(t.status, 'pending') AS status,
+                           'local' AS source,
+                           TO_CHAR(t.created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
+                    FROM op_tickets t
+                    JOIN patients p ON p.id = t.patient_id
+                    ORDER BY t.created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+
+            # No recognized appointments table yet — return empty list
+            return []
 
 
 def update_registration_status(reg_id: int, status: str) -> bool:
@@ -278,33 +333,70 @@ def save_attendance(staff_name: str, action: str, notes: str = "") -> int:
 
 
 def get_attendance_today() -> list:
-    """Return today's attendance records."""
-    sql = """
-        SELECT id, staff_name, action, notes,
-               TO_CHAR(recorded_at, 'YYYY-MM-DD HH24:MI:SS') AS date
-        FROM attendance
-        WHERE DATE(recorded_at) = CURRENT_DATE
-        ORDER BY recorded_at DESC
-    """
+    """Return today's attendance records.
+    Falls back to doctor_attendance if the legacy attendance table is missing."""
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql)
-            return [dict(r) for r in cur.fetchall()]
+            try:
+                cur.execute("""
+                    SELECT id, staff_name, action, notes,
+                           TO_CHAR(recorded_at, 'YYYY-MM-DD HH24:MI:SS') AS date
+                    FROM attendance
+                    WHERE DATE(recorded_at) = CURRENT_DATE
+                    ORDER BY recorded_at DESC
+                """)
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+            # Fallback: doctor_attendance table
+            try:
+                cur.execute("""
+                    SELECT id,
+                           doctor_name AS staff_name,
+                           CASE WHEN checkout_time IS NULL THEN 'checkin' ELSE 'checkout' END AS action,
+                           '' AS notes,
+                           TO_CHAR(checkin_time, 'YYYY-MM-DD HH24:MI:SS') AS date
+                    FROM doctor_attendance
+                    WHERE DATE(checkin_time) = CURRENT_DATE
+                    ORDER BY checkin_time DESC
+                """)
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+                return []
 
 
 def get_attendance_all(limit: int = 500) -> list:
-    """Return recent attendance records."""
-    sql = """
-        SELECT id, staff_name, action, notes,
-               TO_CHAR(recorded_at, 'YYYY-MM-DD HH24:MI:SS') AS date
-        FROM attendance
-        ORDER BY recorded_at DESC
-        LIMIT %s
-    """
+    """Return recent attendance records.
+    Falls back to doctor_attendance if the legacy attendance table is missing."""
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (limit,))
-            return [dict(r) for r in cur.fetchall()]
+            try:
+                cur.execute("""
+                    SELECT id, staff_name, action, notes,
+                           TO_CHAR(recorded_at, 'YYYY-MM-DD HH24:MI:SS') AS date
+                    FROM attendance
+                    ORDER BY recorded_at DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+            try:
+                cur.execute("""
+                    SELECT id,
+                           doctor_name AS staff_name,
+                           CASE WHEN checkout_time IS NULL THEN 'checkin' ELSE 'checkout' END AS action,
+                           '' AS notes,
+                           TO_CHAR(checkin_time, 'YYYY-MM-DD HH24:MI:SS') AS date
+                    FROM doctor_attendance
+                    ORDER BY checkin_time DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+                return []
 
 
 # â”€â”€â”€ DOCTORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -323,12 +415,31 @@ def get_all_doctors() -> list:
 
 
 def get_doctors_on_duty() -> list:
-    """Return doctors currently on duty."""
-    sql = "SELECT id, name, department, specialization, status FROM doctors WHERE on_duty=TRUE ORDER BY name"
+    """Return doctors currently on duty.
+    Falls back to staff_users with role=DOCTOR if the legacy doctors table is missing.
+    """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql)
-            return [dict(r) for r in cur.fetchall()]
+            try:
+                cur.execute("SELECT id, name, department, specialization, status FROM doctors WHERE on_duty=TRUE ORDER BY name")
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+            try:
+                cur.execute("""
+                    SELECT id,
+                           COALESCE(full_name, username) AS name,
+                           department,
+                           department AS specialization,
+                           'available' AS status
+                    FROM staff_users
+                    WHERE role='DOCTOR' AND is_active=TRUE
+                    ORDER BY full_name
+                """)
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+                return []
 
 
 def doctor_checkin(doctor_name: str) -> bool:
@@ -358,19 +469,24 @@ def doctor_checkout(doctor_name: str) -> bool:
 
 # â”€â”€â”€ DOCTOR ROUNDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def get_doctor_rounds() -> list:
-    """Return all doctor rounds."""
-    sql = """
-        SELECT id, doctor_name, ward, round_time, status, notes,
-               TO_CHAR(scheduled_at, 'YYYY-MM-DD HH24:MI:SS') AS scheduled_at,
-               TO_CHAR(completed_at, 'YYYY-MM-DD HH24:MI:SS') AS completed_at
-        FROM doctor_rounds
-        ORDER BY scheduled_at DESC
-        LIMIT 50
+    """Return all doctor rounds.
+    Returns empty list if the doctor_rounds table doesn't exist yet.
     """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql)
-            return [dict(r) for r in cur.fetchall()]
+            try:
+                cur.execute("""
+                    SELECT id, doctor_name, ward, round_time, status, notes,
+                           TO_CHAR(scheduled_at, 'YYYY-MM-DD HH24:MI:SS') AS scheduled_at,
+                           TO_CHAR(completed_at, 'YYYY-MM-DD HH24:MI:SS') AS completed_at
+                    FROM doctor_rounds
+                    ORDER BY scheduled_at DESC
+                    LIMIT 50
+                """)
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+                return []
 
 
 def add_doctor_round(doctor_name: str, ward: str, round_time: str, visit_datetime: str = None) -> int:

@@ -290,7 +290,7 @@
     </div>
     <div class="nav-links">
         <a href="#features">Features</a>
-        <a href="#clients">Clients</a>
+        <a href="#client-portal">Hospital Access</a>
         <a href="#contact">Support</a>
         <a href="/login" class="nav-cta">Staff Login →</a>
     </div>
@@ -331,26 +331,37 @@
 <!-- CLIENT LOGIN PORTAL -->
 <section class="client-login-section" id="client-portal">
     <div class="section-title">Hospital Portal Access</div>
-    <div class="section-sub">Each hospital has its own isolated, secure environment. Enter your hospital subdomain to access your portal.</div>
+    <div class="section-sub">Each hospital has its own private, isolated portal. Enter your hospital subdomain to access your staff login.</div>
 
     <div class="login-portal-card">
         <div class="portal-note">
-            <strong>Secure Multi-Tenant Architecture:</strong> Your hospital data is completely isolated from other clients. 
-            Access your hospital via <code>https://your-hospital.mediflow.srpailabs.com</code> or enter your hospital below.
+            <strong>Secure Multi-Tenant Architecture:</strong> Your hospital data is completely isolated.
+            Access your hospital directly at <code>https://your-hospital.mediflow.srpailabs.com/login</code>
+            or enter your subdomain below.
         </div>
 
         <div class="field">
-            <label>Your Hospital</label>
-            <select id="tenantSelect">
-                <option value="">— Select your hospital —</option>
-            </select>
+            <label>Your Hospital Subdomain</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span style="color:#8892a4;font-size:13px;white-space:nowrap;">https://</span>
+                <input
+                    type="text"
+                    id="tenantSubdomain"
+                    placeholder="e.g. star-hospital"
+                    autocomplete="off"
+                    spellcheck="false"
+                    oninput="onSubdomainInput(this.value)"
+                    style="flex:1;min-width:160px;padding:13px 16px;background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:9px;color:#e8eaf0;font-size:15px;transition:border-color .2s;"
+                />
+                <span style="color:#8892a4;font-size:12px;white-space:nowrap;">.mediflow.srpailabs.com</span>
+            </div>
         </div>
 
         <p id="tenantUrl" style="font-size:13px;color:#8892a4;margin-bottom:16px;display:none;">
             Your portal: <a id="tenantUrlLink" href="#" style="color:#a5b4fc;"></a>
         </p>
 
-        <button class="portal-submit" onclick="goToPortal()">Go to My Hospital Portal →</button>
+        <button class="portal-submit" onclick="goToPortal()">Go to My Hospital Portal &rarr;</button>
         <div id="portalAlert" class="portal-alert"></div>
     </div>
 </section>
@@ -460,22 +471,6 @@
 </footer>
 
 <script>
-    // ── Load tenant list from platform API ──────────────────────────────────
-    async function loadTenants() {
-        try {
-            const resp = await fetch('/api/platform/tenants');
-            if (!resp.ok) return;
-            const data = await resp.json();
-            const sel = document.getElementById('tenantSelect');
-            (data.tenants || []).forEach(t => {
-                const opt = document.createElement('option');
-                opt.value = t.slug;
-                opt.textContent = t.display_name + (t.city ? ` — ${t.city}` : '');
-                sel.appendChild(opt);
-            });
-        } catch(e) {}
-    }
-
     // ── Load active hospital count ───────────────────────────────────────────
     async function loadStats() {
         try {
@@ -487,40 +482,41 @@
         } catch(e) {}
     }
 
-    // ── Show derived portal URL as tenant changes ────────────────────────────
-    document.getElementById('tenantSelect').addEventListener('change', function() {
-        const slug = this.value;
-        if (!slug) {
+    // ── Update portal URL preview as subdomain is typed ──────────────────────
+    function onSubdomainInput(val) {
+        const sub = val.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+        if (!sub) {
             document.getElementById('tenantUrl').style.display = 'none';
             return;
         }
-        // Convert slug to URL-friendly form  (star_hospital → star-hospital)
-        const sub = slug.replace(/_/g, '-');
-        const rootDomain = location.hostname.replace(/^[^.]+\./, '') || 'mediflow.srpailabs.com';
+        const rootDomain = location.hostname.includes('mediflow')
+            ? location.hostname.replace(/^[^.]+\./, '')
+            : 'mediflow.srpailabs.com';
         const url = `https://${sub}.${rootDomain}/login`;
         const link = document.getElementById('tenantUrlLink');
         link.textContent = url;
         link.href = url;
         document.getElementById('tenantUrl').style.display = 'block';
-    });
+    }
 
     function goToPortal() {
-        const slug = document.getElementById('tenantSelect').value;
+        const raw = document.getElementById('tenantSubdomain').value.trim()
+            .toLowerCase().replace(/[^a-z0-9-]/g, '');
         const alertEl = document.getElementById('portalAlert');
-        if (!slug) {
-            alertEl.textContent = 'Please select your hospital.';
+        if (!raw) {
+            alertEl.textContent = 'Please enter your hospital subdomain (e.g. star-hospital).';
             alertEl.className = 'portal-alert error';
             alertEl.style.display = 'block';
             return;
         }
         alertEl.style.display = 'none';
-        const sub = slug.replace(/_/g, '-');
-        const rootDomain = location.hostname.replace(/^[^.]+\./, '') || 'mediflow.srpailabs.com';
-        // On localhost just redirect to /login with tenant param for testing
+        const rootDomain = location.hostname.includes('mediflow')
+            ? location.hostname.replace(/^[^.]+\./, '')
+            : 'mediflow.srpailabs.com';
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-            window.location.href = `/login?tenant=${slug}`;
+            window.location.href = `/login?tenant=${raw}`;
         } else {
-            window.location.href = `https://${sub}.${rootDomain}/login`;
+            window.location.href = `https://${raw}.${rootDomain}/login`;
         }
     }
 
@@ -534,7 +530,6 @@
         }
     }
 
-    loadTenants();
     loadStats();
     checkHealth();
 
