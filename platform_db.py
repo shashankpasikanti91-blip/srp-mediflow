@@ -49,7 +49,7 @@ import psycopg2.extras
 #    Default name: srp_platform_db  (override with env var PLATFORM_DB_NAME)
 PLATFORM_DB_CONFIG: dict[str, Any] = {
     "host":            os.getenv("PG_HOST",          "localhost"),
-    "port":            int(os.getenv("PG_PORT",      "5434")),
+    "port":            int(os.getenv("PG_PORT",      "5432")),
     "dbname":          os.getenv("PLATFORM_DB_NAME", "srp_platform_db"),
     "user":            os.getenv("PG_USER",          "ats_user"),
     "password":        os.getenv("PG_PASSWORD",      "ats_password"),

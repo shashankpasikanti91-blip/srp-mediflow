@@ -25,7 +25,7 @@ from pathlib import Path
 # ── Admin (superuser) connection — used only for DB creation ──────────────────
 ADMIN_DB_CONFIG = {
     "host":     os.getenv("PG_HOST",          "localhost"),
-    "port":     int(os.getenv("PG_PORT",      "5434")),
+    "port":     int(os.getenv("PG_PORT",      "5432")),
     "dbname":   os.getenv("PG_ADMIN_DB",      "postgres"),
     "user":     os.getenv("PG_ADMIN_USER",    "ats_user"),
     "password": os.getenv("PG_ADMIN_PASS",    "ats_password"),

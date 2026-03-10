@@ -68,7 +68,7 @@ _REGISTRY_PATH = _BASE_DIR / "tenant_registry.json"
 _DEFAULT_SLUG = "star_hospital"
 _DEFAULT_CFG  = {
     "host":            os.getenv("PG_HOST",     "localhost"),
-    "port":            int(os.getenv("PG_PORT", "5434")),
+    "port":            int(os.getenv("PG_PORT", "5432")),
     "dbname":          os.getenv("PG_DB",       "hospital_ai"),
     "user":            os.getenv("PG_USER",     "ats_user"),
     "password":        os.getenv("PG_PASSWORD", "ats_password"),
@@ -120,7 +120,7 @@ def _registry_cfg(slug: str, registry: Optional[dict] = None) -> Optional[dict]:
     db_name = info.get("db_name") or f"srp_{slug}"
     return {
         "host":            info.get("db_host", "localhost"),
-        "port":            int(info.get("db_port", 5434)),
+        "port":            int(info.get("db_port", 5432)),
         "dbname":          db_name,
         "user":            info.get("db_user", "ats_user"),
         "password":        os.getenv("PG_PASSWORD", "ats_password"),

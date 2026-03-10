@@ -1288,16 +1288,19 @@
                     document.getElementById('pendingApprovals').textContent = pending;
                     
                     // Update recent appointments
-                    if (data.appointments && data.appointments.length > 0) {
-                        const recentRows = data.appointments.slice(0, 5).map(a => `
+                    const recentAppts = (data.appointments || []).slice(0, 5);
+                    if (recentAppts.length > 0) {
+                        const recentRows = recentAppts.map(a => `
                             <tr>
                                 <td>${a.name || 'N/A'}</td>
                                 <td>${a.doctor || 'N/A'}</td>
-                                <td>${a.time || 'N/A'}</td>
+                                <td>${a.time || a.appointment_time || a.timestamp || 'N/A'}</td>
                                 <td><span class="badge ${a.status || 'pending'}">${a.status || 'Pending'}</span></td>
                             </tr>
                         `).join('');
                         document.getElementById('recentAppointmentsBody').innerHTML = recentRows;
+                    } else {
+                        document.getElementById('recentAppointmentsBody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No appointments yet</td></tr>';
                     }
                     
                     // Update appointments management table
@@ -2757,7 +2760,7 @@
             ]);
         }
 
-
+        async function adminNsLoad() {
             const msgEl  = document.getElementById('adminNsLoadMsg');
             const formEl = document.getElementById('adminNsForm');
             msgEl.textContent = 'Loading…';

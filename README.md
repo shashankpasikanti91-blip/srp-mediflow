@@ -3,9 +3,34 @@
 > **Enterprise-grade multi-tenant HMS SaaS for Indian hospitals**
 > OPD · IPD · Pharmacy · Surgery · GST Billing · UHID · PDF Reports · AI Chatbot · Multi-Tenant
 
-**Version:** `6.1 SaaS` | **Updated:** March 2026
+**Version:** `6.2 SaaS` | **Updated:** January 2026
 **Platform:** `mediflow.srpailabs.com` | **Port:** `7500`
 **Server:** Hetzner VPS (Ubuntu) | **DNS:** Cloudflare Wildcard | **Domain:** Namecheap
+
+---
+
+## 🔧 v6.2 Fixes & Improvements (Latest)
+
+| Fix | File(s) | Impact |
+|-----|---------|--------|
+| `get_connection()` now respects tenant thread-local | `db.py` | **All non-star-hospital logins now work** |
+| Default PG_PORT changed from `5434` → `5432` | `platform_db.py`, `tenant_router.py`, `db.py`, `srp_mediflow_tenant.py` | Correct PostgreSQL port on all environments |
+| `admin_dashboard.html` missing `adminNsLoad()` | `admin_dashboard.html` | Admin namespace tab navigation fixed |
+| All tenant passwords reset + lockouts cleared | `_fix_and_seed_all_tenants.py` | All 5 demo clients fully operable |
+| tenant_registry.json passwords corrected | `tenant_registry.json` | Registry matches actual DB hashes |
+| Demo data seeded for all 5 tenants | `_fix_and_seed_all_tenants.py` | doctors, patients, medicines, billing, lab, IPD, surgery per tenant |
+
+### Multi-tenant E2E Audit Results (v6.2)
+
+| Tenant | Login | API (16 endpoints) | DB Data | Isolation |
+|--------|-------|--------------------|---------|-----------|
+| Star Hospital | ✅ | 16/16 ✅ | 8 docs, 8 pts, 23 meds | ✅ |
+| Sai Care Hospital | ✅ | 16/16 ✅ | 3 docs, 7 pts, 10 meds | ✅ |
+| City Medical Centre | ✅ | 16/16 ✅ | 3 docs, 7 pts, 10 meds | ✅ |
+| Apollo Clinic Warangal | ✅ | 16/16 ✅ | 3 docs, 7 pts, 10 meds | ✅ |
+| Green Cross Hospital | ✅ | 16/16 ✅ | 3 docs, 7 pts, 10 meds | ✅ |
+
+> **Data isolation verified**: Patient phones are unique per tenant DB — no cross-tenant data leakage.
 
 ---
 

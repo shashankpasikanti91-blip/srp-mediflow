@@ -95,7 +95,7 @@ def _get_tenant_cfg(slug: str) -> dict:
                 return DB_CONFIG
             return {
                 'host':            info.get('db_host', 'localhost'),
-                'port':            int(info.get('db_port', 5434)),
+                'port':            int(info.get('db_port', 5432)),
                 'dbname':          info.get('db_name', 'hospital_ai'),
                 'user':            info.get('db_user', 'ats_user'),
                 'password':        os.getenv('PG_PASSWORD', 'ats_password'),
@@ -201,7 +201,8 @@ def get_connection():
     Returns None if the database is unreachable.
     """
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        cfg = getattr(_tenant_local, 'db_config', None) or DB_CONFIG
+        conn = psycopg2.connect(**cfg)
         conn.autocommit = False
         return conn
     except Exception as e:
