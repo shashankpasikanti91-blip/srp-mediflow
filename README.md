@@ -173,19 +173,54 @@ python srp_mediflow_server.py
 
 ## 🔑 Default Credentials
 
-| Role | Username | Password | Portal URL |
-|------|----------|----------|------------|
-| Platform Founder | `founder` | `Srp@Founder2026!` | `mediflow.srpailabs.com/founder` |
-| Star Hospital Admin | `star_hospital_admin` | `Star@Admin2026!` | `star-hospital.mediflow.srpailabs.com` |
-| Star Hospital Doctor | `star_hospital_doctor` | `Doctor@star2026!` | `star-hospital.mediflow.srpailabs.com` |
-| Star Hospital Nurse | `star_hospital_nurse` | `Nurse@star2026!` | `star-hospital.mediflow.srpailabs.com` |
-| Sai Care Admin | `sai_care_admin` | `Sai_@Admin2026!` | `saicare.mediflow.srpailabs.com` |
-| City Medical Admin | `city_medical_admin` | `City@Admin2026!` | `city.mediflow.srpailabs.com` |
-| Apollo Admin | `apollo_warangal_admin` | `Apol@Admin2026!` | `apollo.mediflow.srpailabs.com` |
-| Green Cross Admin | `green_cross_admin` | `Gree@Admin2026!` | `greencross.mediflow.srpailabs.com` |
+### 🔑 Platform Founder
+| Role | Username | Password | Dashboard |
+|------|----------|----------|-----------|
+| Platform Founder | `founder` | `Srp@Founder2026!` | `/founder` |
 
-> Passwords are **bcrypt-hashed** — never stored in plaintext.
-> Full list after running `setup_logins.py` → `ADMIN_LOGIN_CREDENTIALS.md` (local only, gitignored).
+### 🏥 Star Hospital (`hospital_ai` DB)
+| Role | Username | Password | Dashboard |
+|------|----------|----------|-----------|
+| Admin | `star_hospital_admin` | `Star@Admin2026!` | `/admin` |
+| Doctor | `star_hospital_doctor` | `Doctor@Star2026!` | `/doctor` |
+| Nurse | `star_hospital_nurse` | `Nurse@Star2026!` | `/nurse` |
+| Lab | `star_hospital_lab` | `Lab@Star2026!` | `/lab` |
+| Stock | `star_hospital_stock` | `Stock@Star2026!` | `/stock` |
+| Reception | `star_hospital_reception` | `Recep@Star2026!` | `/admin` |
+| Patient Chatbot | — | — | `/chat/star_hospital` |
+
+### 🏥 Sai Care Hospital (`srp_sai_care` DB)
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `sai_care_admin` | `SaiCare@Admin2026!` |
+| Doctor | `sai_care_doctor` | `Doctor@SaiCare2026!` |
+| Nurse | `sai_care_nurse` | `Nurse@SaiCare2026!` |
+| Patient Chatbot | — | `/chat/sai_care` |
+
+### 🏥 City Medical Centre (`srp_city_medical` DB)
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `city_medical_admin` | `CityMed@Admin2026!` |
+| Doctor | `city_medical_doctor` | `Doctor@CityMed2026!` |
+| Patient Chatbot | — | `/chat/city_medical` |
+
+### 🏥 Apollo Clinic Warangal (`srp_apollo_warangal` DB)
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `apollo_warangal_admin` | `Apollo@Admin2026!` |
+| Doctor | `apollo_warangal_doctor` | `Doctor@Apollo2026!` |
+| Patient Chatbot | — | `/chat/apollo_warangal` |
+
+### 🏥 Green Cross Hospital (`srp_green_cross` DB)
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `green_cross_admin` | `GreenCross@Admin2026!` |
+| Doctor | `green_cross_doctor` | `Doctor@GrnCross2026!` |
+| Patient Chatbot | — | `/chat/green_cross` |
+
+> All passwords are **bcrypt-hashed** in PostgreSQL — never stored in plaintext.  
+> Each client has a **completely isolated PostgreSQL database** — data never mixes.  
+> Per-client chatbot URL: `http://localhost:7500/chat/{slug}` — auto-injects hospital branding.
 
 ---
 
@@ -634,6 +669,78 @@ pyngrok           # ngrok tunnel (dev only, optional)
 ---
 
 ## 📝 Changelog
+
+### v6.7 — Full Responsive Dashboards · Founder Mobile · Per-Client Chatbots (March 10, 2026)
+
+#### 📱 All Dashboards Fully Responsive (Mobile / Tablet / Laptop / Desktop)
+- **All 6 dashboards** now have complete `@media` responsive CSS:
+  - `admin_dashboard.html` — compact 13px base, sidebar collapses to horizontal scroll strip on mobile, stat cards stack to 2-col then 1-col
+  - `doctor_dashboard.html` — sidebar becomes horizontal tab strip at ≤900px; tables scroll horizontally
+  - `nurse_dashboard.html` — same responsive pattern with teal color theme
+  - `lab_dashboard.html` — same responsive pattern with purple theme
+  - `stock_dashboard.html` — stat grid reduces 3→2→1 col; form grids stack to single column
+  - `founder_dashboard.html` — full mobile treatment: header stacks, tabs become horizontal scroll strip, cards go to 1-col at 600px
+- Breakpoints: desktop (>900px full layout) → tablet (900px sidebar collapses) → mobile (600px topbar stacks) → small phone (380px minimal UI)
+
+#### 🤖 Per-Client Chatbot URLs (Confirmed Working)
+- Each hospital has its own dedicated chatbot: `http://localhost:7500/chat/{slug}`
+  - Star Hospital → `/chat/star_hospital`
+  - Sai Care → `/chat/sai_care`
+  - City Medical → `/chat/city_medical`
+  - Apollo Warangal → `/chat/apollo_warangal`
+  - Green Cross → `/chat/green_cross`
+- Server injects `window.TENANT_SLUG = "{slug}"` → `/api/config` loads correct hospital name/branding automatically
+- On mobile: renders as WhatsApp-style chat (green bubbles, bottom input bar)
+
+#### 👑 Founder Dashboard Access Verified
+- Login: `founder` / `Srp@Founder2026!` → redirects to `/founder`
+- Sees: all 5 client cards, system status, platform-wide stats, data isolation test runner
+- CANNOT see any patient data — hard-blocked at route level
+- Fully responsive on mobile
+
+#### 🔑 All Credentials Reset & Verified
+- All passwords for all 5 clients + founder reset to known values (bcrypt re-hashed)
+- Tested: founder ✅, star_hospital_admin ✅, all other clients ✅
+
+---
+
+### v6.6 — 5 Fake Clients · WhatsApp Mobile Chatbot · Layout Compact · Cleanup (March 10, 2026)
+
+#### 🏥 5 Separate Tenant Databases Provisioned
+- **5 isolated PostgreSQL databases** created and seeded:
+  - `hospital_ai` — Star Hospital, Khammam (5 appointments, 16 pharmacy items)
+  - `srp_sai_care` — Sai Care Hospital, Khammam (3 appointments)
+  - `srp_city_medical` — City Medical Centre, Hyderabad (3 appointments)
+  - `srp_apollo_warangal` — Apollo Clinic Warangal (3 appointments)
+  - `srp_green_cross` — Green Cross Hospital, Vijayawada (3 appointments)
+- Each DB has 6 staff users: admin, doctor, nurse, lab, stock, reception
+- **Data isolation verified**: Star Hospital patients never appear in Sai Care dashboard and vice versa
+- `_provision_demo_clients.py` port fixed: 5434 → 5432 (Windows PostgreSQL)
+
+#### 📱 WhatsApp-Style Mobile Chatbot (`style.css`)
+- At ≤768px, the patient chatbot transforms to WhatsApp-style UI:
+  - Bot messages: white left bubble with left-pointing tail
+  - Patient messages: `#DCF8C6` green right bubble (WhatsApp sent colour)
+  - Quick action buttons: horizontal scroll chips in WhatsApp teal (`#075E54`)
+  - Bottom input bar: circular Send button (➤), circular mic button, full-width text field
+  - Header changes to WhatsApp dark green `#075E54`
+  - Info sidebar hidden on mobile — chat takes full screen
+  - Modal becomes fullscreen on mobile
+  - Extra-small phones (<380px): language buttons hidden to save space
+- Desktop view unchanged — only applies at ≤768px
+
+#### 🗜️ Admin Dashboard Compact Layout
+- Base font reduced from 16px → 13px (`html { font-size: 13px }`)
+- Sidebar width 250px → 200px, padding reduced
+- Table cell padding 12px → 8px, font 14px → 12px
+- Stat cards: number 32px → 26px, padding tightened
+- Reduces need to zoom out to 70% — fits comfortably at 100% on standard screens
+
+#### 🧹 Folder Cleanup
+- `.gitignore` updated to exclude: `_e2e_test_*.py`, `_seed_demo_records.py`, `test_results*.txt`, `apidata.json`
+- All `srvout_*.txt` / `srverr_*.txt` already gitignored
+
+---
 
 ### v6.3 — Click Actions · AI Messages · Date Field · Branding · Demo Data (March 2026)
 

@@ -78,5 +78,9 @@ _fix_*.py
 _reset_*.py
 _test_*.py
 _provision_*.py
+_e2e_test_*.py
+_seed_demo_records.py
 pre_deploy_test.py
 run_all_checks.py
+test_results*.txt
+apidata.json

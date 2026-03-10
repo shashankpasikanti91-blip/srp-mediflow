@@ -531,3 +531,244 @@ body {
 .sidebar::-webkit-scrollbar-thumb:hover {
     background: #555;
 }
+
+/* ═══════════════════════════════════════════════════════
+   WHATSAPP-STYLE MOBILE CHATBOT  (≤ 768px)
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    html, body { overflow: hidden; height: 100%; }
+
+    .container {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;          /* dynamic viewport height — avoids iOS bar */
+        height: 100vh;           /* fallback */
+        background: #ECE5DD;     /* WhatsApp chat bg */
+    }
+
+    /* ── SLIM MOBILE HEADER ── */
+    .header {
+        padding: 10px 14px;
+        flex-shrink: 0;
+        background: #075E54;     /* WhatsApp dark green */
+        min-height: 56px;
+    }
+
+    .header .hospital-info h1 { font-size: 16px; margin: 0; }
+    .header .hospital-info p  { font-size: 10px; opacity: 0.9; }
+
+    .header-controls {
+        gap: 8px;
+    }
+    .lang-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        border-radius: 14px;
+    }
+    .admin-btn {
+        padding: 4px 8px;
+        font-size: 10px;
+        border-radius: 14px;
+    }
+
+    /* ── HIDE SIDEBAR ON MOBILE ── */
+    .sidebar { display: none !important; }
+
+    /* ── CONTENT FILLS REMAINING HEIGHT ── */
+    .content {
+        flex: 1;
+        padding: 0;
+        gap: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ── CHAT AREA ── */
+    .chat-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        overflow: hidden;
+    }
+
+    /* ── MESSAGES SCROLL AREA ── */
+    .messages-container {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 12px 10px 8px;
+        gap: 6px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── BOT BUBBLE — left, white (WhatsApp incoming) ── */
+    .bot-message {
+        align-self: flex-start;
+        background: #FFFFFF;
+        color: #333;
+        border-radius: 0 12px 12px 12px;
+        padding: 10px 14px 6px;
+        max-width: 82%;
+        box-shadow: 0 1px 2px rgba(0,0,0,.15);
+        font-size: 14px;
+        line-height: 1.45;
+        position: relative;
+    }
+    .bot-message::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -7px;
+        width: 0; height: 0;
+        border-style: solid;
+        border-width: 0 8px 8px 0;
+        border-color: transparent #fff transparent transparent;
+    }
+
+    /* ── USER BUBBLE — right, green (WhatsApp outgoing) ── */
+    .user-message {
+        align-self: flex-end;
+        background: #DCF8C6;     /* WhatsApp sent green */
+        color: #1a1a1a;
+        border-radius: 12px 0 12px 12px;
+        padding: 10px 14px 6px;
+        max-width: 82%;
+        box-shadow: 0 1px 2px rgba(0,0,0,.15);
+        font-size: 14px;
+        line-height: 1.45;
+        position: relative;
+    }
+    .user-message::after {
+        content: '';
+        position: absolute;
+        top: 0; right: -7px;
+        width: 0; height: 0;
+        border-style: solid;
+        border-width: 8px 8px 0 0;
+        border-color: #DCF8C6 transparent transparent transparent;
+    }
+
+    .message small {
+        font-size: 10px;
+        color: #8a8a8a;
+        display: block;
+        text-align: right;
+        margin-top: 4px;
+    }
+
+    /* ── QUICK ACTIONS — horizontal scroll chips ── */
+    .quick-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 8px;
+        padding: 8px 10px;
+        overflow-x: auto;
+        background: rgba(236,229,221,0.95);
+        border-top: 1px solid #d1cdc8;
+        flex-shrink: 0;
+        scrollbar-width: none;   /* hide scrollbar */
+    }
+    .quick-actions::-webkit-scrollbar { display: none; }
+    .action-btn {
+        flex-shrink: 0;
+        padding: 8px 16px;
+        font-size: 13px;
+        border-radius: 20px;
+        background: #fff;
+        border: 1.5px solid #075E54;
+        color: #075E54;
+        white-space: nowrap;
+        min-height: 36px;
+    }
+    .action-btn:hover, .action-btn:active {
+        background: #075E54;
+        color: #fff;
+    }
+    .action-btn.emergency-btn {
+        border-color: #e53935;
+        color: #e53935;
+    }
+    .action-btn.emergency-btn:hover, .action-btn.emergency-btn:active {
+        background: #e53935;
+        color: #fff;
+    }
+
+    /* ── BOTTOM INPUT BAR ── */
+    .input-area {
+        display: flex;
+        gap: 8px;
+        padding: 8px 10px;
+        background: #F0F0F0;
+        border-top: 1px solid #d1cdc8;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    .voice-btn {
+        flex-shrink: 0;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 20px;
+        background: #128C7E;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .voice-btn::before { content: '🎤'; font-size: 18px; }
+    /* hide text inside voice button on mobile */
+    .voice-btn { font-size: 0; }
+    .voice-btn::before { font-size: 18px; }
+
+    #messageInput {
+        flex: 1;
+        background: #fff;
+        border: none;
+        border-radius: 22px;
+        padding: 11px 16px;
+        font-size: 15px;
+        outline: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1);
+        -webkit-appearance: none;
+    }
+    .send-btn {
+        flex-shrink: 0;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        padding: 0;
+        font-size: 0;          /* hide "Send" text */
+        background: #128C7E;
+        color: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .send-btn::before { content: '➤'; font-size: 18px; color: #fff; }
+
+    #voiceStatus { font-size: 10px; padding: 2px 10px; }
+
+    /* ── MODAL — fullscreen on mobile ── */
+    .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100dvh;
+        height: 100vh;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        overflow-y: auto;
+        padding: 16px !important;
+    }
+    .modal { align-items: flex-start !important; }
+}
+
+/* Extra-small phones (< 380px) */
+@media (max-width: 380px) {
+    .header .hospital-info h1 { font-size: 14px; }
+    .lang-btn, .admin-btn { display: none; }
+    .bot-message, .user-message { max-width: 90%; font-size: 13px; }
+}
+
