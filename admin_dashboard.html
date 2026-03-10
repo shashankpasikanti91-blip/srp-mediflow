@@ -1023,66 +1023,106 @@
             <!-- ── NOTIFICATION SETTINGS section ──────────────────────── -->
             <div id="notif-settings" class="section">
                 <h2>🔔 Notification Settings</h2>
-                <div class="table-container" style="max-width:900px;">
-                  <p style="color:#6b7280;margin-bottom:20px;font-size:.9rem;">
-                    Configure Telegram and WhatsApp notifications for patient alerts.
-                    Telegram is active by default. WhatsApp can be activated by entering credentials below.
-                  </p>
+                <div class="table-container" style="max-width:960px;">
+
+                  <!-- HOW IT WORKS banner -->
+                  <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.88rem;color:#1e40af;">
+                    <strong>How it works:</strong> Hospital admin sets the hospital's own Telegram bot token
+                    (created via <strong>@BotFather</strong>). Patients and staff <em>never</em> provide API keys —
+                    the system sends messages <strong>FROM your hospital bot TO</strong> staff group chats and
+                    individual patient phones automatically.
+                  </div>
+
                   <div id="adminNsLoadMsg" style="color:#888;font-size:.88rem;margin-bottom:8px;">Loading…</div>
                   <div id="adminNsForm" style="display:none;">
-                    <h3 style="margin-bottom:12px;">Active Channel</h3>
-                    <div style="display:flex;gap:20px;margin-bottom:24px;">
-                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
-                        <input type="radio" name="adminProvType" value="telegram" id="adminProvTg"> 📱 Telegram
-                      </label>
-                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
-                        <input type="radio" name="adminProvType" value="whatsapp" id="adminProvWa"> 💬 WhatsApp
-                      </label>
-                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
-                        <input type="radio" name="adminProvType" value="none" id="adminProvNone"> ❌ Disabled
-                      </label>
-                    </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
-                      <div>
-                        <h3 style="color:#0088cc;margin-bottom:12px;">📱 Telegram</h3>
-                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Bot Token</label>
-                        <input id="adminNsTgToken" type="password" placeholder="Leave blank to keep existing"
-                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
-                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Chat ID</label>
-                        <input id="adminNsTgChatId" type="text"
-                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                    <!-- BOT CREDENTIALS -->
+                    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:16px 18px;margin-bottom:22px;">
+                      <h3 style="color:#0369a1;margin-bottom:10px;">🤖 Hospital Bot Token (Single bot for all messages)</h3>
+                      <p style="font-size:.82rem;color:#64748b;margin-bottom:10px;">
+                        One bot sends ALL notifications — staff alerts + patient updates.<br>
+                        Create bot: Telegram → search <strong>@BotFather</strong> → /newbot → copy token here.
+                      </p>
+                      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;">
+                        <input id="adminNsTgToken" type="password"
+                               placeholder="e.g. 8575178795:AAHjNz-… (leave blank to keep saved)"
+                               style="padding:9px 12px;border:1px solid #7dd3fc;border-radius:7px;font-size:.87rem;width:100%;box-sizing:border-box;">
                         <button onclick="adminNsTest('telegram')"
-                                style="font-size:.82rem;padding:6px 16px;border:1px solid #0088cc;color:#0088cc;
-                                       background:#fff;border-radius:6px;cursor:pointer;">▶ Send Test</button>
+                                style="padding:9px 18px;background:#0088cc;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:.85rem;white-space:nowrap;">&#9658; Test Bot</button>
                       </div>
-                      <div>
-                        <h3 style="color:#25d366;margin-bottom:12px;">💬 WhatsApp</h3>
-                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Base URL</label>
-                        <input id="adminNsWaUrl" type="text" placeholder="https://…"
-                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
-                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Key / SID</label>
-                        <input id="adminNsWaKey" type="password"
-                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
-                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Sender Number</label>
-                        <input id="adminNsWaSender" type="text" placeholder="+1415XXXXXXX"
-                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                      <p style="font-size:.78rem;color:#94a3b8;margin-top:6px;">Saved token is masked — enter a new one only to change it.</p>
+                    </div>
+
+                    <!-- STAFF | PATIENT split -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:22px;">
+
+                      <!-- STAFF ALERTS -->
+                      <div style="background:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:16px;">
+                        <h3 style="color:#92400e;margin-bottom:6px;">🏥 Staff Alerts</h3>
+                        <p style="font-size:.8rem;color:#78350f;margin-bottom:12px;">
+                          Add your hospital bot to a staff Telegram group, then paste that group's Chat ID below.
+                          All staff see emergency alerts instantly.
+                        </p>
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Staff Group Chat ID</label>
+                        <input id="adminNsTgChatId" type="text" placeholder="e.g. -1001234567890 (group) or 7144152487 (personal)"
+                               style="width:100%;padding:8px;border:1px solid #fcd34d;border-radius:6px;margin-bottom:14px;font-size:.85rem;box-sizing:border-box;">
+                        <p style="font-size:.8rem;font-weight:600;color:#92400e;margin-bottom:8px;">Staff receives:</p>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="alertEmergency" checked> 🚨 Emergency / critical admission</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="alertIcu" checked> 🩺 ICU / high-risk patient status change</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="alertLowStock" checked> 💊 Pharmacy low stock / expiry warning</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsOnAppt" checked> 📋 New appointment booked</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsDaily" checked> 📊 Daily summary (end of day)</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="alertUrgentLab"> 🧪 Urgent lab result flagged</label>
+                        </div>
+                      </div>
+
+                      <!-- PATIENT NOTIFICATIONS -->
+                      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px;">
+                        <h3 style="color:#14532d;margin-bottom:6px;">👤 Patient Notifications</h3>
+                        <p style="font-size:.8rem;color:#166534;margin-bottom:12px;">
+                          Sent FROM your hospital bot TO each patient's Telegram automatically.<br>
+                          <strong>Patient setup:</strong> patient searches your bot (@hosagent_bot) and sends any message — then the system can reach them.
+                        </p>
+                        <p style="font-size:.8rem;font-weight:600;color:#14532d;margin-bottom:8px;">Patients automatically receive:</p>
+                        <div style="display:flex;flex-direction:column;gap:8px;">
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsOnApptConf" checked> ✅ Appointment booking confirmation</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="notifApptReminder" checked> ⏰ Appointment reminder (1 day before)</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="notifFollowup" checked> 🔄 Follow-up reminder (doctor sets: 10 days / 1 month etc.)</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsOnRx" checked> 💊 Prescription ready for collection</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsOnLab" checked> 🧪 Lab results ready to view</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="notifBill" checked> 🧾 Bill / payment receipt</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="adminNsOnDis" checked> 🏠 Discharge summary + home-care tips</label>
+                          <label style="display:flex;align-items:center;gap:7px;font-size:.85rem;cursor:pointer;"><input type="checkbox" id="notifMedReminder"> 💉 Medication dose reminder</label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- WhatsApp row -->
+                    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px 18px;margin-bottom:22px;">
+                      <h3 style="color:#15803d;margin-bottom:8px;">💬 WhatsApp Business (optional — for patients without Telegram)</h3>
+                      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Base URL</label>
+                          <input id="adminNsWaUrl" type="text" placeholder="https://api.twilio.com/…"
+                                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;box-sizing:border-box;">
+                        </div>
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Key / SID</label>
+                          <input id="adminNsWaKey" type="password" placeholder="Bearer token or SID:auth"
+                                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;box-sizing:border-box;">
+                        </div>
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Sender Number</label>
+                          <input id="adminNsWaSender" type="text" placeholder="+91XXXXXXXXXX"
+                                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;box-sizing:border-box;">
+                        </div>
                         <button onclick="adminNsTest('whatsapp')"
-                                style="font-size:.82rem;padding:6px 16px;border:1px solid #25d366;color:#25d366;
-                                       background:#fff;border-radius:6px;cursor:pointer;">▶ Send Test</button>
+                                style="padding:9px 14px;background:#25d366;color:#fff;border:none;border-radius:7px;cursor:pointer;font-size:.85rem;">&#9658; Test</button>
                       </div>
                     </div>
 
-                    <h3 style="margin-bottom:12px;">Alert Events</h3>
-                    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
-                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnAppt"> On Appointment</label>
-                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnRx"> On Prescription</label>
-                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnLab"> On Lab Result</label>
-                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnDis"> On Discharge</label>
-                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsDaily"> Daily Summary</label>
-                    </div>
-
-                    <button class="btn btn-success" style="padding:10px 24px;" onclick="adminNsSave()">💾 Save Settings</button>
+                    <button class="btn btn-success" style="padding:10px 28px;font-size:.95rem;" onclick="adminNsSave()">💾 Save All Settings</button>
                     <div id="adminNsMsg" style="margin-top:10px;font-size:.88rem;"></div>
 
                     <!-- ✨ AI Message Generator -->
@@ -2128,18 +2168,19 @@
                 tbody.innerHTML = inv.map(i=>{
                     const lowStyle = i.low_stock ? 'color:#e74c3c;font-weight:bold;' : '';
                     const expStyle = i.near_expiry ? 'color:#e74c3c;' : '';
-                    return `<tr>
+                    const safeI = encodeURIComponent(JSON.stringify(i));
+                    return `<tr style="cursor:pointer;" onclick="viewStockItem('${safeI}')" title="Click to view details">
                         <td><strong>${i.medicine_name}</strong><br><small style="color:#888;">${i.generic_name||''}</small></td>
                         <td>${i.batch_number||i.batch_no||'-'}</td>
                         <td style="${expStyle}">${i.expiry_date||'-'}</td>
                         <td style="${lowStyle}">${i.quantity}</td>
                         <td>${i.min_quantity}</td>
-                        <td>₹${parseFloat(i.sell_price||0).toFixed(2)}</td>
+                        <td>&#8377;${parseFloat(i.sell_price||0).toFixed(2)}</td>
                         <td>${i.supplier||'-'}</td>
                         <td>
-                            ${i.low_stock?'<span class="badge pending">⚠️ Low</span>':''}
-                            ${i.near_expiry?'<span class="badge pending">📅 Expiry</span>':''}
-                            ${!i.low_stock&&!i.near_expiry?'<span class="badge confirmed">✅ OK</span>':''}
+                            ${i.low_stock?'<span class="badge pending">&#9888; Low</span>':''}
+                            ${i.near_expiry?'<span class="badge pending">&#128197; Expiry</span>':''}
+                            ${!i.low_stock&&!i.near_expiry?'<span class="badge confirmed">&#10003; OK</span>':''}
                         </td>
                     </tr>`;
                 }).join('');
@@ -2653,7 +2694,31 @@
             ]);
         }
 
-        async function adminNsLoad() {
+        function viewStockItem(encoded) {
+            const i = JSON.parse(decodeURIComponent(encoded));
+            const daysToExpiry = i.expiry_date
+                ? Math.round((new Date(i.expiry_date) - new Date()) / 86400000) : null;
+            const expiryLabel = daysToExpiry !== null
+                ? i.expiry_date + (daysToExpiry <= 0 ? ' (EXPIRED)' : daysToExpiry <= 90 ? ` (${daysToExpiry} days left ⚠️)` : ` (${daysToExpiry} days left)`)
+                : '-';
+            const stockStatus = i.low_stock ? 'LOW STOCK - Reorder Required' : 'OK';
+            _showDetailModal('💊 Stock Details — ' + i.medicine_name, [
+                ['Medicine', i.medicine_name],
+                ['Generic Name', i.generic_name || '-'],
+                ['Category', i.category || '-'],
+                ['Unit', i.unit || '-'],
+                ['Batch No.', i.batch_number || i.batch_no || '-'],
+                ['Expiry Date', expiryLabel],
+                ['Current Qty', i.quantity],
+                ['Min Qty (Reorder Level)', i.min_quantity],
+                ['Purchase Price', i.purchase_price ? '₹' + parseFloat(i.purchase_price).toFixed(2) : '-'],
+                ['Selling Price', '₹' + parseFloat(i.sell_price||0).toFixed(2)],
+                ['Supplier', i.supplier || '-'],
+                ['Stock Status', stockStatus]
+            ]);
+        }
+
+
             const msgEl  = document.getElementById('adminNsLoadMsg');
             const formEl = document.getElementById('adminNsForm');
             msgEl.textContent = 'Loading…';

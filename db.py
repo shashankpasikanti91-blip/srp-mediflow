@@ -2621,10 +2621,11 @@ def get_low_stock_alerts(threshold: int = None) -> list:
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            """SELECT s.id, m.medicine_name, s.batch_number, s.batch_no,
+            """SELECT s.stock_id AS id, m.medicine_name, s.batch_no,
+                      s.batch_no AS batch_number,
                       s.quantity, s.min_quantity, s.expiry_date,
                       s.sell_price, s.supplier
-               FROM inventory_stock s
+               FROM pharmacy_stock s
                JOIN medicines m ON m.id = s.medicine_id
                WHERE s.quantity <= s.min_quantity
                ORDER BY s.quantity ASC"""
@@ -2645,16 +2646,16 @@ def get_expiry_alerts(days_ahead: int = 90) -> list:
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            """SELECT s.id, m.medicine_name, s.batch_number, s.batch_no,
+            f"""SELECT s.stock_id AS id, m.medicine_name, s.batch_no,
+                      s.batch_no AS batch_number,
                       s.quantity, s.expiry_date, s.sell_price, s.supplier,
                       (s.expiry_date - CURRENT_DATE) AS days_to_expiry
-               FROM inventory_stock s
+               FROM pharmacy_stock s
                JOIN medicines m ON m.id = s.medicine_id
                WHERE s.expiry_date IS NOT NULL
-                 AND s.expiry_date <= CURRENT_DATE + INTERVAL '%s days'
+                 AND s.expiry_date <= CURRENT_DATE + INTERVAL '{days_ahead} days'
                  AND s.quantity > 0
-               ORDER BY s.expiry_date ASC""",
-            (days_ahead,)
+               ORDER BY s.expiry_date ASC"""
         )
         rows = cur.fetchall()
         cur.close(); conn.close()
@@ -2705,14 +2706,15 @@ def get_full_inventory() -> list:
     try:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            """SELECT s.id, m.medicine_name, m.generic_name, m.category, m.unit,
-                      s.batch_number, s.batch_no, s.expiry_date, s.quantity,
-                      s.min_quantity, s.purchase_price, s.sell_price,
+            """SELECT s.stock_id AS id, m.medicine_name, m.generic_name, m.category, m.unit,
+                      s.batch_no AS batch_number, s.batch_no, s.expiry_date, s.quantity,
+                      s.min_quantity, s.unit_price AS purchase_price, s.sell_price,
                       s.supplier, s.updated_at,
                       CASE WHEN s.quantity <= s.min_quantity THEN TRUE ELSE FALSE END AS low_stock,
-                      CASE WHEN s.expiry_date <= CURRENT_DATE + INTERVAL '90 days'
+                      CASE WHEN s.expiry_date IS NOT NULL
+                           AND s.expiry_date <= CURRENT_DATE + INTERVAL '90 days'
                            AND s.quantity > 0 THEN TRUE ELSE FALSE END AS near_expiry
-               FROM inventory_stock s
+               FROM pharmacy_stock s
                JOIN medicines m ON m.id = s.medicine_id
                ORDER BY m.medicine_name, s.expiry_date"""
         )
