@@ -134,6 +134,21 @@ except ImportError:
 
 # ── SaaS modules ──────────────────────────────────────────────────────────────
 try:
+    from notifications.service import NotificationService as _NotifService
+    _NOTIF_SERVICE_AVAILABLE = True
+except ImportError:
+    _NOTIF_SERVICE_AVAILABLE = False
+    class _NotifService:   # noqa: E701
+        def __init__(self, *a, **kw): pass
+        def appointment_confirmed(self, *a, **kw): pass
+        def prescription_created(self, *a, **kw): pass
+        def lab_result_ready(self, *a, **kw): pass
+        def follow_up_reminder(self, *a, **kw): pass
+        def discharge_completed(self, *a, **kw): pass
+        def daily_summary(self, *a, **kw): pass
+        def test_send(self, *a, **kw): return {"status": "skipped", "error": "notif module unavailable"}
+
+try:
     from saas_logging import system_log as _sys_log, security_log as _sec_log, \
         login_log as _login_log, error_log as _error_log, \
         tenant_access_log as _tenant_log
@@ -234,6 +249,7 @@ try:
     from pdf_generator import (
         generate_opd_pdf, generate_discharge_pdf,
         generate_pharmacy_bill_pdf, generate_invoice_pdf,
+        generate_digital_prescription_pdf,
         content_type as pdf_content_type, is_real_pdf,
     )
     _PDF_AVAILABLE = True
@@ -243,6 +259,7 @@ except ImportError:
     def generate_discharge_pdf(d): return b""
     def generate_pharmacy_bill_pdf(d): return b""
     def generate_invoice_pdf(d): return b""
+    def generate_digital_prescription_pdf(d): return b""
     def pdf_content_type(): return "application/pdf"
     def is_real_pdf(): return False
 
@@ -1008,6 +1025,41 @@ class Handler(BaseHTTPRequestHandler):
                 except (ValueError, IndexError):
                     self.send_json({'error': 'Invalid patient_id'}, 400)
 
+        # /api/patient/{id}/timeline  – full history on one screen (v6.1)
+        elif path.startswith('/api/patient/') and path.endswith('/timeline'):
+            if self.require_role('ADMIN', 'DOCTOR', 'NURSE', 'RECEPTION'):
+                try:
+                    patient_id = int(path.split('/')[3])
+                    self.send_json(_hms.get_patient_timeline(patient_id))
+                except (ValueError, IndexError):
+                    self.send_json({'error': 'Invalid patient_id'}, 400)
+
+        # /api/visit/{id}  – single visit with prescription
+        elif path.startswith('/api/visit/') and not path.endswith('/create'):
+            if self.require_role('ADMIN', 'DOCTOR', 'NURSE', 'RECEPTION'):
+                try:
+                    visit_id = int(path.split('/')[-1])
+                    self.send_json(_hms.get_visit_with_prescription(visit_id))
+                except (ValueError, IndexError):
+                    self.send_json({'error': 'Invalid visit_id'}, 400)
+
+        # /api/visits  – list visits (query: ?patient_id=&doctor_username=&date_from=&limit=)
+        elif path.startswith('/api/visits'):
+            if self.require_role('ADMIN', 'DOCTOR', 'NURSE', 'RECEPTION'):
+                from urllib.parse import parse_qs, urlparse as _up
+                qs  = parse_qs(_up(self.path).query)
+                pid = qs.get('patient_id', [None])[0]
+                doc = qs.get('doctor_username', [None])[0]
+                df  = qs.get('date_from', [None])[0]
+                lim = int(qs.get('limit', [50])[0])
+                visits = _hms.list_visits(
+                    patient_id=int(pid) if pid else None,
+                    doctor_username=doc,
+                    date_from=df,
+                    limit=lim
+                )
+                self.send_json({'visits': visits, 'count': len(visits)})
+
         # ── 2. Billing Module ─────────────────────────────────────────────────
         elif path.startswith('/api/billing/invoice/'):
             if self.require_role('ADMIN', 'RECEPTION'):
@@ -1153,6 +1205,136 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'results': results, 'count': len(results), 'query': q, 'field': field})
 
         # ── PDF downloads ─────────────────────────────────────────────────────
+        elif path.startswith('/api/pdf/rx/'):
+            # Digital prescription PDF by prescription_id
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION', 'NURSE'):
+                presc_id_str = path.split('/')[-1]
+                try:
+                    presc_id = int(presc_id_str)
+                    rx_data  = _hms.get_full_prescription(presc_id) if _HMS_AVAILABLE else None
+                    if not rx_data:
+                        self.send_json({'error': 'Prescription not found'}, 404)
+                    else:
+                        # Enrich with hospital info
+                        rx_data.setdefault('hospital_name',  os.getenv('HOSPITAL_NAME', 'Hospital'))
+                        rx_data.setdefault('hospital_phone', os.getenv('HOSPITAL_PHONE', ''))
+                        rx_data.setdefault('hospital_address', os.getenv('HOSPITAL_ADDRESS', ''))
+                        pdf_bytes = generate_digital_prescription_pdf(rx_data)
+                        self.send_response(200)
+                        self.send_header('Content-Type', pdf_content_type())
+                        self.send_header('Content-Disposition',
+                                         f'inline; filename="rx-{presc_id}.pdf"')
+                        self.send_header('Content-Length', str(len(pdf_bytes)))
+                        self.end_headers()
+                        self.wfile.write(pdf_bytes)
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid prescription_id'}, 400)
+
+        elif path.startswith('/api/doctor/prescription/visit/'):
+            # Get all prescriptions for a visit
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION', 'NURSE'):
+                visit_id_str = path.split('/')[-1]
+                try:
+                    visit_id = int(visit_id_str)
+                    rxs = _hms.get_prescriptions_by_visit(visit_id) if _HMS_AVAILABLE else []
+                    self.send_json({'prescriptions': rxs, 'count': len(rxs)})
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid visit_id'}, 400)
+
+        elif path.startswith('/api/doctor/prescription/detail/'):
+            # Full prescription detail by prescription_id
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION', 'NURSE'):
+                presc_id_str = path.split('/')[-1]
+                try:
+                    presc_id = int(presc_id_str)
+                    rx = _hms.get_full_prescription(presc_id) if _HMS_AVAILABLE else None
+                    if not rx:
+                        self.send_json({'error': 'Not found'}, 404)
+                    else:
+                        self.send_json({'prescription': rx})
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid id'}, 400)
+
+        elif path == '/api/admin/dashboard/stats':
+            # Enhanced admin dashboard stats
+            if self.require_role('ADMIN', 'FOUNDER'):
+                user = self.get_session_user()
+                tenant = getattr(user, 'tenant_slug', '') if user else ''
+                stats  = _hms.get_dashboard_enhanced_stats(tenant) if _HMS_AVAILABLE else {}
+                self.send_json({'stats': stats})
+
+        elif path == '/api/admin/activity':
+            # Recent activity feed
+            if self.require_role('ADMIN', 'FOUNDER', 'DOCTOR'):
+                from urllib.parse import parse_qs, urlparse as _up2
+                qs = parse_qs(_up2(self.path).query)
+                limit = int((qs.get('limit') or ['20'])[0])
+                feed = _hms.get_recent_activity(limit=limit) if _HMS_AVAILABLE else []
+                self.send_json({'feed': feed})
+
+        elif path == '/api/settings/notifications':
+            # Get notification settings
+            if self.require_role('ADMIN', 'FOUNDER'):
+                user   = self.get_session_user()
+                tenant = (user or {}).get('tenant_slug', '') if user else ''
+                cfg    = _hms.get_notification_settings(tenant) if _HMS_AVAILABLE else {}
+                # Mask sensitive values for display
+                masked = {}
+                sensitive = {'telegram_bot_token', 'whatsapp_api_key'}
+                for k, v in cfg.items():
+                    if k in sensitive and v:
+                        masked[k] = '●' * min(len(v), 8) + v[-4:]
+                    else:
+                        masked[k] = v
+                self.send_json({'settings': masked})
+
+        elif path == '/api/medicines/search':
+            # Medicine autocomplete for prescription UI
+            if self.require_role('ADMIN', 'DOCTOR', 'STOCK', 'NURSE'):
+                from urllib.parse import parse_qs, urlparse as _up3
+                qs = parse_qs(_up3(self.path).query)
+                q  = (qs.get('q') or [''])[0].strip()
+                if not q or len(q) < 1:
+                    self.send_json({'medicines': []})
+                else:
+                    try:
+                        from db import get_connection as _gc
+                        conn = _gc()
+                        cur  = conn.cursor()
+                        cur.execute(
+                            "SELECT id, medicine_name, generic_name, category, unit "
+                            "FROM medicines WHERE medicine_name ILIKE %s "
+                            "ORDER BY medicine_name LIMIT 15",
+                            (f'%{q}%',)
+                        )
+                        rows = cur.fetchall()
+                        conn.close()
+                        meds = [{'id': r[0], 'medicine_name': r[1],
+                                 'generic_name': r[2] or '', 'category': r[3] or '',
+                                 'unit': r[4] or ''} for r in rows]
+                        self.send_json({'medicines': meds})
+                    except Exception:
+                        self.send_json({'medicines': []})
+
+        elif path == '/api/lab/tests/list':
+            # Lab test catalogue for prescription UI
+            if self.require_role('ADMIN', 'DOCTOR', 'LAB'):
+                try:
+                    from db import get_connection as _gc2
+                    conn = _gc2()
+                    cur  = conn.cursor()
+                    cur.execute(
+                        "SELECT id, test_code, test_name, category, price "
+                        "FROM lab_tests WHERE is_active=TRUE ORDER BY test_name LIMIT 100"
+                    )
+                    rows = cur.fetchall()
+                    conn.close()
+                    tests = [{'id': r[0], 'test_code': r[1], 'test_name': r[2],
+                              'category': r[3] or '', 'price': float(r[4] or 0)} for r in rows]
+                    self.send_json({'tests': tests})
+                except Exception:
+                    self.send_json({'tests': []})
+
         elif path.startswith('/api/pdf/prescription/'):
             if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION'):
                 visit_id = path.split('/')[-1]
@@ -1711,6 +1893,12 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_stock_update(data)
         elif path == '/api/doctor/prescription':
             self._handle_hms_prescription(data)  # unified: structured + legacy
+        elif path == '/api/doctor/prescription/create':
+            self._handle_create_digital_prescription(data)
+        elif path == '/api/settings/notifications':
+            self._handle_save_notification_settings(data)
+        elif path == '/api/settings/notifications/test':
+            self._handle_test_notification(data)
         elif path == '/api/doctor/lab/request':
             self.handle_lab_request(data)
         elif path == '/api/nurse/vitals/add':
@@ -1964,6 +2152,39 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     self.send_json(result, 201)
 
+        # ── 1b. Visit / OPD record  (v6.1) ──────────────────────────────────────
+        elif path == '/api/visit/create':
+            if self.require_role('ADMIN', 'RECEPTION', 'DOCTOR', 'NURSE'):
+                user   = self.get_session_user()
+                data['created_by'] = user.get('username', 'reception') if user else 'reception'
+                result = _hms.create_visit(data)
+                if 'error' in result:
+                    self.send_json(result, 400)
+                else:
+                    _sys_log.info(
+                        f"VISIT_CREATED: visit_id={result.get('visit_id')} "
+                        f"patient_id={result.get('patient_id')} "
+                        f"ticket={result.get('ticket_no','')} "
+                        f"by={data.get('created_by','')}"
+                    )
+                    self.send_json(result, 201)
+
+        # ── 1c. IPD Admission / Discharge (v6.1) ─────────────────────────────
+        elif path == '/api/ipd/admit':
+            if self.require_role('ADMIN', 'RECEPTION', 'DOCTOR', 'NURSE'):
+                user = self.get_session_user()
+                data['created_by'] = user.get('username', '') if user else ''
+                result = _hms.admit_patient(data)
+                self.send_json(result, 201 if 'admission_id' in result else 400)
+
+        elif path == '/api/ipd/discharge':
+            if self.require_role('ADMIN', 'DOCTOR'):
+                user = self.get_session_user()
+                data['doctor_username'] = user.get('username', '') if user else ''
+                data['doctor_name']     = user.get('full_name', '') if user else ''
+                result = _hms.discharge_patient(data)
+                self.send_json(result, 200 if 'discharge_summary_id' in result else 400)
+
         # ── 2. Billing ────────────────────────────────────────────────────────
         elif path == '/api/billing/create':
             if self.require_role('ADMIN', 'RECEPTION'):
@@ -2210,6 +2431,123 @@ class Handler(BaseHTTPRequestHandler):
             f"doctor={data.get('doctor_name','')}"
         )
         self.send_json(result, code)
+
+    # ── Digital prescription handler ────────────────────────────────────────
+
+    def _handle_create_digital_prescription(self, data: dict):
+        """POST /api/doctor/prescription/create — full structured digital Rx."""
+        user = self.get_session_user()
+        if not user:
+            self.send_json({'error': 'Authentication required'}, 401)
+            return
+        if user['role'] not in ('DOCTOR', 'ADMIN'):
+            self.send_json({'error': 'Forbidden'}, 403)
+            return
+
+        data['doctor_username'] = user.get('username', '')
+        data['doctor_name']     = user.get('full_name', '') or user.get('username', '')
+
+        # Normalise medicines key: client may send 'medicines' or 'medicines_list'
+        if 'medicines' in data and not data.get('medicines_list'):
+            raw_meds = data['medicines']
+            if isinstance(raw_meds, list):
+                data['medicines_list'] = raw_meds
+            # Don't overwrite medicines column (string) - let create_full_prescription handle
+
+        if not _HMS_AVAILABLE:
+            self.send_json({'error': 'HMS database unavailable'}, 503)
+            return
+
+        result = _hms.create_full_prescription(data)
+        code   = 201 if 'prescription_id' in result and not result.get('error') else 400
+
+        if code == 201:
+            _sys_log.info(
+                f"DIGITAL_RX: id={result.get('prescription_id')} "
+                f"patient={data.get('patient_name','')} "
+                f"doctor={data.get('doctor_name','')} "
+                f"meds={result.get('medicines_count',0)}"
+            )
+            # Fire async notification
+            try:
+                tenant = self._get_tenant_slug()
+                svc    = _NotifService(tenant)
+                svc.prescription_created(
+                    patient_name  = data.get('patient_name', 'Patient'),
+                    patient_phone = data.get('patient_phone', ''),
+                    doctor_name   = data.get('doctor_name', ''),
+                    rx_id         = result['prescription_id'],
+                    medicines_count = result.get('medicines_count', 0),
+                )
+            except Exception:
+                pass  # Never block the response
+
+        self.send_json(result, code)
+
+    def _get_tenant_slug(self) -> str:
+        """Resolve the current tenant slug from Host header or config."""
+        try:
+            from hospital_config import HOSPITAL_SLUG
+            return HOSPITAL_SLUG
+        except Exception:
+            host = self.headers.get('Host', 'default')
+            return host.split('.')[0].split(':')[0] or 'default'
+
+    # ── Notification settings handlers ──────────────────────────────────────
+
+    def _handle_save_notification_settings(self, data: dict):
+        """POST /api/settings/notifications — save provider credentials."""
+        user = self.get_session_user()
+        if not user or user['role'] not in ('ADMIN', 'FOUNDER'):
+            self.send_json({'error': 'Forbidden'}, 403)
+            return
+        if not _HMS_AVAILABLE:
+            self.send_json({'error': 'DB unavailable'}, 503)
+            return
+
+        tenant = self._get_tenant_slug()
+        # Sanitise: only allow known keys, never store raw passwords in logs
+        allowed_keys = {
+            'active_provider', 'telegram_enabled', 'telegram_token', 'telegram_chat_id',
+            'whatsapp_enabled', 'whatsapp_api_base_url', 'whatsapp_api_key',
+            'whatsapp_sender_number', 'notify_on_appointment', 'notify_on_prescription',
+            'notify_on_lab_result', 'notify_on_discharge', 'daily_summary_enabled',
+            'daily_summary_time',
+        }
+        clean = {k: v for k, v in data.items() if k in allowed_keys}
+        if not clean:
+            self.send_json({'error': 'No valid settings provided'}, 400)
+            return
+
+        saved = _hms.save_notification_settings(
+            tenant_slug  = tenant,
+            settings     = clean,
+            updated_by   = user.get('username', 'admin'),
+        )
+        if saved:
+            self.send_json({'status': 'ok', 'saved_keys': list(clean.keys())})
+        else:
+            self.send_json({'error': 'Failed to save settings'}, 500)
+
+    def _handle_test_notification(self, data: dict):
+        """POST /api/settings/notifications/test — send a test message."""
+        user = self.get_session_user()
+        if not user or user['role'] not in ('ADMIN', 'FOUNDER'):
+            self.send_json({'error': 'Forbidden'}, 403)
+            return
+
+        channel = data.get('channel', 'telegram').lower()
+        tenant  = self._get_tenant_slug()
+
+        try:
+            svc    = _NotifService(tenant)
+            result = svc.test_send(
+                channel = channel,
+                message = data.get('message', f'🔔 Test notification from SRP MediFlow ({tenant}) — working perfectly!'),
+            )
+            self.send_json({'status': 'ok', 'result': result})
+        except Exception as exc:
+            self.send_json({'error': str(exc)}, 500)
 
     def serve_file(self, filename, content_type):
         try:

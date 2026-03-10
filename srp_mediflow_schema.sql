@@ -5,7 +5,7 @@
 --  Target  : Small & Mid-size Hospitals in India (20–50 beds)
 -- ════════════════════════════════════════════════════════════════════════════
 --
---  CONN: localhost:5434 / hospital_ai / ats_user
+--  CONN: localhost:5432 / hospital_ai / ats_user
 --
 --  HOW TO USE:
 --    1. Run this file once per new hospital DB during tenant setup.
@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS discharge_summaries (
     activity_advice     TEXT DEFAULT '',
     doctor_name         VARCHAR(150) DEFAULT '',
     doctor_username     VARCHAR(80)  DEFAULT '',
-    bill_id             INTEGER REFERENCES billing(id) ON DELETE SET NULL,
+    bill_id             INTEGER,   -- FK to billing(id) added after billing table created
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -582,6 +582,17 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log (created_at DESC);
+
+-- Add billing FK to discharge_summaries now that billing table exists
+DO $fk$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE constraint_name='fk_ds_billing' AND table_name='discharge_summaries'
+  ) THEN
+    ALTER TABLE discharge_summaries ADD CONSTRAINT fk_ds_billing
+      FOREIGN KEY (bill_id) REFERENCES billing(id) ON DELETE SET NULL;
+  END IF;
+END $fk$;
 
 -- ─── SERVICES CATALOGUE ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS services_catalogue (

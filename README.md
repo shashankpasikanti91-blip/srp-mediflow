@@ -3,7 +3,7 @@
 > **Enterprise-grade multi-tenant HMS SaaS for Indian hospitals**
 > OPD · IPD · Pharmacy · Surgery · GST Billing · UHID · PDF Reports · AI Chatbot · Multi-Tenant
 
-**Version:** `5.1 SaaS` | **Updated:** March 10, 2026
+**Version:** `6.1 SaaS` | **Updated:** March 2026
 **Platform:** `mediflow.srpailabs.com` | **Port:** `7500`
 **Server:** Hetzner VPS (Ubuntu) | **DNS:** Cloudflare Wildcard | **Domain:** Namecheap
 
@@ -634,6 +634,103 @@ pyngrok           # ngrok tunnel (dev only, optional)
 ---
 
 ## 📝 Changelog
+
+### v6.1 — Patient Timeline · Full DB Provisioning · Function Aliases (March 2026)
+
+#### 📋 Patient History Timeline (New Feature)
+- **One-screen patient history** — doctors can view a patient's complete medical story in a single page: demographics, all visits, all prescriptions with medicines, lab orders, vitals chart, billing history
+- **`GET /api/patient/{id}/timeline`** — returns `{patient, visits, prescriptions(+medicines), lab_orders, vitals, bills, summary}`
+- **`summary` object** — `total_visits`, `total_prescriptions`, `total_lab_orders`, `follow_up_pending`
+- **Doctor dashboard** — Patient History section now has tabbed timeline view (Visits | Prescriptions | Lab | Vitals | Bills), patient search with filter, "📋 Timeline" button on each visit row
+
+#### 🏥 Visit Management API
+- **`POST /api/visit/create`** — creates OPD/IPD/ER visit ticket; returns `{visit_id, ticket_no, visit_date, ...}`
+- **`GET /api/visits?patient_id=&doctor_username=&date_from=&limit=`** — list visits with filtering
+- **`GET /api/visit/{id}`** — visit detail with latest prescription + medicines JSON
+- **`POST /api/ipd/admit`** — admit patient to IPD (creates `patient_admissions` record)
+- **`POST /api/ipd/discharge`** — discharge IPD patient + create discharge summary
+
+#### 🔧 Missing Function Aliases Fixed
+Added to `hms_db.py` (were referenced by server routes but didn't exist):
+- `create_visit(data)` — OPD/IPD/ER visit record + OP ticket
+- `list_visits(patient_id, doctor_username, date_from, limit)` — paged visit list
+- `get_visit_with_prescription(visit_id)` — visit + prescription + medicines
+- `get_patient_timeline(patient_id)` — complete patient history
+- `search_patients(query, field)` — alias for `search_patients_comprehensive`
+- `create_lab_order(data)` — alias for `order_lab_test`
+- `update_lab_result(data)` — alias for `record_lab_result`
+- `admit_patient(data)` — IPD admission
+- `discharge_patient(data)` — IPD discharge + summary
+- `create_bill(data)` — wraps `create_invoice`
+- `get_bill_detail(bill_id)` — wraps `get_invoice`
+
+#### 🗄️ Full Database Provisioning
+- **All 5 tenant DBs now provisioned** — previously `srp_sai_care`, `srp_city_medical`, `srp_apollo_warangal`, `srp_green_cross` had only notification tables; now ALL have the complete HMS schema
+- **`_provision_all_tenants.py`** — runs `psql -f srp_mediflow_schema.sql` + inline `SAFE_EXTRAS` SQL for all tenants
+- **`srp_mediflow_schema.sql` fixes** — corrected FK ordering for `discharge_summaries` (billing FK was defined before billing table), fixed port comment `5434→5432`
+
+#### 🐛 Bug Fixes
+- **Server prescription handler** — normalises `medicines` key → `medicines_list` before DB call (was throwing `ProgrammingError: can't adapt type 'dict'`)
+
+#### 📝 Provisioning
+```bash
+# Re-run any time to apply latest schema to all tenant DBs (idempotent)
+python _provision_all_tenants.py
+```
+
+---
+
+### v6.0 — Digital Prescriptions · Notifications · Responsive UI (March 11, 2026)
+
+#### 💊 Digital Prescription System
+- **Replaced half-handwritten prescriptions** — full structured digital form (vitals, medicines, lab orders, advice, follow-up)
+- **`POST /api/doctor/prescription/create`** — saves prescription + medicines + lab orders atomically; returns `prescription_id`
+- **`GET /api/pdf/rx/{prescription_id}`** — generates branded A4 PDF via ReportLab (hospital letterhead, medicine table, lab orders, QR-ready)
+- **`GET /api/doctor/prescription/visit/{visit_id}`** — fetches full prescription JSON for a visit
+- **`GET /api/medicines/search?q=X`** — autocomplete for medicine names
+- **`GET /api/lab/tests/list`** — returns available lab test catalogue
+- **Doctor dashboard** — new prescription section with: patient lookup bar, 5-field vitals grid (BP/Temp/Pulse/SpO₂/Weight), medicine rows with quick frequency/duration/route chips, lab order rows with urgency selector, advice/follow-up area, Save + Print PDF buttons
+- **Quick-add chips** — Paracetamol, Cetirizine, Azithromycin, Inj.PCM, Syp.Amox, Pantoprazole, Metronidazole; lab: CBP, CRP, RFT, LFT, Electrolytes, Malaria, Dengue, CXR
+- **DB migration** — `migration_v3_digital_rx.sql`: adds `chief_complaint`, `bp`, `pulse`, `spo2`, `follow_up_days` to `prescriptions` table; creates `prescription_medicines`, `notification_settings`, `notification_logs`, `notification_templates` tables
+
+#### 🔔 Notification System
+- **`notifications/`** package — `base_provider.py`, `telegram_provider.py`, `whatsapp_provider.py`, `service.py`
+- **Telegram-first**: all events (prescription created, lab result ready, appointment reminder) → Telegram bot; WhatsApp framework ready (stub provider)
+- **`POST /api/settings/notifications`** — save provider credentials (ADMIN/FOUNDER); allowed keys whitelisted server-side
+- **`GET /api/settings/notifications`** — load current provider config
+- **`POST /api/settings/notifications/test`** — fire a test message via configured channel
+- **Doctor + Admin dashboards** now have `🔔 Notifications` section for provider configuration
+- Credentials stored per-tenant in `notification_settings` DB table (never in flat files)
+
+#### 📊 Admin Dashboard Enhancements
+- **`GET /api/admin/dashboard/stats`** — live KPI: `today_opd`, `today_ipd`, `today_collections` (₹), `pending_bills`, `lab_pending`, `followup_today`, `notifications_today`
+- **`GET /api/admin/activity`** — recent activity feed (last 20 events with type + actor + timestamp)
+- 7 enhanced stat cards auto-refresh every 3 minutes
+- Activity feed with icon-coded event types (💊 prescription, 🔬 lab, 👤 admission, 🔔 notification)
+
+#### 📱 Responsive UI
+- `srp_mediflow_responsive.css` — mobile-first breakpoints for all dashboards
+- Prescription form collapses to single column on ≤768 px
+- Sidebars collapse to icon-only mode on ≤600 px
+
+#### 🐛 Bug Fixes
+- **`db.py`**: Fixed default `PG_PORT` from `5434` → `5432` — DB connections were failing on fresh installs
+
+#### 🗄️ Running the Migration
+```bash
+# Connect to PostgreSQL (all tenant DBs that have the prescriptions table)
+psql -U ats_user -d hospital_ai -f migration_v3_digital_rx.sql
+# Repeat for each tenant DB that has HMS schema installed
+```
+
+#### 🔑 Environment Variables (new/updated)
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `PG_PORT` | `5432` | Was previously defaulting to 5434 — fix required |
+| `TELEGRAM_BOT_TOKEN` | — | Set in notification_settings table per tenant |
+| `TELEGRAM_CHAT_ID` | — | Set in notification_settings table per tenant |
+
+---
 
 ### v5.1 — Subdomain Routing Overhaul (March 10, 2026)
 - **Wildcard subdomain routing** — `<any-name>.mediflow.srpailabs.com` → correct hospital DB
@@ -1374,4 +1471,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*SRP MediFlow v5.0 · Built for Indian hospitals · Powered by SRP AI Labs*
+*SRP MediFlow v6.0 · Built for Indian hospitals · Powered by SRP AI Labs*

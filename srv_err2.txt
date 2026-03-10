@@ -1,0 +1,8 @@
+INFO:whatsapp_gateway:⚠️  WhatsApp gateway in PLACEHOLDER mode — set WHATSAPP_API_KEY to activate
+INFO:telegram_bot:✅ Telegram bot active | Chat ID: 7144152487
+INFO:telegram_bot:✅ Founder channel active | Chat ID: 7144152487
+INFO:founder_alerts:[SERVER_START] SRP MediFlow SaaS server started successfully on port 7500
+Modules: billing=True export=True analytics=True backup=True
+INFO:founder_alerts:[SERVER_START] Founder Telegram alert delivered.
+INFO:telegram_bot:📤 Telegram sent | msg_id=234
+INFO:notifications.service:[NotificationService] Using Telegram provider

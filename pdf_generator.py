@@ -677,6 +677,318 @@ def generate_invoice_pdf(invoice_data: dict) -> bytes:
     return buf.getvalue()
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 5. FULL DIGITAL PRESCRIPTION PDF (v3 — replaces handwritten Rx)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def generate_digital_prescription_pdf(rx_data: dict) -> bytes:
+    """
+    Generate a modern, hospital-branded digital prescription PDF.
+    This is the PRIMARY prescription document — replaces handwritten prescriptions.
+
+    Expected keys in rx_data:
+        hospital_name, hospital_address, hospital_phone, hospital_email (opt)
+        doctor_name, doctor_designation, doctor_reg_no (opt)
+        patient_name, uhid, patient_id, age, gender, phone
+        visit_id, visit_date, op_ticket_no
+        chief_complaint, symptoms, diagnosis, clinical_notes
+        vitals: {bp, temperature, pulse, spo2, weight}
+        medicines_list: [{medicine_name, dose, frequency, duration, route, notes}]
+        lab_orders: [{test_name, urgency, lab_notes}]
+        diet_advice, special_instructions
+        follow_up_days, follow_up_date
+        prescription_id, created_at
+    """
+    hospital      = _safe(rx_data.get('hospital_name'), 'Hospital')
+    h_addr        = _safe(rx_data.get('hospital_address'))
+    h_phone       = _safe(rx_data.get('hospital_phone'))
+    h_email       = rx_data.get('hospital_email') or ''
+    doctor        = _safe(rx_data.get('doctor_name'))
+    doctor_desig  = rx_data.get('doctor_designation') or ''
+    doctor_reg    = rx_data.get('doctor_reg_no') or ''
+
+    p_name        = _safe(rx_data.get('patient_name'))
+    uhid          = _safe(rx_data.get('uhid'))
+    p_id          = _safe(rx_data.get('patient_id'))
+    age           = _safe(rx_data.get('age'))
+    gender        = _safe(rx_data.get('gender'))
+    phone         = _safe(rx_data.get('phone') or rx_data.get('patient_phone'))
+    visit_date    = _safe(rx_data.get('visit_date'))
+    visit_id      = _safe(rx_data.get('visit_id'))
+    ticket        = _safe(rx_data.get('op_ticket_no'))
+    rx_id         = _safe(rx_data.get('prescription_id'))
+
+    complaint     = _safe(rx_data.get('chief_complaint'))
+    symptoms      = _safe(rx_data.get('symptoms'))
+    diagnosis     = _safe(rx_data.get('diagnosis'))
+    clin_notes    = _safe(rx_data.get('clinical_notes'))
+
+    vitals        = rx_data.get('vitals') or {}
+    bp            = _safe(rx_data.get('bp') or vitals.get('bp'))
+    temperature   = _safe(rx_data.get('temperature') or vitals.get('temperature'))
+    pulse         = _safe(rx_data.get('pulse') or vitals.get('pulse'))
+    spo2          = _safe(rx_data.get('spo2') or vitals.get('spo2'))
+    weight        = _safe(rx_data.get('weight') or vitals.get('weight'))
+
+    medicines     = rx_data.get('medicines_list') or rx_data.get('prescriptions') or []
+    lab_orders    = rx_data.get('lab_orders') or []
+    diet_advice   = _safe(rx_data.get('diet_advice'))
+    special_instr = _safe(rx_data.get('special_instructions'))
+    follow_days   = rx_data.get('follow_up_days')
+    follow_date   = _safe(rx_data.get('follow_up_date'))
+
+    # ── HTML fallback ──────────────────────────────────────────────────────
+    if not _RL:
+        rows = [
+            ('Prescription ID', rx_id),
+            ('Hospital',        f'{hospital} | {h_phone}'),
+            ('Doctor',          f'Dr. {doctor} {doctor_desig}'),
+            ('Patient',         p_name), ('UHID', uhid), ('Patient ID', p_id),
+            ('Age / Gender',    f'{age} / {gender}'), ('Phone', phone),
+            ('Visit Date',      visit_date), ('OPD Ticket', ticket),
+            ('Chief Complaint',  complaint), ('Symptoms', symptoms),
+            ('Diagnosis',        diagnosis), ('Clinical Notes', clin_notes),
+            ('Vitals',          f'BP: {bp} | Temp: {temperature} | Pulse: {pulse} | SpO₂: {spo2} | Wt: {weight}'),
+        ]
+        for i, m in enumerate(medicines, 1):
+            rows.append((f'Rx {i}',
+                f"{m.get('medicine_name','—')} | {m.get('dose','—')} | "
+                f"{m.get('frequency','—')} | {m.get('duration','—')} | "
+                f"{m.get('route','Oral')}"))
+        for lt in lab_orders:
+            rows.append(('Lab', f"{lt.get('test_name','—')} [{lt.get('urgency','routine')}]"))
+        rows += [
+            ('Diet Advice',         diet_advice),
+            ('Special Instructions', special_instr),
+            ('Follow-Up',
+             f'{follow_days} days' if follow_days else follow_date),
+            ('Printed', _now_str()),
+        ]
+        return _fallback_html('Digital Prescription', rows, hospital)
+
+    # ── ReportLab PDF ──────────────────────────────────────────────────────
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=15*mm, rightMargin=15*mm,
+                             topMargin=12*mm, bottomMargin=12*mm)
+    s      = _styles()
+    story  = []
+    PAGE_W = A4[0] - 30*mm   # usable width
+
+    # ── Header: hospital + doctor block ────────────────────────────────────
+    # Left: hospital, Right: doctor
+    hosp_txt  = f'<b>{hospital}</b>'
+    addr_line = h_addr if h_addr != '—' else ''
+    phone_line = f'📞 {h_phone}' if h_phone != '—' else ''
+    email_line = f'✉️ {h_email}' if h_email else ''
+    sub_lines  = '  |  '.join(filter(None, [addr_line, phone_line, email_line]))
+
+    doc_txt    = f'<b>Dr. {doctor}</b>'
+    doc_sub    = '  |  '.join(filter(None, [doctor_desig, f'Reg: {doctor_reg}' if doctor_reg else '']))
+
+    header_tbl = Table([
+        [
+            Paragraph(hosp_txt,  ParagraphStyle('HospH',  fontName='Helvetica-Bold',
+                                  fontSize=15, textColor=_BRAND_PURPLE, leading=20)),
+            Paragraph(doc_txt,   ParagraphStyle('DocH',   fontName='Helvetica-Bold',
+                                  fontSize=12, textColor=_TEXT_DARK, leading=16,
+                                  alignment=2)),
+        ],
+        [
+            Paragraph(sub_lines, ParagraphStyle('HospSub', fontName='Helvetica',
+                                  fontSize=8, textColor=_MID_GREY, leading=11)),
+            Paragraph(doc_sub,   ParagraphStyle('DocSub',  fontName='Helvetica',
+                                  fontSize=8, textColor=_MID_GREY, leading=11,
+                                  alignment=2)),
+        ],
+    ], colWidths=[PAGE_W * 0.62, PAGE_W * 0.38])
+    header_tbl.setStyle(TableStyle([
+        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',   (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 2),
+    ]))
+    story.append(header_tbl)
+    story.append(HRFlowable(width='100%', thickness=2, color=_BRAND_PURPLE,
+                             spaceBefore=4, spaceAfter=3))
+
+    # Prescription ID + printed date sub-header
+    story.append(Table([[
+        Paragraph(f'<b>Prescription #{rx_id}</b>&nbsp; | &nbsp;OPD Ticket: {ticket}',
+                  ParagraphStyle('RxID', fontName='Helvetica-Bold', fontSize=9,
+                                 textColor=_BRAND_GREEN, leading=12)),
+        Paragraph(f'Printed: {_now_str()}',
+                  ParagraphStyle('PD', fontName='Helvetica', fontSize=8,
+                                 textColor=_MID_GREY, leading=12, alignment=2)),
+    ]], colWidths=[PAGE_W * 0.6, PAGE_W * 0.4]))
+    story.append(Spacer(1, 3*mm))
+
+    # ── Patient details row ─────────────────────────────────────────────────
+    story.append(Paragraph('👤 Patient Details', s['SectionHead']))
+
+    def _pt_cell(label, val):
+        return Paragraph(f'<b>{label}:</b> {_safe(val)}',
+                         ParagraphStyle('PC', fontName='Helvetica',
+                                        fontSize=9, textColor=_TEXT_DARK, leading=13))
+
+    pat_tbl = Table([
+        [_pt_cell('Name', p_name),  _pt_cell('UHID', uhid),       _pt_cell('Pt. ID', p_id)],
+        [_pt_cell('Age', age),      _pt_cell('Gender', gender),    _pt_cell('Phone', phone)],
+        [_pt_cell('Visit Date', visit_date), Paragraph('', s['BodySmall']), Paragraph('', s['BodySmall'])],
+    ], colWidths=[PAGE_W/3, PAGE_W/3, PAGE_W/3])
+    pat_tbl.setStyle(TableStyle([
+        ('BACKGROUND',   (0,0),(-1,-1), _LIGHT_GREY),
+        ('ROUNDEDCORNERS',(0,0),(-1,-1),4),
+        ('TOPPADDING',   (0,0),(-1,-1), 4),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 4),
+        ('LEFTPADDING',  (0,0),(-1,-1), 6),
+    ]))
+    story.append(pat_tbl)
+    story.append(Spacer(1, 3*mm))
+
+    # ── Vitals row ──────────────────────────────────────────────────────────
+    vitals_entries = [
+        ('BP',       bp),
+        ('Temp',     temperature),
+        ('Pulse',    pulse),
+        ('SpO₂',     spo2),
+        ('Weight',   weight),
+    ]
+    vitals_present = [(k, v) for k, v in vitals_entries if v and v != '—']
+    if vitals_present:
+        story.append(Paragraph('💊 Vitals', s['SectionHead']))
+        vrow = [[
+            Paragraph(f'<b>{k}</b>: {v}',
+                      ParagraphStyle('VIT', fontName='Helvetica', fontSize=9,
+                                     textColor=_TEXT_DARK, leading=13))
+            for k, v in vitals_present
+        ]]
+        pad = 5 - len(vitals_present)
+        vrow[0] += [Paragraph('', s['BodySmall'])] * pad
+        v_tbl = Table(vrow, colWidths=[PAGE_W / 5] * 5)
+        v_tbl.setStyle(TableStyle([
+            ('BACKGROUND',   (0,0),(-1,-1), HexColor('#eef2ff')),
+            ('TOPPADDING',   (0,0),(-1,-1), 4),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 4),
+            ('LEFTPADDING',  (0,0),(-1,-1), 6),
+        ]))
+        story.append(v_tbl)
+        story.append(Spacer(1, 3*mm))
+
+    # ── Clinical section ─────────────────────────────────────────────────────
+    clinical = [(k, v) for k, v in [
+        ('Chief Complaint', complaint), ('Symptoms', symptoms),
+        ('Diagnosis', diagnosis), ('Clinical Notes', clin_notes),
+    ] if v and v != '—']
+    if clinical:
+        story.append(Paragraph('🩺 Clinical', s['SectionHead']))
+        story.append(_kv_table(clinical))
+        story.append(Spacer(1, 3*mm))
+
+    # ── Medicines table ──────────────────────────────────────────────────────
+    story.append(Paragraph('℞ Medicines', s['SectionHead']))
+    if medicines:
+        med_rows = []
+        for i, m in enumerate(medicines, 1):
+            med_rows.append([
+                str(i),
+                _safe(m.get('medicine_name') or m.get('name')),
+                _safe(m.get('dose') or m.get('dosage')),
+                _safe(m.get('frequency')),
+                _safe(m.get('duration')),
+                _safe(m.get('route', 'Oral')),
+                _safe(m.get('notes') or m.get('instructions')),
+            ])
+        story.append(_items_table(
+            ['#', 'Medicine', 'Dose', 'Frequency', 'Duration', 'Route', 'Notes'],
+            med_rows,
+            col_widths=[8*mm, 45*mm, 22*mm, 22*mm, 20*mm, 18*mm, 30*mm]
+        ))
+    else:
+        story.append(Paragraph('No medicines prescribed.', s['BodySmallGrey']))
+    story.append(Spacer(1, 3*mm))
+
+    # ── Lab orders ───────────────────────────────────────────────────────────
+    if lab_orders:
+        story.append(Paragraph('🔬 Lab / Investigations', s['SectionHead']))
+        lab_rows = []
+        for i, lt in enumerate(lab_orders, 1):
+            lab_rows.append([
+                str(i),
+                _safe(lt.get('test_name') or lt.get('name')),
+                _safe(lt.get('urgency', 'routine')).upper(),
+                _safe(lt.get('lab_notes') or lt.get('notes')),
+            ])
+        story.append(_items_table(
+            ['#', 'Test Name', 'Urgency', 'Notes'],
+            lab_rows,
+            col_widths=[8*mm, 70*mm, 25*mm, 62*mm]
+        ))
+        story.append(Spacer(1, 3*mm))
+
+    # ── Advice & Follow-up ───────────────────────────────────────────────────
+    advice_rows = []
+    if diet_advice and diet_advice != '—':
+        advice_rows.append(('Diet Advice', diet_advice))
+    if special_instr and special_instr != '—':
+        advice_rows.append(('Special Instructions', special_instr))
+    fu_str = ''
+    if follow_days:
+        fu_str = f'After {follow_days} days'
+        if follow_date and follow_date != '—':
+            fu_str += f'  ({follow_date})'
+    elif follow_date and follow_date != '—':
+        fu_str = follow_date
+    if fu_str:
+        advice_rows.append(('Follow-Up', fu_str))
+
+    if advice_rows:
+        story.append(Paragraph('📋 Advice & Instructions', s['SectionHead']))
+        story.append(_kv_table(advice_rows))
+        story.append(Spacer(1, 3*mm))
+
+    # ── Signature block ───────────────────────────────────────────────────────
+    story.append(Spacer(1, 6*mm))
+    sig_tbl = Table([
+        [
+            Paragraph('', s['BodySmall']),
+            Paragraph(
+                f'<b>Dr. {doctor}</b><br/>{doctor_desig}',
+                ParagraphStyle('SIG', fontName='Helvetica-Bold', fontSize=10,
+                               textColor=_TEXT_DARK, leading=14, alignment=2)
+            ),
+        ],
+        [
+            Paragraph('', s['BodySmall']),
+            HRFlowable(width=50*mm, thickness=0.8, color=_MID_GREY),
+        ],
+        [
+            Paragraph('', s['BodySmall']),
+            Paragraph('Signature &amp; Stamp',
+                      ParagraphStyle('SS', fontName='Helvetica', fontSize=8,
+                                     textColor=_MID_GREY, leading=12, alignment=2)),
+        ],
+    ], colWidths=[PAGE_W * 0.55, PAGE_W * 0.45])
+    sig_tbl.setStyle(TableStyle([
+        ('TOPPADDING',   (0,0),(-1,-1), 2),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 2),
+    ]))
+    story.append(sig_tbl)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 4*mm))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=_MID_GREY,
+                             spaceBefore=0, spaceAfter=3))
+    story.append(Paragraph(
+        f'This is a computer-generated digital prescription · {hospital} · '
+        f'SRP MediFlow HMS · Printed: {_now_str()}',
+        s['Footer']
+    ))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CONTENT-TYPE helper
 # ══════════════════════════════════════════════════════════════════════════════

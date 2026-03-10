@@ -16,7 +16,7 @@ from contextlib import contextmanager
 # â”€â”€â”€ Connection config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 DB_CONFIG = {
     "host":     os.getenv("PG_HOST",     "localhost"),
-    "port":     int(os.getenv("PG_PORT", "5434")),
+    "port":     int(os.getenv("PG_PORT", "5432")),
     "dbname":   os.getenv("PG_DB",       "hospital_ai"),
     "user":     os.getenv("PG_USER",     "ats_user"),
     "password": os.getenv("PG_PASSWORD", "ats_password"),
@@ -299,6 +299,29 @@ def get_all_registrations(limit: int = 200) -> list:
                     FROM op_tickets t
                     JOIN patients p ON p.id = t.patient_id
                     ORDER BY t.created_at DESC
+                    LIMIT %s
+                """, (limit,))
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                conn.rollback()
+
+            # Fallback 3: appointments table (from HMS forms / reception)
+            try:
+                cur.execute("""
+                    SELECT id,
+                           patient_name      AS name,
+                           age,
+                           patient_phone     AS phone,
+                           COALESCE(patient_aadhar, '') AS aadhar,
+                           issue,
+                           doctor_name       AS doctor,
+                           COALESCE(appointment_time,
+                               TO_CHAR(appointment_date, 'YYYY-MM-DD')) AS appointment_time,
+                           COALESCE(status, 'pending') AS status,
+                           COALESCE(source, 'local')   AS source,
+                           TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS timestamp
+                    FROM appointments
+                    ORDER BY created_at DESC
                     LIMIT %s
                 """, (limit,))
                 return [dict(r) for r in cur.fetchall()]
@@ -688,6 +711,38 @@ def create_all_tables():
             created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             completed_at    TIMESTAMP
         )
+        """,
+        # Chatbot-style patient registrations / OPD appointments
+        """
+        CREATE TABLE IF NOT EXISTS registrations (
+            id               SERIAL PRIMARY KEY,
+            name             VARCHAR(150) NOT NULL,
+            age              VARCHAR(10)  DEFAULT '',
+            phone            VARCHAR(20)  DEFAULT '',
+            aadhar           VARCHAR(20)  DEFAULT '',
+            issue            TEXT         DEFAULT '',
+            doctor           VARCHAR(150) DEFAULT '',
+            appointment_time VARCHAR(100) DEFAULT '',
+            status           VARCHAR(30)  DEFAULT 'pending',
+            source           VARCHAR(30)  DEFAULT 'chatbot',
+            created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        # Migration: add structured prescription fields
+        """
+        ALTER TABLE prescriptions
+            ADD COLUMN IF NOT EXISTS chief_complaint TEXT DEFAULT '',
+            ADD COLUMN IF NOT EXISTS symptoms        TEXT DEFAULT '',
+            ADD COLUMN IF NOT EXISTS advice          TEXT DEFAULT '',
+            ADD COLUMN IF NOT EXISTS diet_advice     TEXT DEFAULT '',
+            ADD COLUMN IF NOT EXISTS follow_up_days  INTEGER DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS visit_id        INTEGER DEFAULT NULL
+        """,
+        # Migration: add route column to prescription_items
+        """
+        ALTER TABLE prescription_items
+            ADD COLUMN IF NOT EXISTS route     VARCHAR(30) DEFAULT 'Oral',
+            ADD COLUMN IF NOT EXISTS med_notes TEXT DEFAULT ''
         """,
     ]
     conn = get_connection()

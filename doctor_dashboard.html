@@ -59,6 +59,7 @@ textarea{resize:vertical;min-height:70px}
     <div class="nav-item" data-sec="patient-history">Patient History</div>
     <div class="nav-item" data-sec="ipd-rounds">🏥 IPD Rounds</div>
     <div class="nav-item" data-sec="doc-surgery">⚕️ Surgery</div>
+    <div class="nav-item" data-sec="notif-settings">🔔 Notifications</div>
   </div>
 
   <div class="main">
@@ -73,27 +74,194 @@ textarea{resize:vertical;min-height:70px}
       </div>
     </div>
 
-    <!-- Write Prescription -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         DIGITAL PRESCRIPTION — Replaces half-handwritten workflow
+         ═══════════════════════════════════════════════════════════════════ -->
     <div id="prescription" class="section">
+
+      <!-- ── PATIENT LOOKUP ─────────────────────────────────────────────── -->
       <div class="card">
-        <h2>Write Prescription</h2>
-        <div class="form-grid">
-          <input id="rxPatient" type="text" placeholder="Patient Name">
-          <input id="rxPhone"   type="text" placeholder="Patient Phone">
+        <h2>💊 Digital Prescription</h2>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px;">
+          <div style="flex:1;min-width:160px;">
+            <label style="font-size:.8rem;color:#666;display:block;margin-bottom:4px;">UHID / Patient ID</label>
+            <input id="rxUhid" type="text" placeholder="e.g. UHID-0042" style="width:100%;">
+          </div>
+          <div style="flex:1;min-width:160px;">
+            <label style="font-size:.8rem;color:#666;display:block;margin-bottom:4px;">Visit / Token ID</label>
+            <input id="rxVisitId" type="text" placeholder="Visit ID">
+          </div>
+          <button class="btn btn-primary" onclick="rxLookupPatient()" style="height:36px;padding:0 18px;">🔍 Look Up</button>
+          <button class="btn" style="background:#f0f4f8;height:36px;padding:0 12px;" onclick="rxClearAll()" title="Clear form">✕ Clear</button>
         </div>
-        <div class="form-grid wide">
-          <input id="rxDiag" type="text" placeholder="Diagnosis">
+        <!-- Auto-filled patient bar -->
+        <div id="rxPatientBar" style="background:#f0f4f8;border-radius:8px;padding:10px 14px;display:none;
+             font-size:.88rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;">
+          <div><span style="color:#666">Name:</span> <strong id="rxBarName">—</strong></div>
+          <div><span style="color:#666">UHID:</span> <strong id="rxBarUhid">—</strong></div>
+          <div><span style="color:#666">Age/Sex:</span> <strong id="rxBarAge">—</strong></div>
+          <div><span style="color:#666">Phone:</span> <strong id="rxBarPhone">—</strong></div>
+          <div><span style="color:#666">Visit ID:</span> <strong id="rxBarVisit">—</strong></div>
+          <div><span style="color:#666">Date:</span> <strong id="rxBarDate">—</strong></div>
         </div>
-        <div class="form-grid wide">
-          <textarea id="rxMeds" placeholder="Medicines (one per line)"></textarea>
-        </div>
-        <div class="form-grid wide">
-          <textarea id="rxNotes" placeholder="Additional notes / instructions"></textarea>
-        </div>
-        <button class="btn btn-primary" onclick="savePrescription()">Save Prescription</button>
-        <div class="msg" id="rxMsg"></div>
+        <!-- Hidden carry fields -->
+        <input type="hidden" id="rxPatient">
+        <input type="hidden" id="rxPhone2">
+        <input type="hidden" id="rxAge">
+        <input type="hidden" id="rxGender">
+        <input type="hidden" id="rxVisitIdHidden">
       </div>
-    </div>
+
+      <!-- ── VITALS ─────────────────────────────────────────────────────── -->
+      <div class="card">
+        <h3 style="margin-bottom:12px;">📊 Vitals</h3>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">BP (mmHg)</label>
+            <input id="rxBP" type="text" placeholder="120/80">
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Temp (°F)</label>
+            <input id="rxTemp" type="text" placeholder="98.6">
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Pulse (bpm)</label>
+            <input id="rxPulse" type="text" placeholder="72">
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">SpO₂ (%)</label>
+            <input id="rxSpo2" type="text" placeholder="98">
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Weight (kg)</label>
+            <input id="rxWeight" type="text" placeholder="60">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CLINICAL SECTION ───────────────────────────────────────────── -->
+      <div class="card">
+        <h3 style="margin-bottom:12px;">🩺 Clinical Details</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Chief Complaint *</label>
+            <input id="rxComplaint" type="text" placeholder="e.g. Fever & chills > 2 days">
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Diagnosis *</label>
+            <input id="rxDiag" type="text" placeholder="e.g. Viral fever with body ache">
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Symptoms</label>
+            <textarea id="rxSymptoms" placeholder="Body pains, cold, cough & sputum, chills…" style="min-height:64px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Clinical Notes / Examination</label>
+            <textarea id="rxNotes" placeholder="Throat congested, TN 100/70, bilateral rales…" style="min-height:64px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MEDICINES TABLE ────────────────────────────────────────────── -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3>💊 Medicines</h3>
+          <button class="btn" style="background:#e8f5e9;color:#2e7d32;font-size:.82rem;" onclick="rxAddMedRow()">+ Add Medicine</button>
+        </div>
+
+        <!-- Header row -->
+        <div style="display:grid;grid-template-columns:2fr 80px 100px 100px 80px 80px 24px;gap:6px;
+             padding:6px 8px;background:#7c3aed;color:#fff;border-radius:6px;font-size:.76rem;font-weight:600;margin-bottom:6px;">
+          <span>Medicine Name</span><span>Dose</span><span>Frequency</span><span>Duration</span><span>Route</span><span>Notes</span><span></span>
+        </div>
+
+        <div id="rxMedRows"></div>
+
+        <!-- Quick templates bar -->
+        <div style="margin-top:10px;padding:8px 0;border-top:1px dashed #ddd;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:.76rem;color:#888;">Quick add:</span>
+          <button onclick='rxAddNamedMed("Tab. Paracetamol 500mg","1","TID","5 days","Oral","After food")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Paracetamol</button>
+          <button onclick='rxAddNamedMed("Tab. Cetirizine 10mg","1","OD","5 days","Oral","At night")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Cetirizine</button>
+          <button onclick='rxAddNamedMed("Tab. Azithromycin 500mg","1","OD","5 days","Oral","After food")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Azithromycin</button>
+          <button onclick='rxAddNamedMed("Inj. PCM 1gm","1","TID","2 days","IV","Slow IV over 15 min")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Inj. PCM</button>
+          <button onclick='rxAddNamedMed("Syp. Amoxicillin 125mg/5ml","5ml","TID","7 days","Oral","After food")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Syp. Amox</button>
+          <button onclick='rxAddNamedMed("Tab. Pantoprazole 40mg","1","OD","14 days","Oral","Before breakfast")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Pantoprazole</button>
+          <button onclick='rxAddNamedMed("Tab. Metronidazole 400mg","1","TID","5 days","Oral","After food")' style="font-size:.76rem;padding:3px 8px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">Metronidazole</button>
+        </div>
+      </div>
+
+      <!-- ── LAB ORDERS ─────────────────────────────────────────────────── -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3>🔬 Lab / Radiology Orders</h3>
+          <button class="btn" style="background:#e3f2fd;color:#1565c0;font-size:.82rem;" onclick="rxAddLabRow()">+ Add Test</button>
+        </div>
+
+        <!-- Common lab chips -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+          <span style="font-size:.76rem;color:#888;">Quick:</span>
+          <button onclick='rxAddNamedLab("CBC / CBP","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">CBP</button>
+          <button onclick='rxAddNamedLab("CRP","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">CRP</button>
+          <button onclick='rxAddNamedLab("RFT (Renal Function Tests)","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">RFT</button>
+          <button onclick='rxAddNamedLab("LFT (Liver Function Tests)","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">LFT</button>
+          <button onclick='rxAddNamedLab("Serum Electrolytes","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">Electrolytes</button>
+          <button onclick='rxAddNamedLab("Malaria Panel (MP/RDT)","urgent")' style="font-size:.75rem;padding:2px 8px;border:1px solid #fca;border-radius:20px;cursor:pointer;background:#fff8f0;">Malaria Panel</button>
+          <button onclick='rxAddNamedLab("Dengue NS1 + IgM/IgG","urgent")' style="font-size:.75rem;padding:2px 8px;border:1px solid #fca;border-radius:20px;cursor:pointer;background:#fff8f0;">Dengue</button>
+          <button onclick='rxAddNamedLab("Blood Glucose (Fasting)","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">Blood Glucose</button>
+          <button onclick='rxAddNamedLab("Chest X-Ray PA View","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">CXR</button>
+          <button onclick='rxAddNamedLab("Urine Routine & Microscopy","routine")' style="font-size:.75rem;padding:2px 8px;border:1px solid #bbb;border-radius:20px;cursor:pointer;background:#fff;">Urine R/M</button>
+        </div>
+
+        <div id="rxLabRows">
+          <div style="color:#aaa;font-size:.85rem;padding:8px 0;">No tests added yet. Use quick buttons or + Add Test above.</div>
+        </div>
+      </div>
+
+      <!-- ── ADVICE & FOLLOW-UP ─────────────────────────────────────────── -->
+      <div class="card">
+        <h3 style="margin-bottom:12px;">📋 Advice & Follow-Up</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Diet Advice</label>
+            <textarea id="rxDiet" placeholder="ORS, light food, plenty of fluids, avoid spicy…" style="min-height:60px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
+          </div>
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Special Instructions</label>
+            <textarea id="rxInstructions" placeholder="Bed rest for 3 days, avoid cold water, SOS review if fever persists…" style="min-height:60px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:160px 1fr;gap:12px;align-items:center;">
+          <div>
+            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Follow-Up (days)</label>
+            <input id="rxFollowDays" type="number" min="1" max="90" placeholder="7" style="width:100%;">
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;padding-top:18px;">
+            <span style="font-size:.76rem;color:#888;align-self:center;">Quick:</span>
+            <button onclick="document.getElementById('rxFollowDays').value='3'" style="font-size:.76rem;padding:3px 10px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">3d</button>
+            <button onclick="document.getElementById('rxFollowDays').value='5'" style="font-size:.76rem;padding:3px 10px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">5d</button>
+            <button onclick="document.getElementById('rxFollowDays').value='7'" style="font-size:.76rem;padding:3px 10px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">1w</button>
+            <button onclick="document.getElementById('rxFollowDays').value='14'" style="font-size:.76rem;padding:3px 10px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">2w</button>
+            <button onclick="document.getElementById('rxFollowDays').value='30'" style="font-size:.76rem;padding:3px 10px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">1m</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── ACTION BUTTONS ─────────────────────────────────────────────── -->
+      <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" onclick="rxSaveDigital()" style="padding:10px 28px;font-size:.95rem;">
+          💾 Save Prescription
+        </button>
+        <button id="rxPrintBtn" class="btn" onclick="rxOpenPDF()"
+                style="background:#7c3aed;color:#fff;padding:10px 24px;font-size:.95rem;display:none;">
+          🖨️ Print / Download PDF
+        </button>
+        <span id="rxSaveStatus" style="font-size:.88rem;"></span>
+      </div>
+
+    </div><!-- /prescription -->
+
 
     <!-- Lab Request -->
     <div id="lab-request" class="section">
@@ -119,7 +287,7 @@ textarea{resize:vertical;min-height:70px}
         <h2>My Prescriptions</h2>
         <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadMyPrescriptions()">↻ Refresh</button>
         <table>
-          <thead><tr><th>#</th><th>Patient</th><th>Diagnosis</th><th>Medicines</th><th>Date</th></tr></thead>
+          <thead><tr><th>#</th><th>Patient</th><th>Diagnosis</th><th>Medicines</th><th>Date</th><th>PDF</th></tr></thead>
           <tbody id="rxListBody"><tr><td colspan="5" style="text-align:center;color:#888">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -219,22 +387,180 @@ textarea{resize:vertical;min-height:70px}
       </div>
     </div>
 
-    <!-- Patient History -->
+    <!-- Patient History / Timeline (v6.1) -->
     <div id="patient-history" class="section">
-      <div class="card">
-        <h2>Patient Visit History</h2>
-        <div style="display:flex;gap:10px;margin-bottom:12px;">
-          <button class="btn" style="background:#eee;" onclick="loadMyVisits()">&#8635; All My Visits</button>
+      <!-- Doctor's own visit list -->
+      <div class="card" id="myVisitsCard">
+        <h2>🩺 My Visits</h2>
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <button class="btn" style="background:#eee;" onclick="loadMyVisits()">&#8635; Refresh</button>
+          <input id="visitSearch" type="text" placeholder="Search patient name / UHID…"
+                 style="flex:1;min-width:160px;padding:7px 11px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"
+                 oninput="filterVisitRows(this.value)">
         </div>
-        <table>
-          <thead><tr><th>#</th><th>Patient</th><th>Complaint</th><th>Diagnosis</th><th>Treatment</th><th>Date</th></tr></thead>
-          <tbody id="visitBody"><tr><td colspan="6" style="text-align:center;color:#888">Click Refresh to load…</td></tr></tbody>
-        </table>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>#</th><th>Patient</th><th>UHID</th><th>Complaint</th><th>Diagnosis</th><th>Date</th><th>Action</th></tr></thead>
+            <tbody id="visitBody"><tr><td colspan="7" style="text-align:center;color:#888">Click Refresh to load…</td></tr></tbody>
+          </table>
+        </div>
       </div>
-    </div>  </div>
+
+      <!-- Full Patient Timeline -->
+      <div class="card" id="patientTimelineCard" style="display:none;margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2 id="timelinePatientName" style="margin:0;">Patient Timeline</h2>
+          <button class="btn" style="background:#e0e0e0;color:#333;font-size:.8rem;" onclick="closeTimeline()">✕ Close</button>
+        </div>
+
+        <!-- Demographics bar -->
+        <div id="timelineDemoBar" style="background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.85rem;display:flex;flex-wrap:wrap;gap:12px;"></div>
+
+        <!-- Summary pills -->
+        <div id="timelineSummary" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin-bottom:14px;flex-wrap:wrap;">
+          <button class="tl-tab active" data-tab="tl-visits"    onclick="switchTlTab('tl-visits',this)">🏥 Visits</button>
+          <button class="tl-tab"        data-tab="tl-rx"        onclick="switchTlTab('tl-rx',this)">💊 Prescriptions</button>
+          <button class="tl-tab"        data-tab="tl-lab"       onclick="switchTlTab('tl-lab',this)">🔬 Lab</button>
+          <button class="tl-tab"        data-tab="tl-vitals"    onclick="switchTlTab('tl-vitals',this)">📊 Vitals</button>
+          <button class="tl-tab"        data-tab="tl-bills"     onclick="switchTlTab('tl-bills',this)">🧾 Bills</button>
+        </div>
+
+        <!-- Visits tab -->
+        <div id="tl-visits" class="tl-tab-content" style="display:block;">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Doctor</th><th>Complaint</th><th>Diagnosis</th><th>Ticket</th></tr></thead>
+            <tbody id="tlVisitBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Prescriptions tab -->
+        <div id="tl-rx" class="tl-tab-content" style="display:none;">
+          <div id="tlRxBody"></div>
+        </div>
+
+        <!-- Lab tab -->
+        <div id="tl-lab" class="tl-tab-content" style="display:none;">
+          <table>
+            <thead><tr><th>Date</th><th>Test</th><th>Type</th><th>Status</th><th>Result</th></tr></thead>
+            <tbody id="tlLabBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Vitals tab -->
+        <div id="tl-vitals" class="tl-tab-content" style="display:none;">
+          <table>
+            <thead><tr><th>Recorded</th><th>BP</th><th>Pulse</th><th>Temp °F</th><th>SpO₂</th><th>Weight</th></tr></thead>
+            <tbody id="tlVitalsBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Bills tab -->
+        <div id="tl-bills" class="tl-tab-content" style="display:none;">
+          <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody id="tlBillsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <style>
+    .tl-tab {
+      padding: 7px 16px; border: none; background: transparent;
+      border-bottom: 3px solid transparent; cursor: pointer;
+      font-size: .86rem; color: #555; font-weight:500;
+    }
+    .tl-tab.active { color: #1a73e8; border-bottom-color: #1a73e8; }
+    .tl-tab:hover  { background: #f5f5f5; }
+    .tl-rx-card {
+      border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px;
+      margin-bottom: 12px;
+    }
+    .tl-rx-title { font-weight:600; color:#333; font-size:.9rem; }
+    .tl-rx-meta  { font-size:.78rem; color:#777; margin-bottom:8px; }
+    .tl-med-chip {
+      display:inline-block; background:#e3f2fd; color:#1565c0;
+      border-radius:20px; padding:3px 10px; font-size:.75rem; margin:2px;
+    }
+    </style>
+
+    <!-- Notification Settings (Doctor view) -->
+    <div id="notif-settings" class="section">
+      <div class="card">
+        <h2>🔔 Notification Settings</h2>
+        <p style="color:#666;font-size:.88rem;margin-bottom:16px;">Configure how SRP MediFlow sends alerts to patients and staff. Changes take effect immediately.</p>
+
+        <div id="notifLoadMsg" style="color:#888;font-size:.88rem;margin-bottom:12px;">Loading settings…</div>
+
+        <div id="notifForm" style="display:none;">
+          <h3 style="margin-bottom:10px;">Active Channel</h3>
+          <div style="display:flex;gap:10px;margin-bottom:20px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="activeProvider" value="telegram" id="provTelegram"> Telegram
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="activeProvider" value="whatsapp" id="provWhatsapp"> WhatsApp
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="radio" name="activeProvider" value="none" id="provNone"> Disabled
+            </label>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <h3 style="margin-bottom:10px;color:#0088cc;">📱 Telegram</h3>
+              <div style="margin-bottom:8px;">
+                <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Bot Token</label>
+                <input id="nsTgToken" type="password" placeholder="1234567890:AABxxxxxx" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;">
+              </div>
+              <div style="margin-bottom:8px;">
+                <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Chat ID</label>
+                <input id="nsTgChatId" type="text" placeholder="7144152487" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;">
+              </div>
+              <button class="btn" style="background:#e3f2fd;color:#1565c0;font-size:.82rem;" onclick="nsTestChannel('telegram')">▶ Send Test Message</button>
+            </div>
+            <div>
+              <h3 style="margin-bottom:10px;color:#25d366;">💬 WhatsApp</h3>
+              <div style="margin-bottom:8px;">
+                <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">API Base URL</label>
+                <input id="nsWaUrl" type="text" placeholder="https://api.twilio.com/..." style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;">
+              </div>
+              <div style="margin-bottom:8px;">
+                <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">API Key / SID</label>
+                <input id="nsWaKey" type="password" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;">
+              </div>
+              <div style="margin-bottom:8px;">
+                <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Sender Number</label>
+                <input id="nsWaSender" type="text" placeholder="+1415XXXXXXX" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.85rem;">
+              </div>
+              <button class="btn" style="background:#e8f5e9;color:#2e7d32;font-size:.82rem;" onclick="nsTestChannel('whatsapp')">▶ Send Test Message</button>
+            </div>
+          </div>
+
+          <h3 style="margin:16px 0 10px;">Event Triggers</h3>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nsOnAppt"> On Appointment</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nsOnRx"> On Prescription</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nsOnLab"> On Lab Result</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nsOnDis"> On Discharge</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="nsDaily"> Daily Summary</label>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:10px;">
+            <button class="btn btn-primary" onclick="nsSaveSettings()">💾 Save Settings</button>
+          </div>
+          <div id="nsMsg" style="margin-top:8px;font-size:.88rem;"></div>
+        </div>
+      </div>
+    </div>
+
 </div>
 
 <script>
+// ── Session ───────────────────────────────────────────────────────────────
 async function checkSession() {
   try {
     const r = await fetch('/api/session/me');
@@ -245,6 +571,7 @@ async function checkSession() {
   } catch { window.location.href = '/login'; }
 }
 
+// ── Appointments ──────────────────────────────────────────────────────────
 async function loadAppointments() {
   try {
     const r = await fetch('/api/doctor/appointments');
@@ -267,34 +594,7 @@ async function loadAppointments() {
   } catch(e) { console.error(e); }
 }
 
-async function savePrescription() {
-  const body = {
-    patient_name:  document.getElementById('rxPatient').value.trim(),
-    patient_phone: document.getElementById('rxPhone').value.trim(),
-    diagnosis:     document.getElementById('rxDiag').value.trim(),
-    medicines:     document.getElementById('rxMeds').value.trim(),
-    notes:         document.getElementById('rxNotes').value.trim(),
-  };
-  const msg = document.getElementById('rxMsg');
-  if (!body.patient_name || !body.diagnosis) { alert('Patient name and diagnosis required'); return; }
-  const r = await fetch('/api/doctor/prescription', {
-    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
-  });
-  const d = await r.json();
-  msg.style.display = 'block';
-  if (d.status === 'ok') {
-    msg.style.color = 'green';
-    msg.textContent = `✅ Prescription saved (id ${d.id})`;
-    document.getElementById('rxPatient').value='';
-    document.getElementById('rxPhone').value='';
-    document.getElementById('rxDiag').value='';
-    document.getElementById('rxMeds').value='';
-    document.getElementById('rxNotes').value='';
-  } else {
-    msg.style.color = 'red'; msg.textContent = '❌ ' + (d.error||'Failed');
-  }
-}
-
+// ── Lab Request ───────────────────────────────────────────────────────────
 async function sendLabRequest() {
   const body = {
     patient_name:  document.getElementById('labPatient').value.trim(),
@@ -317,22 +617,28 @@ async function sendLabRequest() {
   } else { msg.style.color='red'; msg.textContent='❌ '+(d.error||'Failed'); }
 }
 
+// ── My Prescriptions list ─────────────────────────────────────────────────
 async function loadMyPrescriptions() {
   const r = await fetch('/api/doctor/prescriptions');
   if (!r.ok) return;
   const d = await r.json();
   const tbody = document.getElementById('rxListBody');
   if (!d.prescriptions || d.prescriptions.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888">No prescriptions yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888">No prescriptions yet</td></tr>';
     return;
   }
   tbody.innerHTML = d.prescriptions.map((p,i) => `
     <tr>
       <td>${i+1}</td>
-      <td>${p.patient_name} (${p.patient_phone})</td>
-      <td>${p.diagnosis}</td>
-      <td><small>${p.medicines}</small></td>
+      <td>${p.patient_name||''}<br><small style="color:#888">${p.patient_phone||''}</small></td>
+      <td>${p.diagnosis||'-'}</td>
+      <td><small>${(p.medicines||p.chief_complaint||'-').toString().slice(0,60)}</small></td>
       <td><small>${(p.created_at||'').slice(0,16)}</small></td>
+      <td>
+        ${p.prescription_id ? `<a href="/api/pdf/rx/${p.prescription_id}" target="_blank"
+          style="font-size:.8rem;color:#7c3aed;text-decoration:none;background:#f3e8ff;
+                 padding:2px 8px;border-radius:10px;">🖨 PDF</a>` : ''}
+      </td>
     </tr>`).join('');
 }
 
@@ -340,6 +646,7 @@ function doLogout() {
   fetch('/api/logout',{method:'POST'}).finally(()=>{ window.location.href='/login'; });
 }
 
+// ── Visit Record ──────────────────────────────────────────────────────────
 async function saveVisitRecord() {
   const body = {
     patient_name:    document.getElementById('vrPatient').value.trim(),
@@ -352,8 +659,7 @@ async function saveVisitRecord() {
   };
   const msg = document.getElementById('vrMsg');
   if (!body.patient_name || !body.chief_complaint || !body.diagnosis) {
-    alert('Patient name, complaint and diagnosis are required');
-    return;
+    alert('Patient name, complaint and diagnosis are required'); return;
   }
   const r = await fetch('/api/doctor/visit/add', {
     method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
@@ -365,9 +671,7 @@ async function saveVisitRecord() {
     msg.textContent = `✅ Visit record saved (id ${d.id})`;
     ['vrPatient','vrPhone','vrDept','vrComplaint','vrExam','vrDiagnosis','vrTreatment']
       .forEach(id => { document.getElementById(id).value = ''; });
-  } else {
-    msg.style.color = 'red'; msg.textContent = '❌ ' + (d.error || 'Failed');
-  }
+  } else { msg.style.color = 'red'; msg.textContent = '❌ ' + (d.error || 'Failed'); }
 }
 
 async function loadMyVisits() {
@@ -376,21 +680,456 @@ async function loadMyVisits() {
   const d = await r.json();
   const tbody = document.getElementById('visitBody');
   if (!d.visits || !d.visits.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888">No visit records yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888">No visit records yet</td></tr>';
     return;
   }
   tbody.innerHTML = d.visits.map((v,i) => `
-    <tr>
+    <tr data-search="${(v.patient_name||'').toLowerCase()} ${(v.uhid||'').toLowerCase()}">
       <td>${i+1}</td>
-      <td>${v.patient_name}<br><small style="color:#888">${v.patient_phone||''}</small></td>
+      <td><b>${v.patient_name||'-'}</b><br><small style="color:#888">${v.patient_phone||''}</small></td>
+      <td><small>${v.uhid||'-'}</small></td>
       <td>${v.chief_complaint||'-'}</td>
       <td>${v.diagnosis||'-'}</td>
-      <td><small>${(v.treatment_plan||'-').slice(0,80)}</small></td>
-      <td><small>${(v.visit_date||'').slice(0,16)}</small></td>
+      <td><small>${(v.visit_date||'').slice(0,10)}</small></td>
+      <td><button class="btn" style="background:#e3f2fd;color:#1565c0;font-size:.76rem;padding:4px 9px;"
+            onclick="loadPatientTimeline(${v.patient_id})">📋 Timeline</button></td>
     </tr>`).join('');
 }
 
-// Nav switching
+function filterVisitRows(q) {
+  const rows = document.querySelectorAll('#visitBody tr[data-search]');
+  q = q.toLowerCase();
+  rows.forEach(r => {
+    r.style.display = (!q || r.dataset.search.includes(q)) ? '' : 'none';
+  });
+}
+
+async function loadPatientTimeline(patientId) {
+  document.getElementById('patientTimelineCard').style.display = 'block';
+  document.getElementById('timelinePatientName').textContent = 'Loading…';
+  document.getElementById('timelineDemoBar').innerHTML = '';
+  document.getElementById('timelineSummary').innerHTML = '';
+  ['tlVisitBody','tlLabBody','tlVitalsBody','tlBillsBody'].forEach(id => {
+    document.getElementById(id).innerHTML = '<tr><td colspan="10" style="color:#aaa;text-align:center">Loading…</td></tr>';
+  });
+  document.getElementById('tlRxBody').innerHTML = '<div style="color:#aaa;text-align:center;padding:16px;">Loading…</div>';
+  document.getElementById('patientTimelineCard').scrollIntoView({behavior:'smooth'});
+
+  const r = await fetch(`/api/patient/${patientId}/timeline`);
+  if (!r.ok) {
+    document.getElementById('timelinePatientName').textContent = 'Error loading timeline';
+    return;
+  }
+  const d = await r.json();
+  if (d.error) {
+    document.getElementById('timelinePatientName').textContent = d.error;
+    return;
+  }
+
+  const p = d.patient || {};
+  document.getElementById('timelinePatientName').textContent = `📋 ${p.full_name||'Patient'} — Complete History`;
+
+  // Demo bar
+  document.getElementById('timelineDemoBar').innerHTML = [
+    p.uhid   ? `<span><b>UHID:</b> ${p.uhid}</span>` : '',
+    p.phone  ? `<span><b>Phone:</b> ${p.phone}</span>` : '',
+    p.dob    ? `<span><b>DOB:</b> ${p.dob}</span>` : '',
+    p.gender ? `<span><b>Gender:</b> ${p.gender}</span>` : '',
+    p.blood_group ? `<span><b>Blood:</b> ${p.blood_group}</span>` : '',
+    p.allergies   ? `<span style="color:#c62828;"><b>⚠ Allergies:</b> ${p.allergies}</span>` : '',
+  ].filter(Boolean).join(' &nbsp;|&nbsp; ');
+
+  // Summary pills
+  const s = d.summary || {};
+  const pillColors = ['#e3f2fd','#e8f5e9','#fff8e1','#fce4ec'];
+  const pills = [
+    ['Visits',         s.total_visits||0,        '#1565c0', '#e3f2fd'],
+    ['Prescriptions',  s.total_prescriptions||0, '#2e7d32', '#e8f5e9'],
+    ['Lab Orders',     s.total_lab_orders||0,    '#f57f17', '#fff8e1'],
+    ['Follow-up Due',  s.follow_up_pending||0,   '#ad1457', '#fce4ec'],
+  ];
+  document.getElementById('timelineSummary').innerHTML = pills.map(([label,val,fg,bg]) =>
+    `<span style="background:${bg};color:${fg};border-radius:20px;padding:5px 14px;font-size:.82rem;font-weight:600;">${val} ${label}</span>`
+  ).join('');
+
+  // Visits tab
+  document.getElementById('tlVisitBody').innerHTML = (d.visits||[]).length
+    ? (d.visits||[]).map(v => `<tr>
+        <td><small>${v.visit_date||'-'}</small></td>
+        <td>${v.visit_type||'OPD'}</td>
+        <td>${v.doctor_assigned||'-'}</td>
+        <td>${v.chief_complaint||'-'}</td>
+        <td>${v.diagnosis||'-'}</td>
+        <td><small>${v.op_ticket_no||'-'}</small></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:#aaa">No visits recorded</td></tr>';
+
+  // Prescriptions tab
+  document.getElementById('tlRxBody').innerHTML = (d.prescriptions||[]).length
+    ? (d.prescriptions||[]).map(rx => {
+        const meds = Array.isArray(rx.medicines) ? rx.medicines : JSON.parse(rx.medicines||'[]');
+        return `<div class="tl-rx-card">
+          <div class="tl-rx-title">📄 ${rx.date||''} — Dr. ${rx.doctor_name||'?'}</div>
+          <div class="tl-rx-meta">Diagnosis: ${rx.diagnosis||'-'} &nbsp;|&nbsp; Follow-up: ${rx.follow_up_days||'-'} days</div>
+          <div>${meds.map(m =>
+            `<span class="tl-med-chip">${m.medicine||m.medicine_name||'?'} ${m.dose||''} × ${m.frequency||''} × ${m.duration||''}</span>`
+          ).join('')}</div>
+        </div>`;
+      }).join('')
+    : '<div style="color:#aaa;text-align:center;padding:16px;">No prescriptions recorded</div>';
+
+  // Lab tab
+  document.getElementById('tlLabBody').innerHTML = (d.lab_orders||[]).length
+    ? (d.lab_orders||[]).map(l => `<tr>
+        <td><small>${l.ordered_on||'-'}</small></td>
+        <td>${l.test_name||'-'}</td>
+        <td>${l.test_type||'-'}</td>
+        <td><span style="color:${l.status==='completed'?'#2e7d32':'#f57f17'}">${l.status||'-'}</span></td>
+        <td>${l.result_text||'-'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:#aaa">No lab orders</td></tr>';
+
+  // Vitals tab
+  document.getElementById('tlVitalsBody').innerHTML = (d.vitals||[]).length
+    ? (d.vitals||[]).map(v => `<tr>
+        <td><small>${v.recorded_at||'-'}</small></td>
+        <td>${v.bp||'-'}</td>
+        <td>${v.pulse||'-'}</td>
+        <td>${v.temperature||'-'}</td>
+        <td>${v.spo2||'-'}</td>
+        <td>${v.weight||'-'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:#aaa">No vitals recorded</td></tr>';
+
+  // Bills tab
+  document.getElementById('tlBillsBody').innerHTML = (d.bills||[]).length
+    ? (d.bills||[]).map(b => `<tr>
+        <td>${b.date||'-'}</td>
+        <td>${b.bill_type||'-'}</td>
+        <td>₹${b.net_amount||0}</td>
+        <td>${b.status||'-'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="text-align:center;color:#aaa">No billing records</td></tr>';
+}
+
+function closeTimeline() {
+  document.getElementById('patientTimelineCard').style.display = 'none';
+}
+
+function switchTlTab(tabId, btn) {
+  document.querySelectorAll('.tl-tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.tl-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).style.display = 'block';
+  btn.classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DIGITAL PRESCRIPTION ENGINE
+// ════════════════════════════════════════════════════════════════════════════
+let _rxMedCount = 0;
+let _rxLabCount = 0;
+let _rxSavedId  = null;
+
+function rxClearAll() {
+  // Reset patient bar
+  document.getElementById('rxUhid').value = '';
+  document.getElementById('rxVisitId').value = '';
+  document.getElementById('rxPatient').value = '';
+  document.getElementById('rxPhone2').value = '';
+  document.getElementById('rxAge').value = '';
+  document.getElementById('rxGender').value = '';
+  document.getElementById('rxVisitIdHidden').value = '';
+  const bar = document.getElementById('rxPatientBar');
+  bar.style.display = 'none';
+  // Clear vitals
+  ['rxBP','rxTemp','rxPulse','rxSpo2','rxWeight'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  // Clear clinical
+  ['rxComplaint','rxDiag','rxSymptoms','rxNotes','rxDiet','rxInstructions','rxFollowDays'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  // Clear rows
+  document.getElementById('rxMedRows').innerHTML='';
+  document.getElementById('rxLabRows').innerHTML=
+    '<div style="color:#aaa;font-size:.85rem;padding:8px 0;">No tests added yet. Use quick buttons or + Add Test above.</div>';
+  _rxMedCount=0; _rxLabCount=0; _rxSavedId=null;
+  document.getElementById('rxSaveStatus').textContent='';
+  document.getElementById('rxPrintBtn').style.display='none';
+}
+
+async function rxLookupPatient() {
+  const uhid    = document.getElementById('rxUhid').value.trim();
+  const visitId = document.getElementById('rxVisitId').value.trim();
+  if (!uhid && !visitId) { alert('Enter UHID or Visit ID to look up patient.'); return; }
+  try {
+    const url = visitId
+      ? `/api/doctor/prescription/visit/${encodeURIComponent(visitId)}`
+      : `/api/patients/search?uhid=${encodeURIComponent(uhid)}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    const pt = d.patient || (d.patients && d.patients[0]) || null;
+    if (!pt) {
+      // Graceful fallback: just let doctor fill manually
+      document.getElementById('rxSaveStatus').textContent = '⚠️ Patient not found — fill details manually.';
+      document.getElementById('rxSaveStatus').style.color = '#e67e22';
+      return;
+    }
+    rxFillPatientBar(pt);
+  } catch(e) {
+    document.getElementById('rxSaveStatus').textContent = '⚠️ Lookup failed — fill manually.';
+    document.getElementById('rxSaveStatus').style.color = '#e67e22';
+  }
+}
+
+function rxFillPatientBar(pt) {
+  document.getElementById('rxPatient').value       = pt.patient_name || pt.name || '';
+  document.getElementById('rxPhone2').value        = pt.phone || pt.patient_phone || '';
+  document.getElementById('rxAge').value           = pt.age || '';
+  document.getElementById('rxGender').value        = pt.gender || pt.sex || '';
+  document.getElementById('rxVisitIdHidden').value = pt.visit_id || pt.id || '';
+  document.getElementById('rxBarName').textContent  = pt.patient_name || pt.name || '—';
+  document.getElementById('rxBarUhid').textContent  = pt.uhid || pt.patient_id || '—';
+  document.getElementById('rxBarAge').textContent   = `${pt.age||'?'}y / ${pt.gender||pt.sex||'—'}`;
+  document.getElementById('rxBarPhone').textContent = pt.phone || pt.patient_phone || '—';
+  document.getElementById('rxBarVisit').textContent = pt.visit_id || pt.id || '—';
+  document.getElementById('rxBarDate').textContent  = new Date().toLocaleDateString('en-IN');
+  const bar = document.getElementById('rxPatientBar');
+  bar.style.display = 'grid';
+  // Pre-fill UHid field too
+  if (pt.uhid) document.getElementById('rxUhid').value = pt.uhid;
+}
+
+// ── Medicine rows ─────────────────────────────────────────────────────────
+const RX_FREQ   = ['OD','BD','TID','QID','SOS','S/N','PRN'];
+const RX_ROUTE  = ['Oral','IV','IM','SC','Topical','Inhaled','SL'];
+const RX_DAYS   = ['1','3','5','7','10','14','15','30','SOS'];
+
+function rxAddMedRow(name='', dose='', freq='OD', dur='5 days', route='Oral', notes='') {
+  const id = ++_rxMedCount;
+  const container = document.getElementById('rxMedRows');
+  // Remove placeholder
+  const ph = container.querySelector('.rx-ph');
+  if (ph) ph.remove();
+
+  const row = document.createElement('div');
+  row.id = `medRow${id}`;
+  row.style.cssText = 'display:grid;grid-template-columns:2fr 80px 100px 100px 80px 80px 24px;gap:6px;margin-bottom:8px;align-items:start;';
+  row.innerHTML = `
+    <!-- Medicine name with autocomplete -->
+    <div style="position:relative;">
+      <input id="medName${id}" type="text" placeholder="Medicine name *" value="${escH(name)}"
+             style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;"
+             oninput="rxMedAutocomplete(${id},this.value)" autocomplete="off">
+      <div id="medAcList${id}" style="display:none;position:absolute;top:100%;left:0;right:0;
+           background:#fff;border:1px solid #ddd;border-radius:0 0 6px 6px;
+           z-index:999;max-height:160px;overflow-y:auto;"></div>
+    </div>
+    <!-- Dose -->
+    <input id="medDose${id}" type="text" placeholder="e.g. 1 tab" value="${escH(dose)}"
+           style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;">
+    <!-- Frequency with chips -->
+    <div>
+      <input id="medFreq${id}" type="text" value="${escH(freq)}"
+             style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;margin-bottom:3px;">
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        ${RX_FREQ.map(f=>`<span onclick="document.getElementById('medFreq${id}').value='${f}'"
+          style="font-size:.68rem;padding:1px 5px;border:1px solid #bbb;border-radius:10px;cursor:pointer;
+                 background:${f===freq?'#7c3aed':''};color:${f===freq?'#fff':'#444'};">${f}</span>`).join('')}
+      </div>
+    </div>
+    <!-- Duration -->
+    <div>
+      <input id="medDur${id}" type="text" value="${escH(dur)}"
+             style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;margin-bottom:3px;">
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        ${RX_DAYS.map(d=>`<span onclick="document.getElementById('medDur${id}').value='${d} days'.replace(' days days',' days')"
+          style="font-size:.68rem;padding:1px 5px;border:1px solid #bbb;border-radius:10px;cursor:pointer;background:#fff;">${d}d</span>`).join('')}
+      </div>
+    </div>
+    <!-- Route -->
+    <div>
+      <input id="medRoute${id}" type="text" value="${escH(route)}"
+             style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;margin-bottom:3px;">
+      <div style="display:flex;flex-wrap:wrap;gap:2px;">
+        ${RX_ROUTE.map(rt=>`<span onclick="document.getElementById('medRoute${id}').value='${rt}'"
+          style="font-size:.65rem;padding:1px 4px;border:1px solid #bbb;border-radius:10px;cursor:pointer;background:#fff;">${rt}</span>`).join('')}
+      </div>
+    </div>
+    <!-- Notes -->
+    <input id="medNotes${id}" type="text" placeholder="After food…" value="${escH(notes)}"
+           style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;">
+    <!-- Delete -->
+    <button onclick="document.getElementById('medRow${id}').remove()"
+            style="background:#fee2e2;color:#991b1b;border:none;border-radius:4px;cursor:pointer;padding:4px 6px;font-size:.82rem;margin-top:2px;">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function rxAddNamedMed(name, dose, freq, dur, route, notes) {
+  rxAddMedRow(name, dose, freq, dur, route, notes);
+}
+
+async function rxMedAutocomplete(id, q) {
+  const list = document.getElementById(`medAcList${id}`);
+  if (!q || q.length < 2) { list.style.display='none'; return; }
+  try {
+    const r = await fetch(`/api/medicines/search?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    const items = d.medicines || d.results || [];
+    if (!items.length) { list.style.display='none'; return; }
+    list.innerHTML = items.slice(0,8).map(m =>
+      `<div onclick="document.getElementById('medName${id}').value='${escH(typeof m==='string'?m:m.name)}';document.getElementById('medAcList${id}').style.display='none';"
+            style="padding:6px 10px;cursor:pointer;font-size:.85rem;border-bottom:1px solid #f0f0f0;"
+            onmouseenter="this.style.background='#f3e8ff'" onmouseleave="this.style.background=''"
+       >${typeof m==='string'?m:m.name}</div>`
+    ).join('');
+    list.style.display='block';
+  } catch { list.style.display='none'; }
+}
+
+// Close autocomplete when clicking outside
+document.addEventListener('click', e=>{
+  document.querySelectorAll('[id^="medAcList"]').forEach(el=>{
+    if (!el.parentElement.contains(e.target)) el.style.display='none';
+  });
+});
+
+// ── Lab rows ──────────────────────────────────────────────────────────────
+function rxAddLabRow(name='', urgency='routine') {
+  const id = ++_rxLabCount;
+  const container = document.getElementById('rxLabRows');
+  // Remove the placeholder text div
+  if (_rxLabCount === 1) container.innerHTML = '';
+
+  const row = document.createElement('div');
+  row.id = `labRow${id}`;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 120px 24px;gap:6px;margin-bottom:6px;align-items:center;';
+  row.innerHTML = `
+    <input id="labName${id}" type="text" placeholder="Test name *" value="${escH(name)}"
+           style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.85rem;">
+    <select id="labUrg${id}" style="padding:6px 8px;border:1px solid #ddd;border-radius:5px;font-size:.82rem;width:100%;">
+      <option value="routine" ${urgency==='routine'?'selected':''}>Routine</option>
+      <option value="urgent"  ${urgency==='urgent' ?'selected':''}>🔴 Urgent</option>
+      <option value="stat"    ${urgency==='stat'   ?'selected':''}>⚡ STAT</option>
+    </select>
+    <button onclick="document.getElementById('labRow${id}').remove();if(_rxLabCount===1){document.getElementById('rxLabRows').innerHTML='<div style=\\'color:#aaa;font-size:.85rem;padding:8px 0;\\'>No tests added yet.</div>';}"
+            style="background:#fee2e2;color:#991b1b;border:none;border-radius:4px;cursor:pointer;padding:4px 6px;font-size:.82rem;">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function rxAddNamedLab(name, urgency='routine') {
+  rxAddLabRow(name, urgency);
+}
+
+// ── Collect and save ──────────────────────────────────────────────────────
+function rxCollectMedicines() {
+  const rows = [];
+  document.querySelectorAll('[id^="medRow"]').forEach(row => {
+    const n = row.id.replace('medRow','');
+    const name = document.getElementById(`medName${n}`)?.value.trim();
+    if (!name) return;
+    rows.push({
+      medicine_name: name,
+      dose:          document.getElementById(`medDose${n}`)?.value.trim()  || '',
+      frequency:     document.getElementById(`medFreq${n}`)?.value.trim()  || '',
+      duration:      document.getElementById(`medDur${n}`)?.value.trim()   || '',
+      route:         document.getElementById(`medRoute${n}`)?.value.trim() || 'Oral',
+      notes:         document.getElementById(`medNotes${n}`)?.value.trim() || '',
+      sort_order:    parseInt(n),
+    });
+  });
+  return rows;
+}
+
+function rxCollectLabTests() {
+  const tests = [];
+  document.querySelectorAll('[id^="labRow"]').forEach(row => {
+    const n = row.id.replace('labRow','');
+    const name = document.getElementById(`labName${n}`)?.value.trim();
+    if (!name) return;
+    tests.push({
+      test_name: name,
+      urgency:   document.getElementById(`labUrg${n}`)?.value || 'routine',
+    });
+  });
+  return tests;
+}
+
+async function rxSaveDigital() {
+  const diagnosis = document.getElementById('rxDiag').value.trim();
+  const complaint = document.getElementById('rxComplaint').value.trim();
+  if (!diagnosis || !complaint) {
+    alert('Chief Complaint and Diagnosis are required.'); return;
+  }
+
+  const medicines = rxCollectMedicines();
+  const labTests  = rxCollectLabTests();
+
+  const payload = {
+    patient_name:         document.getElementById('rxPatient').value.trim()       || document.getElementById('rxUhid').value.trim(),
+    patient_phone:        document.getElementById('rxPhone2').value.trim()         || '',
+    patient_age:          document.getElementById('rxAge').value.trim()            || '',
+    patient_gender:       document.getElementById('rxGender').value.trim()         || '',
+    uhid:                 document.getElementById('rxUhid').value.trim()           || '',
+    visit_id:             document.getElementById('rxVisitIdHidden').value.trim()  || null,
+    chief_complaint:      complaint,
+    diagnosis:            diagnosis,
+    symptoms:             document.getElementById('rxSymptoms').value.trim()       || '',
+    clinical_notes:       document.getElementById('rxNotes').value.trim()          || '',
+    bp:                   document.getElementById('rxBP').value.trim()             || '',
+    temperature:          document.getElementById('rxTemp').value.trim()           || '',
+    pulse:                document.getElementById('rxPulse').value.trim()          || '',
+    spo2:                 document.getElementById('rxSpo2').value.trim()           || '',
+    weight:               document.getElementById('rxWeight').value.trim()         || '',
+    diet_advice:          document.getElementById('rxDiet').value.trim()           || '',
+    special_instructions: document.getElementById('rxInstructions').value.trim()   || '',
+    follow_up_days:       parseInt(document.getElementById('rxFollowDays').value)  || null,
+    medicines_list:       medicines,
+    lab_tests:            labTests,
+  };
+
+  const statusEl = document.getElementById('rxSaveStatus');
+  statusEl.textContent = '⏳ Saving…';
+  statusEl.style.color = '#888';
+
+  try {
+    const r = await fetch('/api/doctor/prescription/create', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const d = await r.json();
+    if (d.prescription_id) {
+      _rxSavedId = d.prescription_id;
+      statusEl.textContent = `✅ Saved as Rx #${d.prescription_id} — ${d.medicines_count||medicines.length} medicine(s), ${(d.lab_tests_count||labTests.length)} test(s).`;
+      statusEl.style.color = '#16a34a';
+      document.getElementById('rxPrintBtn').style.display = 'inline-block';
+    } else {
+      statusEl.textContent = '❌ ' + (d.error || 'Could not save prescription');
+      statusEl.style.color = '#dc2626';
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ Network error — please try again.';
+    statusEl.style.color = '#dc2626';
+  }
+}
+
+function rxOpenPDF() {
+  if (!_rxSavedId) { alert('Please save prescription first.'); return; }
+  window.open(`/api/pdf/rx/${_rxSavedId}`, '_blank');
+}
+
+// Helper: HTML-escape
+function escH(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Auto-add one empty medicine row when prescription section opens
+function rxInitRows() {
+  if (document.querySelectorAll('[id^="medRow"]').length === 0) {
+    rxAddMedRow();
+  }
+}
+
+// ── Nav switching ─────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', () => {
     document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -399,10 +1138,11 @@ document.querySelectorAll('.nav-item').forEach(item => {
     const sec = item.dataset.sec;
     document.getElementById(sec).classList.add('active');
     if (sec === 'appointments')      loadAppointments();
-    if (sec === 'my-prescriptions') loadMyPrescriptions();
-    if (sec === 'patient-history')  loadMyVisits();
-    if (sec === 'ipd-rounds')       {} // load on demand
-    if (sec === 'doc-surgery')      loadDocSurgeries();
+    if (sec === 'my-prescriptions')  loadMyPrescriptions();
+    if (sec === 'patient-history')   loadMyVisits();
+    if (sec === 'doc-surgery')       loadDocSurgeries();
+    if (sec === 'prescription')      rxInitRows();
+    if (sec === 'notif-settings')    nsLoadSettings();
   });
 });
 
@@ -448,7 +1188,7 @@ async function loadRounds() {
   } catch(e) { console.error(e); }
 }
 
-// ── Surgery (Doctor) ───────────────────────────────────────────────────────
+// ── Surgery ───────────────────────────────────────────────────────────────
 async function createDocSurgery() {
   const msg = document.getElementById('dsurMsg');
   const payload = {
@@ -491,6 +1231,92 @@ async function loadDocSurgeries() {
   } catch(e) { console.error(e); }
 }
 
+// ── Notification Settings ─────────────────────────────────────────────────
+async function nsLoadSettings() {
+  const loadMsg = document.getElementById('notifLoadMsg');
+  const form    = document.getElementById('notifForm');
+  loadMsg.textContent = 'Loading settings…';
+  try {
+    const r = await fetch('/api/settings/notifications');
+    const d = await r.json();
+    const s = d.settings || {};
+    // Active provider radio
+    const prov = s.active_provider || 'telegram';
+    const radio = document.querySelector(`input[name="activeProvider"][value="${prov}"]`);
+    if (radio) radio.checked = true;
+    // Telegram fields (masked values shown as-is)
+    document.getElementById('nsTgToken').placeholder  = s.telegram_token  ? '●●●● (saved)' : '1234567890:AABxxxxxx';
+    document.getElementById('nsTgToken').value         = '';
+    document.getElementById('nsTgChatId').value        = s.telegram_chat_id  || '';
+    // WhatsApp
+    document.getElementById('nsWaUrl').value           = s.whatsapp_api_base_url || '';
+    document.getElementById('nsWaKey').placeholder     = s.whatsapp_api_key ? '●●●● (saved)' : '';
+    document.getElementById('nsWaKey').value           = '';
+    document.getElementById('nsWaSender').value        = s.whatsapp_sender_number || '';
+    // Checkboxes
+    document.getElementById('nsOnAppt').checked = s.notify_on_appointment === 'true' || s.notify_on_appointment === true;
+    document.getElementById('nsOnRx').checked   = s.notify_on_prescription === 'true' || s.notify_on_prescription === true;
+    document.getElementById('nsOnLab').checked  = s.notify_on_lab_result === 'true' || s.notify_on_lab_result === true;
+    document.getElementById('nsOnDis').checked  = s.notify_on_discharge === 'true' || s.notify_on_discharge === true;
+    document.getElementById('nsDaily').checked  = s.daily_summary_enabled === 'true' || s.daily_summary_enabled === true;
+
+    loadMsg.textContent = '';
+    form.style.display = 'block';
+  } catch(e) {
+    loadMsg.textContent = '⚠️ Could not load settings.';
+    form.style.display = 'block';
+  }
+}
+
+async function nsSaveSettings() {
+  const provEl = document.querySelector('input[name="activeProvider"]:checked');
+  const payload = {
+    active_provider:         provEl ? provEl.value : 'telegram',
+    telegram_token:          document.getElementById('nsTgToken').value.trim()   || undefined,
+    telegram_chat_id:        document.getElementById('nsTgChatId').value.trim()  || undefined,
+    whatsapp_api_base_url:   document.getElementById('nsWaUrl').value.trim()     || undefined,
+    whatsapp_api_key:        document.getElementById('nsWaKey').value.trim()     || undefined,
+    whatsapp_sender_number:  document.getElementById('nsWaSender').value.trim()  || undefined,
+    notify_on_appointment:   String(document.getElementById('nsOnAppt').checked),
+    notify_on_prescription:  String(document.getElementById('nsOnRx').checked),
+    notify_on_lab_result:    String(document.getElementById('nsOnLab').checked),
+    notify_on_discharge:     String(document.getElementById('nsOnDis').checked),
+    daily_summary_enabled:   String(document.getElementById('nsDaily').checked),
+  };
+  // Remove undefined keys
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  const msg = document.getElementById('nsMsg');
+  try {
+    const r = await fetch('/api/settings/notifications', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+    });
+    const d = await r.json();
+    msg.textContent = d.status==='ok' ? '✅ Settings saved successfully.' : '❌ '+(d.error||'Failed');
+    msg.style.color = d.status==='ok' ? '#16a34a' : '#dc2626';
+  } catch(e) {
+    msg.textContent = '❌ Network error.'; msg.style.color='#dc2626';
+  }
+}
+
+async function nsTestChannel(channel) {
+  const msg = document.getElementById('nsMsg');
+  msg.textContent = `⏳ Sending test ${channel} message…`;
+  msg.style.color = '#888';
+  try {
+    const r = await fetch('/api/settings/notifications/test', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ channel, message: `🔔 SRP MediFlow test — ${channel} working from ${document.getElementById('docName').textContent}!` })
+    });
+    const d = await r.json();
+    msg.textContent = d.status==='ok' ? `✅ Test ${channel} sent!` : '❌ '+(d.error||'Failed');
+    msg.style.color = d.status==='ok' ? '#16a34a' : '#dc2626';
+  } catch(e) {
+    msg.textContent = '❌ Error.'; msg.style.color='#dc2626';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
 checkSession();
 loadAppointments();
 </script>

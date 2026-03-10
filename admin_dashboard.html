@@ -317,6 +317,7 @@
                 <li class="nav-item" data-section="billing">🧾 Billing</li>
                 <li class="nav-item" data-section="reports">📊 Reports</li>
                 <li class="nav-item" data-section="system-logs">🔒 System Logs</li>
+                <li class="nav-item" data-section="notif-settings">🔔 Notifications</li>
             </ul>
             
             <div style="flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 12px; margin-top: 10px;">
@@ -401,6 +402,56 @@
                             <tr><td colspan="4" style="text-align: center;">Loading...</td></tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- ── Enhanced live stats row ───────────────────────── -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0 0;">
+                  <div class="stat-card" style="border-left:4px solid #7c3aed;background:linear-gradient(135deg,#f5f3ff,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">TODAY OPD</h3>
+                    <div class="number" id="eStatOpd" style="color:#7c3aed;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Outpatient visits today</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #0ea5e9;background:linear-gradient(135deg,#f0f9ff,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">TODAY IPD</h3>
+                    <div class="number" id="eStatIpd" style="color:#0ea5e9;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Inpatient admissions today</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #16a34a;background:linear-gradient(135deg,#f0fdf4,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">TODAY COLLECTIONS ₹</h3>
+                    <div class="number" id="eStatColl" style="color:#16a34a;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Billing collection today</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #dc2626;background:linear-gradient(135deg,#fff5f5,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">PENDING BILLS</h3>
+                    <div class="number" id="eStatBills" style="color:#dc2626;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Unpaid billing items</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">LAB PENDING</h3>
+                    <div class="number" id="eStatLab" style="color:#f59e0b;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Lab results awaited</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #ec4899;background:linear-gradient(135deg,#fdf2f8,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">FOLLOW-UPS TODAY</h3>
+                    <div class="number" id="eStatFollowup" style="color:#ec4899;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Patients due for review</div>
+                  </div>
+                  <div class="stat-card" style="border-left:4px solid #6366f1;background:linear-gradient(135deg,#eef2ff,#fff);">
+                    <h3 style="font-size:.75rem;color:#6b7280;margin-bottom:4px;">NOTIFICATIONS SENT</h3>
+                    <div class="number" id="eStatNotifs" style="color:#6366f1;font-size:1.8rem;">—</div>
+                    <div style="font-size:.72rem;color:#9ca3af;">Today via Telegram/WhatsApp</div>
+                  </div>
+                </div>
+
+                <!-- ── Recent Activity Feed ──────────────────────────── -->
+                <div class="table-container" style="margin-top:20px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <h3>Recent Activity</h3>
+                    <button onclick="loadEnhancedStats()" style="font-size:.8rem;padding:4px 12px;border:1px solid #ddd;border-radius:20px;cursor:pointer;background:#fff;">↻ Refresh</button>
+                  </div>
+                  <div id="activityFeed" style="max-height:300px;overflow-y:auto;">
+                    <div style="color:#aaa;text-align:center;padding:20px;font-size:.88rem;">Loading activity…</div>
+                  </div>
                 </div>
             </div>
             
@@ -968,6 +1019,74 @@
                     </table>
                 </div>
             </div>
+
+            <!-- ── NOTIFICATION SETTINGS section ──────────────────────── -->
+            <div id="notif-settings" class="section">
+                <h2>🔔 Notification Settings</h2>
+                <div class="table-container" style="max-width:900px;">
+                  <p style="color:#6b7280;margin-bottom:20px;font-size:.9rem;">
+                    Configure Telegram and WhatsApp notifications for patient alerts.
+                    Telegram is active by default. WhatsApp can be activated by entering credentials below.
+                  </p>
+                  <div id="adminNsLoadMsg" style="color:#888;font-size:.88rem;margin-bottom:8px;">Loading…</div>
+                  <div id="adminNsForm" style="display:none;">
+                    <h3 style="margin-bottom:12px;">Active Channel</h3>
+                    <div style="display:flex;gap:20px;margin-bottom:24px;">
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
+                        <input type="radio" name="adminProvType" value="telegram" id="adminProvTg"> 📱 Telegram
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
+                        <input type="radio" name="adminProvType" value="whatsapp" id="adminProvWa"> 💬 WhatsApp
+                      </label>
+                      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.9rem;">
+                        <input type="radio" name="adminProvType" value="none" id="adminProvNone"> ❌ Disabled
+                      </label>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+                      <div>
+                        <h3 style="color:#0088cc;margin-bottom:12px;">📱 Telegram</h3>
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Bot Token</label>
+                        <input id="adminNsTgToken" type="password" placeholder="Leave blank to keep existing"
+                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Chat ID</label>
+                        <input id="adminNsTgChatId" type="text"
+                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                        <button onclick="adminNsTest('telegram')"
+                                style="font-size:.82rem;padding:6px 16px;border:1px solid #0088cc;color:#0088cc;
+                                       background:#fff;border-radius:6px;cursor:pointer;">▶ Send Test</button>
+                      </div>
+                      <div>
+                        <h3 style="color:#25d366;margin-bottom:12px;">💬 WhatsApp</h3>
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Base URL</label>
+                        <input id="adminNsWaUrl" type="text" placeholder="https://…"
+                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">API Key / SID</label>
+                        <input id="adminNsWaKey" type="password"
+                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                        <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Sender Number</label>
+                        <input id="adminNsWaSender" type="text" placeholder="+1415XXXXXXX"
+                               style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;font-size:.85rem;">
+                        <button onclick="adminNsTest('whatsapp')"
+                                style="font-size:.82rem;padding:6px 16px;border:1px solid #25d366;color:#25d366;
+                                       background:#fff;border-radius:6px;cursor:pointer;">▶ Send Test</button>
+                      </div>
+                    </div>
+
+                    <h3 style="margin-bottom:12px;">Alert Events</h3>
+                    <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:20px;">
+                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnAppt"> On Appointment</label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnRx"> On Prescription</label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnLab"> On Lab Result</label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsOnDis"> On Discharge</label>
+                      <label style="display:flex;align-items:center;gap:6px;font-size:.9rem;cursor:pointer;"><input type="checkbox" id="adminNsDaily"> Daily Summary</label>
+                    </div>
+
+                    <button class="btn btn-success" style="padding:10px 24px;" onclick="adminNsSave()">💾 Save Settings</button>
+                    <div id="adminNsMsg" style="margin-top:10px;font-size:.88rem;"></div>
+                  </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1125,8 +1244,60 @@
                     console.error('Error loading admin data:', e);
                 });
         }
-        
-        // Record staff attendance
+
+        // ── Enhanced Stats + Activity Feed ────────────────────────────────
+        async function loadEnhancedStats() {
+            try {
+                const [statsRes, actRes] = await Promise.all([
+                    authFetch('/api/admin/dashboard/stats'),
+                    authFetch('/api/admin/activity'),
+                ]);
+                if (statsRes.ok) {
+                    const s = await statsRes.json();
+                    const st = s.stats || s;
+                    const fmt = v => (v === null || v === undefined) ? '—' : v;
+                    const fmtCurr = v => v ? '₹' + parseFloat(v).toLocaleString('en-IN', {maximumFractionDigits:0}) : '—';
+                    document.getElementById('eStatOpd').textContent      = fmt(st.today_opd);
+                    document.getElementById('eStatIpd').textContent      = fmt(st.today_ipd);
+                    document.getElementById('eStatColl').textContent     = fmtCurr(st.today_collections);
+                    document.getElementById('eStatBills').textContent    = fmt(st.pending_bills);
+                    document.getElementById('eStatLab').textContent      = fmt(st.lab_pending);
+                    document.getElementById('eStatFollowup').textContent = fmt(st.followup_today);
+                    document.getElementById('eStatNotifs').textContent   = fmt(st.notifications_today);
+                    // Also update old stat cards if present
+                    if (st.low_stock_medicines !== undefined) document.getElementById('lowStockCount').textContent = st.low_stock_medicines;
+                    if (st.today_opd !== undefined) document.getElementById('todayPatients').textContent = st.today_opd;
+                }
+                if (actRes.ok) {
+                    const a = await actRes.json();
+                    const items = a.activity || a.items || [];
+                    const feed = document.getElementById('activityFeed');
+                    if (!items.length) {
+                        feed.innerHTML = '<div style="color:#aaa;text-align:center;padding:16px;font-size:.85rem;">No recent activity yet.</div>';
+                        return;
+                    }
+                    const icons = {
+                        'patient': '🧑‍⚕️', 'prescription': '💊', 'lab': '🔬',
+                        'admission': '🏥', 'discharge': '🚪', 'appointment': '📅',
+                        'billing': '💰', 'default': '📋'
+                    };
+                    feed.innerHTML = items.map(item => {
+                        const ic = icons[item.type] || icons.default;
+                        const time = (item.created_at||item.timestamp||'').slice(0,16);
+                        return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6;">
+                          <span style="font-size:1.1rem;flex-shrink:0;">${ic}</span>
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-size:.85rem;color:#374151;">${item.description||item.message||'Activity'}</div>
+                            <div style="font-size:.75rem;color:#9ca3af;">${time}</div>
+                          </div>
+                        </div>`;
+                    }).join('');
+                }
+            } catch(e) {
+                console.error('Enhanced stats error:', e);
+            }
+        }
+
         function recordAttendance() {
             const staffName = document.getElementById('staffName').value.trim();
             const action = document.getElementById('attendanceAction').value;
@@ -1472,6 +1643,7 @@
                     if (sec === 'attendance')     loadAdminData();
                     if (sec === 'doctor-rounds')  loadAdminData();
                     if (sec === 'reports')        loadReportsSection();
+                    if (sec === 'notif-settings') adminNsLoad();
                 });
             });
             // Initial doctor dropdown population
@@ -1966,6 +2138,9 @@
             loadAdminData();
             loadExtendedData();
             loadDoctorDropdowns();
+            loadEnhancedStats();
+            // Refresh enhanced stats every 3 minutes
+            setInterval(loadEnhancedStats, 3 * 60 * 1000);
         });
 
         // ── Doctor Dropdowns (dynamic from DB) ───────────────────────────────
@@ -2338,6 +2513,87 @@
             <script>setTimeout(()=>window.print(),400);<\/script>
             </body></html>`);
             w.document.close();
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ADMIN NOTIFICATION SETTINGS
+        // ══════════════════════════════════════════════════════════════════
+        async function adminNsLoad() {
+            const msgEl  = document.getElementById('adminNsLoadMsg');
+            const formEl = document.getElementById('adminNsForm');
+            msgEl.textContent = 'Loading…';
+            try {
+                const r = await authFetch('/api/settings/notifications');
+                const d = await r.json();
+                const s = d.settings || {};
+                const prov = s.active_provider || 'telegram';
+                const radio = document.querySelector(`input[name="adminProvType"][value="${prov}"]`);
+                if (radio) radio.checked = true;
+
+                document.getElementById('adminNsTgToken').placeholder  = s.telegram_token  ? '●●●● (saved)' : 'Paste bot token…';
+                document.getElementById('adminNsTgToken').value         = '';
+                document.getElementById('adminNsTgChatId').value        = s.telegram_chat_id || '';
+                document.getElementById('adminNsWaUrl').value           = s.whatsapp_api_base_url || '';
+                document.getElementById('adminNsWaKey').placeholder     = s.whatsapp_api_key ? '●●●● (saved)' : '';
+                document.getElementById('adminNsWaKey').value           = '';
+                document.getElementById('adminNsWaSender').value        = s.whatsapp_sender_number || '';
+
+                document.getElementById('adminNsOnAppt').checked = (s.notify_on_appointment  === 'true' || s.notify_on_appointment  === true);
+                document.getElementById('adminNsOnRx').checked   = (s.notify_on_prescription === 'true' || s.notify_on_prescription === true);
+                document.getElementById('adminNsOnLab').checked  = (s.notify_on_lab_result   === 'true' || s.notify_on_lab_result   === true);
+                document.getElementById('adminNsOnDis').checked  = (s.notify_on_discharge    === 'true' || s.notify_on_discharge    === true);
+                document.getElementById('adminNsDaily').checked  = (s.daily_summary_enabled  === 'true' || s.daily_summary_enabled  === true);
+
+                msgEl.textContent = '';
+                formEl.style.display = 'block';
+            } catch(e) {
+                msgEl.textContent = '⚠️ Could not load settings.';
+                formEl.style.display = 'block';
+            }
+        }
+
+        async function adminNsSave() {
+            const provEl  = document.querySelector('input[name="adminProvType"]:checked');
+            const payload = {
+                active_provider:         provEl ? provEl.value : 'telegram',
+                telegram_chat_id:        document.getElementById('adminNsTgChatId').value.trim() || undefined,
+                whatsapp_api_base_url:   document.getElementById('adminNsWaUrl').value.trim()    || undefined,
+                whatsapp_sender_number:  document.getElementById('adminNsWaSender').value.trim() || undefined,
+                notify_on_appointment:   String(document.getElementById('adminNsOnAppt').checked),
+                notify_on_prescription:  String(document.getElementById('adminNsOnRx').checked),
+                notify_on_lab_result:    String(document.getElementById('adminNsOnLab').checked),
+                notify_on_discharge:     String(document.getElementById('adminNsOnDis').checked),
+                daily_summary_enabled:   String(document.getElementById('adminNsDaily').checked),
+            };
+            const tgToken = document.getElementById('adminNsTgToken').value.trim();
+            if (tgToken) payload.telegram_token = tgToken;
+            const waKey   = document.getElementById('adminNsWaKey').value.trim();
+            if (waKey) payload.whatsapp_api_key = waKey;
+            Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+            const msg = document.getElementById('adminNsMsg');
+            try {
+                const r = await authFetch('/api/settings/notifications', {
+                    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)
+                });
+                const d = await r.json();
+                msg.textContent = d.status==='ok' ? '✅ Settings saved.' : '❌ '+(d.error||'Failed');
+                msg.style.color = d.status==='ok' ? '#16a34a' : '#dc2626';
+            } catch(e) { msg.textContent='❌ Error.'; msg.style.color='#dc2626'; }
+        }
+
+        async function adminNsTest(channel) {
+            const msg = document.getElementById('adminNsMsg');
+            msg.textContent = `⏳ Sending test ${channel}…`; msg.style.color='#888';
+            try {
+                const r = await authFetch('/api/settings/notifications/test', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ channel, message: `🔔 Test from SRP MediFlow Admin — ${channel} is working!` })
+                });
+                const d = await r.json();
+                msg.textContent = d.status==='ok' ? `✅ Test ${channel} sent!` : '❌ '+(d.error||'Failed');
+                msg.style.color = d.status==='ok' ? '#16a34a' : '#dc2626';
+            } catch(e) { msg.textContent='❌ Error.'; msg.style.color='#dc2626'; }
         }
     </script>
 
