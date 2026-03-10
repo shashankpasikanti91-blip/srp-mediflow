@@ -27,6 +27,23 @@ RECEPTION   = 'RECEPTION'
 
 ALL_ROLES: list[str] = [FOUNDER, ADMIN, DOCTOR, NURSE, LAB, XRAY, STOCK, RECEPTION]
 
+# ── Hierarchy layer groupings ──────────────────────────────────────────────────
+#
+#  Layer 1 — PLATFORM  (srp_platform_db)
+#    Accounts live in: founder_accounts table
+#    Database scope:   ALL hospitals (read platform metrics, create tenants)
+#    Patient data:     BLOCKED at route level
+#
+#  Layer 2 — TENANT    (each hospital's own DB, e.g. srp_star_hospital)
+#    Accounts live in: staff_users table inside that hospital's DB
+#    Database scope:   OWN hospital ONLY
+#    Patient data:     Allowed per role (ADMIN full, DOCTOR own patients, etc.)
+#
+PLATFORM_ROLES: set[str] = {FOUNDER}           # Layer 1 — platform owners
+TENANT_ROLES:   set[str] = {                   # Layer 2 — hospital staff
+    ADMIN, DOCTOR, NURSE, LAB, XRAY, STOCK, RECEPTION
+}
+
 # ── Permission registry ───────────────────────────────────────────────────────
 PERMISSIONS: dict[str, set[str]] = {
     FOUNDER: {

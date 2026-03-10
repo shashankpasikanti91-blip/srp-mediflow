@@ -38,12 +38,18 @@ DOCTORS = {
             'orthopedic', 'ortho', 'srujan', 'knee pain', 'knee', 'joint pain', 'joint',
             'fracture', 'bone', 'back pain', 'shoulder pain', 'shoulder', 'ankle',
             'sports injury', 'neck pain', 'back', 'bone and joint', 'dnb ortho',
-            # Telugu
+            # Telugu (Unicode)
             'నొప్పి', 'పెనుపు', 'చేతి', 'కాలు', 'ఎముక', 'పెయిన్', 'బ్యాక్', 'తుదకు', 'మోకాలు',
             'ఆర్థోపెడిక్', 'సృజన్',
-            # Hindi
+            # Hindi (Unicode)
             'हड्डी', 'जोड़', 'घुटना', 'घुटने', 'कमर दर्द', 'पीठ दर्द', 'कंधा', 'फ्रैक्चर',
-            'हाथ दर्द', 'पैर दर्द', 'ओर्थोपेडिक'
+            'हाथ दर्द', 'पैर दर्द', 'ओर्थोपेडिक',
+            # Romanized Telugu
+            'moka noppi', 'mokaalu', 'kaalu noppi', 'cheyi noppi', 'muggu noppi',
+            'noppi', 'ithara noppi', 'noppulu',
+            # Romanized Hindi
+            'haddi', 'jodon', 'jodh', 'ghutna', 'ghutne', 'peeth dard', 'kamar dard',
+            'kandha dard', 'pair dard', 'hath dard'
         ]
     },
     'ramyanadh': {
@@ -60,14 +66,24 @@ DOCTORS = {
             'general medicine', 'general', 'ramyanadh', 'ramyana', 'fever', 'cold', 'cough',
             'headache', 'bp', 'blood pressure', 'diabetes', 'diabetology', 'sugar',
             'infection', 'weakness', 'vomiting', 'stomach pain', 'loose motion', 'diarrhea',
-            'body pain', 'fatigue', 'thyroid',
-            # Telugu
+            'body pain', 'fatigue', 'thyroid', 'pain',
+            # Telugu (Unicode)
             'జ్వరం', 'దగ్గు', 'తల నొప్పి', 'సంక్రమణ', 'ఆరోగ్య', 'మందు', 'జలుబు', 'వాంతి',
             'మధుమేహం', 'రామ్యనాధ్',
-            # Hindi
+            # Hindi (Unicode)
             'बुखार', 'जुकाम', 'खांसी', 'सर्दी', 'सिर दर्द', 'मधुमेह', 'शुगर',
             'कमजोरी', 'उल्टी', 'दस्त', 'पेट दर्द', 'बीपी', 'संक्रमण', 'बीमार',
-            'थकान', 'थायराइड'
+            'थकान', 'थायराइड',
+            # Romanized Telugu
+            'jaram', 'jwaram', 'jvaram', 'tapam', 'daggu', 'dagghu', 'jalubu', 'jallubu',
+            'tala noppi', 'talnoppi', 'vomiting', 'vanti', 'vaanti', 'madhumeham',
+            'susthaga', 'sushthaga', 'bayam', 'bayallu', 'body noppi', 'neerulu',
+            'dabbulu levu', 'balaheenata', 'saradam', 'thayroid', 'sugar vachindi',
+            'bp ekuvundi', 'blood pressure',
+            # Romanized Hindi
+            'bukhar', 'bukhaar', 'jukam', 'jukhaam', 'khansi', 'khansii', 'sardi', 'sardii',
+            'sir dard', 'sar dard', 'madhumeh', 'kamzori', 'ulti', 'dast', 'pet dard',
+            'thakan', 'thyroid'
         ]
     },
     'ramachandra': {
@@ -84,11 +100,16 @@ DOCTORS = {
             'general surgery', 'surgery', 'surgical', 'ramachandra', 'nayak', 'appendix',
             'hernia', 'gallbladder', 'gall bladder', 'gallstone', 'abscess', 'wound',
             'operation', 'piles', 'fissure', 'fistula', 'lump', 'swelling',
-            # Telugu
+            # Telugu (Unicode)
             'శస్త్రచికిత్స', 'ఆపరేషన్', 'రామచంద్ర', 'నాయక్', 'వాపు',
-            # Hindi
+            # Hindi (Unicode)
             'सर्जरी', 'ऑपरेशन', 'सूजन', 'गांठ', 'हर्निया', 'पथरी', 'बवासीर',
-            'अपेंडिक्स', 'घाव', 'रामचंद्र'
+            'अपेंडिक्स', 'घाव', 'रामचंद्र',
+            # Romanized Telugu
+            'sastrachikitsa', 'operation cheyali', 'karu', 'kaadu', 'kaladu', 'vapu',
+            'appendix vachindi', 'hernia', 'gallstone', 'daggu povataledhu',
+            # Romanized Hindi
+            'surgery chahiye', 'operation chahiye', 'sujan', 'ganth', 'piles', 'fissure'
         ]
     },
     'dental_ent': {
@@ -105,11 +126,16 @@ DOCTORS = {
             'dental', 'dentist', 'tooth', 'teeth', 'toothache', 'tooth pain', 'cavity',
             'ent', 'ear', 'nose', 'throat', 'tonsil', 'sinus', 'hearing', 'ear pain',
             'nose bleed', 'snoring', 'gum', 'gums',
-            # Telugu
+            # Telugu (Unicode)
             'దంత', 'పళ్ళు', 'పళ్ళ నొప్పి', 'చెవి', 'ముక్కు', 'గొంతు', 'టాన్సిల్',
-            # Hindi
+            # Hindi (Unicode)
             'दांत', 'दांत दर्द', 'कान', 'नाक', 'गला', 'टॉन्सिल', 'साइनस',
-            'दंत', 'दंत चिकित्सक', 'कान दर्द', 'गले में खराश'
+            'दंत', 'दंत चिकित्सक', 'कान दर्द', 'गले में खराश',
+            # Romanized Telugu
+            'pallu noppi', 'pallu', 'chevijadam', 'chevi noppi', 'mukku', 'gontu',
+            'tonsils', 'dental doctor',
+            # Romanized Hindi
+            'daant', 'daant dard', 'kaan', 'naak', 'gala', 'tonsil', 'dental'
         ]
     }
 }
@@ -187,7 +213,23 @@ def reset_state():
 def set_chatbot_state(new_state):
     """Set chatbot state from external source (e.g., server session)"""
     global state
-    state = new_state.copy() if new_state else state
+    if new_state:
+        # Merge with defaults so all keys are always present
+        defaults = {
+            'booking_active': False,
+            'doctor_selected': None,
+            'name': None,
+            'age': None,
+            'phone': None,
+            'issue': None,
+            'aadhar': None,
+            'appointment_time': None,
+            'appointment_date': None,
+            'appointment_day': None,
+            'lang': 'english',
+        }
+        defaults.update(new_state)
+        state = defaults
 
 def get_chatbot_state():
     """Get current chatbot state"""
@@ -205,12 +247,74 @@ def clear_last_booking_record():
     last_booking_record = None
 
 def detect_language(text):
-    """Detect language from text"""
+    """Detect language from text — supports Unicode Telugu/Hindi and Romanized Telugu/Hindi."""
+    # 1. Unicode script detection (most reliable)
     for char in text:
         if '\u0C00' <= char <= '\u0C7F':
             return 'telugu'
         elif '\u0900' <= char <= '\u097F':
             return 'hindi'
+
+    # 2. Romanized Telugu word detection
+    _romanized_telugu = {
+        # greetings / pronouns
+        'naku', 'naaku', 'nenu', 'meeru', 'meru', 'mee', 'miku', 'meeru',
+        'ela', 'ela undi', 'namaskaram', 'namaskaaram',
+        # verbs / actions
+        'cheyali', 'cheyandi', 'chestanu', 'cheddham', 'vachindi', 'vachindhi',
+        'pothunna', 'vastanu', 'vastundi', 'undhi', 'undi', 'ledu', 'ayindi',
+        'cheppandi', 'cheppu', 'teliyadu', 'telusukodham',
+        # medical / symptoms
+        'jaram', 'jwaram', 'jvaram', 'tapam', 'daggu', 'dagghu',
+        'jalubu', 'jallubu', 'noppi', 'noppulu', 'mandu', 'vanti', 'vaanti',
+        'tala noppi', 'susthaga', 'madhumeham', 'saradam',
+        # booking
+        'booking', 'appoinment', 'apoinment', 'doctor kavaali', 'doctor kavali',
+        'chupinchali', 'chupinchandi',
+        # common words
+        'hospital', 'time', 'anni', 'chala', 'bayam', 'ikkada',
+        'roju', 'repu', 'ippudu',
+    }
+
+    # 3. Romanized Hindi word detection
+    _romanized_hindi = {
+        # greetings / pronouns
+        'mujhe', 'muje', 'mera', 'meri', 'mere', 'aap', 'apko', 'hum', 'ham',
+        'namaste', 'namaskar',
+        # verbs / actions
+        'chahiye', 'chahie', 'karna', 'karna hai', 'dikhana', 'milna', 'batao',
+        'bataye', 'samjho', 'sunna', 'aana', 'jaana',
+        # medical / symptoms
+        'bukhar', 'bukhaar', 'jukam', 'jukhaam', 'khansi', 'khansii',
+        'sardi', 'sardii', 'sir dard', 'sar dard', 'pet dard',
+        'kamzori', 'ulti', 'dast', 'thakan', 'takleef', 'bimari',
+        # booking
+        'appointment chahiye', 'doctor chahiye', 'dikhana hai', 'dikhaana',
+        # common
+        'bahut', 'thoda', 'abhi', 'kal', 'aaj', 'kab', 'kahan',
+    }
+
+    text_lower = text.lower()
+    words_in_text = set(text_lower.replace(',', ' ').replace('.', ' ').split())
+
+    # Check Romanized Telugu (word-level)
+    if words_in_text & _romanized_telugu:
+        return 'telugu'
+
+    # Check Romanized Telugu (phrase-level)
+    for phrase in _romanized_telugu:
+        if ' ' in phrase and phrase in text_lower:
+            return 'telugu'
+
+    # Check Romanized Hindi (word-level)
+    if words_in_text & _romanized_hindi:
+        return 'hindi'
+
+    # Check Romanized Hindi (phrase-level)
+    for phrase in _romanized_hindi:
+        if ' ' in phrase and phrase in text_lower:
+            return 'hindi'
+
     return 'english'
 
 def transliterate_name_to_english(name):
@@ -244,7 +348,10 @@ def transliterate_name_to_english(name):
 
 def find_doctor(text):
     """Find doctor from user input - supports both English and Telugu keywords.
-    Checks longer/more specific keywords first to avoid false matches."""
+    Checks longer/more specific keywords first to avoid false matches.
+    Uses word-boundary matching for ASCII keywords to avoid substring false matches
+    (e.g. 'ent' should not match 'appointment').
+    Ignores keywords that are negated (e.g. 'not dental', 'no dental')."""
     text_low = text.lower()
 
     # Build a flat list of (keyword, doctor_id) sorted by keyword length DESC
@@ -256,7 +363,38 @@ def find_doctor(text):
     all_keywords.sort(key=lambda x: len(x[0]), reverse=True)
 
     for keyword, doctor_id in all_keywords:
-        if keyword.lower() in text_low or keyword in text:
+        kw_lower = keyword.lower()
+
+        # Determine if keyword is ASCII (English) or non-ASCII (Telugu/Hindi)
+        is_ascii_kw = all(ord(c) < 128 for c in keyword)
+
+        if is_ascii_kw:
+            # Use word-boundary matching for English keywords to avoid
+            # substring false positives like 'ent' inside 'appointment'
+            matched = bool(re.search(r'\b' + re.escape(kw_lower) + r'\b', text_low))
+        else:
+            # For Telugu/Hindi scripts, substring match is fine
+            matched = (kw_lower in text_low or keyword in text)
+
+        if matched:
+            # Check if the word DIRECTLY before this keyword is a negation word
+            if is_ascii_kw:
+                idx = text_low.find(kw_lower)
+                # re.search to find the actual boundary position
+                m = re.search(r'\b' + re.escape(kw_lower) + r'\b', text_low)
+                if m:
+                    idx = m.start()
+            else:
+                idx = text_low.find(kw_lower) if kw_lower in text_low else text.find(keyword)
+
+            if idx > 0:
+                prefix = text_low[:idx].rstrip()
+                # Only the last word before the keyword matters for negation
+                last_word_match = re.search(r'\b(\w+)$', prefix)
+                if last_word_match and last_word_match.group(1) in (
+                    'not', 'no', 'dont', 'never', 'without', 'except', 'non'
+                ):
+                    continue  # negated — skip this keyword
             return doctor_id
     return None
 
@@ -368,11 +506,14 @@ def extract_appointment_date(text):
     text_lower = text.lower()
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    if 'day after tomorrow' in text_lower:
+    if 'day after tomorrow' in text_lower or 'erranadu' in text_lower or 'parson' in text_lower:
         d = today + timedelta(days=2)
-    elif 'tomorrow' in text_lower or 'tmrw' in text_lower or 'tmr' in text_lower or 'రేపు' in text or 'kal' in text_lower or 'కల' in text_lower or 'कल' in text:
+    elif ('tomorrow' in text_lower or 'tmrw' in text_lower or 'tmr' in text_lower
+          or 'రేపు' in text or 'kal' in text_lower or 'కల' in text_lower or 'कल' in text
+          or 'repu' in text_lower or 'reppudu' in text_lower):
         d = today + timedelta(days=1)
-    elif 'today' in text_lower or 'ఈ రోజు' in text or 'ఇవాళ' in text or 'आज' in text or 'आजा' in text:
+    elif ('today' in text_lower or 'ఈ రోజు' in text or 'ఇవాళ' in text or 'आज' in text or 'आजा' in text
+          or 'ivala' in text_lower or 'ee roju' in text_lower or 'ippude' in text_lower or 'aaj' in text_lower):
         d = today
     else:
         # Try full/abbreviated weekday names - English + Hindi
@@ -384,7 +525,7 @@ def extract_appointment_date(text):
             'friday': 4, 'fri': 4,
             'saturday': 5, 'sat': 5,
             'sunday': 6, 'sun': 6,
-            # Hindi day names
+            # Hindi (Unicode) day names
             'सोमवार': 0, 'सूमवार': 0,
             'मंगलवार': 1, 'मंगल': 1,
             'बुधवार': 2, 'बुध': 2,
@@ -392,6 +533,22 @@ def extract_appointment_date(text):
             'शुक्रवार': 4, 'शुक्र': 4,
             'शनिवार': 5, 'शनि': 5,
             'रविवार': 6, 'रवि': 6,
+            # Romanized Telugu day names
+            'somavaram': 0, 'somaaram': 0,
+            'mangalavaram': 1, 'mangalamu': 1,
+            'budhavaram': 2, 'budhamu': 2,
+            'guruvaram': 3, 'guruvaaramu': 3, 'brihaspativaram': 3,
+            'shukravaram': 4, 'shukramu': 4,
+            'shanivaram': 5, 'shanimu': 5,
+            'adivaram': 6, 'aadivaram': 6,
+            # Romanized Hindi day names
+            'somvar': 0, 'somwaar': 0,
+            'mangalvar': 1, 'mangalwaar': 1,
+            'budhvar': 2, 'budhwaar': 2,
+            'guruvar': 3, 'guruwaar': 3,
+            'shukravar': 4, 'shukrawaar': 4,
+            'shanivar': 5, 'shaniwaar': 5,
+            'ravivar': 6, 'raviwaar': 6,
         }
         found_day_num = None
         for day_key, day_num in day_map.items():
@@ -492,30 +649,51 @@ def extract_word(text):
 def has_booking_intent(text):
     """Check if user wants to book"""
     text_lower = text.lower()
-    
+
     # English booking keywords
     english_keywords = ['book', 'appointment', 'register', 'can i', 'want to', 'want', 'schedule']
-    
-    # Telugu booking keywords
+
+    # Telugu (Unicode) booking keywords
     telugu_keywords = ['బుక్', 'బుక', 'చేద్దాం', 'చేయాలి', 'నిర్ధారించండి', 'రిజిస్టర్', 'పదవీ', 'కావాలి', 'అందాలి', 'అపాయింట్‌మెంట్']
-    
-    # Hindi booking keywords
+
+    # Hindi (Unicode) booking keywords
     hindi_keywords = ['बुक', 'नियुक्ति', 'चाहता', 'चाहती', 'करना', 'रजिस्टर',
                      'अपोइंटमेंट', 'अपॉइंटमेंट', 'दिखाना', 'दिखाना है', 'दिखाना होगा',
                      'डॉक्टर से मिलना', 'मिलना है', 'इलाज', 'इलाज कराना']
-    
+
+    # Romanized Telugu booking keywords
+    romanized_telugu_booking = [
+        'booking cheyali', 'booking cheyyali', 'booking kavali', 'booking kavaali',
+        'appointment kavali', 'appointment kavaali', 'chupinchali', 'chupinchandi',
+        'doctor chupinchali', 'doctor kavali', 'doctor kavaali',
+        'register cheyali', 'booking', 'apoinment', 'appoinment',
+        'cheyali', 'cheyandi',
+    ]
+
+    # Romanized Hindi booking keywords
+    romanized_hindi_booking = [
+        'booking chahiye', 'appointment chahiye', 'doctor chahiye',
+        'dikhana hai', 'dikhaana hai', 'milna hai', 'doctor se milna',
+        'ilaj karna', 'ilaaj chahiye', 'booking karni', 'book karna',
+        'chahiye',
+    ]
+
     # Check English
     if any(w in text_lower for w in english_keywords):
         return True
-    
-    # Check Telugu
+    # Check Telugu (Unicode)
     if any(w in text for w in telugu_keywords):
         return True
-    
-    # Check Hindi
+    # Check Hindi (Unicode)
     if any(w in text for w in hindi_keywords):
         return True
-    
+    # Check Romanized Telugu
+    if any(p in text_lower for p in romanized_telugu_booking):
+        return True
+    # Check Romanized Hindi
+    if any(p in text_lower for p in romanized_hindi_booking):
+        return True
+
     return False
 
 def get_response_by_key(key, lang='english'):
@@ -626,14 +804,49 @@ def respond(user_input, lang='english'):
             # User wants to proceed with already-selected doctor
             state['booking_active'] = True
             doc = DOCTORS[state['doctor_selected']]
-            timings = doc['timings_te'] if lang == 'telugu' else doc['timings']
+            timings = doc['timings_te'] if lang == 'telugu' else (
+                doc['timings_hi'] if lang == 'hindi' else doc['timings'])
+            # Also try to capture time/date from this same message
+            _ts = extract_time(user_input)
+            _ds, _dn, _dd = extract_appointment_date(user_input)
+            if _ts and not state['appointment_time']:
+                if is_time_available(_ts, state['doctor_selected']):
+                    state['appointment_time'] = _ts
+            if _ds and not state['appointment_date']:
+                if is_day_available_for_doctor(_ds, state['doctor_selected']):
+                    state['appointment_date'] = _ds
+                    state['appointment_day'] = _dn
             if state['appointment_time'] and state['appointment_date']:
                 # Already have both, ask for name
                 disp = format_date_display(state['appointment_date'])
-                return f"Perfect! Let's confirm your booking with {doc['name']} on {disp} at {state['appointment_time']}.\n\nPlease tell me your full name:"
+                if lang == 'telugu':
+                    return f"సరిగ్గా! {disp}, సమయం {state['appointment_time']}.\n\nదయచేసి మీ పూర్తి పేరు చెప్పండి:"
+                elif lang == 'hindi':
+                    return f"बढ़िया! {disp} को {state['appointment_time']} निश्चित।\n\nकृपया अपना पूरा नाम बताएं:"
+                else:
+                    return f"Perfect! Booking {doc['name']} on {disp} at {state['appointment_time']}.\n\nPlease tell me your full name:"
+            elif state['appointment_time']:
+                if lang == 'telugu':
+                    return f"సమయం {state['appointment_time']} నమోదు అయింది.\n\nతేదీ ఏది? (ఉదా: రేపు, సోమవారం)"
+                elif lang == 'hindi':
+                    return f"समय {state['appointment_time']} नोट किया।\n\nतारीख क्या है? (उदा: कल, सोमवार)"
+                else:
+                    return f"Time {state['appointment_time']} noted.\n\nWhat date? (e.g., Today, Tomorrow, Monday)"
+            elif state['appointment_date']:
+                disp = format_date_display(state['appointment_date'])
+                if lang == 'telugu':
+                    return f"తేదీ {disp} నమోదు అయింది.\n\nసమయం ఏది? (ఉదా: 11:00 AM)\n\nఉపలబ్ధ: {timings}"
+                elif lang == 'hindi':
+                    return f"तारीख {disp} नोट किया।\n\nसमय क्या है? (उदा: 11:00 AM)\n\nउपलब्ध: {timings}"
+                else:
+                    return f"Date {disp} noted.\n\nWhat time? (e.g., 11:00 AM)\n\nAvailable: {timings}"
             else:
-                # Ask for date and time
-                return f"Let's book with {doc['name']} ({doc['specialty']}).\n\nAvailable: {timings}\n\nWhat date and time works for you? (e.g., Tomorrow 12:00 PM, Monday 6:00 PM)"
+                if lang == 'telugu':
+                    return f"{doc['name']} ({doc['specialty']}) తో బుక్ చేద్దాం.\n\nఉపలబ్ధ: {timings}\n\nఏ తేదీ మరియు సమయం? (ఉదా: రేపు 12:00 PM, సోమవారం 6:00 PM)"
+                elif lang == 'hindi':
+                    return f"{doc['name']} ({doc['specialty']}) के साथ बुक करते हैं।\n\nउपलब्ध: {timings}\n\nकौन सी तारीख और समय? (उदा: कल 12:00 PM, सोमवार 6:00 PM)"
+                else:
+                    return f"Let's book with {doc['name']} ({doc['specialty']}).\n\nAvailable: {timings}\n\nWhat date and time works for you? (e.g., Tomorrow 12:00 PM, Monday 6:00 PM)"
         
         # Special case: If user just provides a time slot when we have a doctor selected from previous message
         if time_slot and state['doctor_selected'] and not state['name']:

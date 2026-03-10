@@ -143,6 +143,34 @@ def _platform_cfg(slug: str) -> Optional[dict]:
         return None
 
 
+def _slug_by_subdomain_from_registry(subdomain: str, registry: Optional[dict] = None) -> Optional[str]:
+    """
+    Scan the file registry for an entry whose 'subdomain' field matches.
+    Returns the matching slug, or None.
+    e.g.  'star'  →  'star_hospital'
+    """
+    if registry is None:
+        registry = _load_file_registry()
+    sub = subdomain.lower().strip()
+    for slug, info in registry.items():
+        if info.get('subdomain', '').lower() == sub:
+            return slug
+    return None
+
+
+def _slug_by_subdomain_from_platform(subdomain: str) -> Optional[str]:
+    """
+    Query platform_db.clients for a row whose subdomain column matches.
+    Returns the matching slug, or None.
+    """
+    try:
+        from platform_db import get_client_by_subdomain
+        row = get_client_by_subdomain(subdomain)
+        return row['slug'] if row else None
+    except Exception:
+        return None
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def detect_tenant(host_header: str) -> str:
@@ -152,15 +180,19 @@ def detect_tenant(host_header: str) -> str:
     Mapping rules (in order):
       1. Check _SUBDOMAIN_OVERRIDES dict.
       2. Take the first label of the hostname (subdomain).
-      3. Normalise: lowercase + replace non-alphanumeric with '_'.
-      4. If that slug exists in platform_db or registry → return it.
-      5. Otherwise return the default slug (star_hospital).
+      3. Look up 'subdomain' field in platform_db.clients  (e.g. 'star' → 'star_hospital').
+      4. Look up 'subdomain' field in tenant_registry.json  (file fallback).
+      5. Normalise: lowercase + replace non-alphanumeric with '_'.
+      6. If that normalised slug exists in platform_db or registry → return it.
+      7. Otherwise return the default slug (star_hospital).
 
     Examples:
-      'starhospital.srpailabs.com'   → 'star_hospital'  (via alias in DB)
-      'sai_care.srpailabs.com'       → 'sai_care'
-      'localhost:7500'               → 'star_hospital'  (default)
-      ''                             → 'star_hospital'  (default)
+      'star.mediflow.srpailabs.com'      → 'star_hospital'  (via subdomain field)
+      'saicare.mediflow.srpailabs.com'   → 'sai_care'       (via subdomain field)
+      'apollo.mediflow.srpailabs.com'    → 'apollo_warangal'
+      'sai_care.mediflow.srpailabs.com'  → 'sai_care'       (exact slug match)
+      'localhost:7500'                   → 'star_hospital'  (default)
+      ''                                 → 'star_hospital'  (default)
     """
     if not host_header:
         return _DEFAULT_SLUG
@@ -172,26 +204,39 @@ def detect_tenant(host_header: str) -> str:
     if hostname in ('localhost', '127.0.0.1', '0.0.0.0') or not hostname:
         return _DEFAULT_SLUG
 
-    # Root domain (no subdomain) → default tenant (star_hospital)
-    # e.g. mediflow.srpailabs.com is the root app domain — not a tenant slug
+    # Root domain (no subdomain) → PLATFORM landing (NOT a tenant)
+    # e.g. mediflow.srpailabs.com is the root SaaS domain — requests
+    # for '/' on this domain should show the platform page, not tenant data.
+    # Return the special slug 'platform' so callers can detect this case.
     _ROOT_DOMAIN = os.getenv('ROOT_DOMAIN', 'mediflow.srpailabs.com')
-    if hostname == _ROOT_DOMAIN or hostname == _ROOT_DOMAIN.lstrip('www.'):
-        return _DEFAULT_SLUG
+    if hostname == _ROOT_DOMAIN or hostname == f'www.{_ROOT_DOMAIN}':
+        return 'platform'  # sentinel — NOT a tenant; server serves platform_landing.html
 
     # Take first label (subdomain)
     subdomain = hostname.split('.')[0]
 
-    # Check static overrides
+    # 1. Check static overrides
     if subdomain in _SUBDOMAIN_OVERRIDES:
         return _SUBDOMAIN_OVERRIDES[subdomain]
 
-    # Normalise and check registry / platform_db
+    # 2. Look up short subdomain in platform_db.clients.subdomain column
+    slug_from_platform = _slug_by_subdomain_from_platform(subdomain)
+    if slug_from_platform:
+        return slug_from_platform
+
+    # 3. Look up short subdomain in file registry subdomain field
+    registry = _load_file_registry()
+    slug_from_registry = _slug_by_subdomain_from_registry(subdomain, registry)
+    if slug_from_registry:
+        return slug_from_registry
+
+    # 4. Normalise and check if it matches a full slug directly
     slug = _normalise_slug(subdomain)
     known = list_available_tenants()
     if slug in known:
         return slug
 
-    # Try exact match before normalisation (some slugs already have underscores)
+    # 5. Try exact match before normalisation (some slugs already have underscores)
     if subdomain in known:
         return subdomain
 

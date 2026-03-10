@@ -307,7 +307,7 @@
                 <li class="nav-item" data-section="patients">🧍 Patients</li>
                 <li class="nav-item" data-section="ipd-admissions">🏥 IPD Admissions</li>
                 <li class="nav-item" data-section="doctors">👨‍⚕️ Doctors</li>
-                <li class="nav-item" data-section="surgery">🔪 Surgery</li>
+                <li class="nav-item" data-section="surgery">⚕️ Surgery</li>
                 <li class="nav-item" data-section="attendance">⏰ Attendance</li>
                 <li class="nav-item" data-section="doctor-rounds">🔄 Doctor Rounds</li>
                 <li class="nav-item" data-section="staff">👥 Staff Users</li>
@@ -507,8 +507,8 @@
                             <input type="text" id="roundWard" placeholder="e.g. General Ward">
                         </div>
                         <div class="form-group">
-                            <label>Round Time</label>
-                            <input type="text" id="roundTime" placeholder="e.g. 10:00 AM">
+                            <label>Visit Date &amp; Time <span style="color:red">*</span></label>
+                            <input type="datetime-local" id="roundDateTime" class="form-input">
                         </div>
                     </div>
                     <button class="btn btn-success" onclick="addRound()">Schedule Round</button>
@@ -522,13 +522,14 @@
                             <tr>
                                 <th>Doctor</th>
                                 <th>Ward</th>
-                                <th>Round Time</th>
+                                <th>Visit Date/Time</th>
+                                <th>Scheduled At</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="roundsBody">
-                            <tr><td colspan="5" style="text-align:center;">Loading...</td></tr>
+                            <tr><td colspan="6" style="text-align:center;">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -725,7 +726,7 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadLabReports()">&#8635; Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Requested By</th><th>Status</th><th>Result</th><th>Date</th></tr></thead>
+                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Requested By</th><th>Status</th><th>Result</th><th>Date</th><th>Action</th></tr></thead>
                         <tbody id="labReportsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
                     </table>
                 </div>
@@ -838,7 +839,7 @@
 
             <!-- Surgery Section -->
             <div id="surgery" class="section">
-                <h2>🔪 Surgery Records</h2>
+                <h2>⚕️ Surgery Records</h2>
                 <div class="table-container" style="background:#fff7ed;border-left:4px solid #f97316;margin-bottom:20px;">
                     <h3 style="color:#c2410c;margin-bottom:12px;">🩺 Schedule / Record Surgery</h3>
                     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -971,6 +972,16 @@
     </div>
     
     <script>
+        // ── Compact date/time helper ── "DD/MM HH:MM"
+        function fmtDT(dt) {
+            if (!dt) return '—';
+            // Handle datetime-local format: "2026-03-15T10:30" or "2026-03-15 10:30:00"
+            const s = dt.replace('T', ' ');
+            const m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+            if (m) return `${m[3]}/${m[2]} ${m[4]}:${m[5]}`;
+            return s.slice(0, 16);
+        }
+
         // Navigation handling
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
@@ -1059,16 +1070,17 @@
                     if (rnds.length > 0) {
                         const roundRows = rnds.map(r => `
                             <tr>
-                                <td>${r.doctor_name || 'N/A'}</td>
+                                <td><strong>${r.doctor_name || 'N/A'}</strong></td>
                                 <td>${r.ward || 'N/A'}</td>
-                                <td>${r.round_time || 'N/A'}</td>
+                                <td><strong style="color:#1a237e;">${fmtDT(r.round_time) || 'N/A'}</strong></td>
+                                <td><small style="color:#888;">${fmtDT(r.scheduled_at)}</small></td>
                                 <td><span class="badge ${r.status === 'completed' ? 'confirmed' : 'pending'}">${r.status === 'completed' ? '✅ Completed' : '⏳ Pending'}</span></td>
-                                <td>${r.status !== 'completed' ? `<button class="btn btn-success" onclick="completeRound(${r.id})">Mark Done</button>` : '—'}</td>
+                                <td>${r.status !== 'completed' ? `<button class="btn btn-success" style="font-size:12px;padding:4px 10px;" onclick="completeRound(${r.id})">✓ Done</button>` : '—'}</td>
                             </tr>
                         `).join('');
                         if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = roundRows;
                     } else {
-                        if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">No rounds scheduled</td></tr>';
+                        if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">No rounds scheduled</td></tr>';
                     }
                     
                     // Update reports
@@ -1168,17 +1180,18 @@
         function addRound() {
             const doctor = document.getElementById('roundDoctor').value;
             const ward   = document.getElementById('roundWard').value.trim();
-            const rtime  = document.getElementById('roundTime').value.trim();
+            const rdt    = document.getElementById('roundDateTime').value;
             const msg    = document.getElementById('roundMessage');
             if (!doctor || !ward) { msg.textContent='Doctor and Ward are required'; msg.className='message error'; return; }
+            if (!rdt) { msg.textContent='Visit Date & Time is required'; msg.className='message error'; return; }
             fetch('/api/admin/rounds/add', {
                 method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({doctor_name: doctor, ward: ward, round_time: rtime})
+                body: JSON.stringify({doctor_name: doctor, ward: ward, round_time: rdt, round_datetime: rdt})
             }).then(r=>r.json()).then(d=>{
                 msg.textContent = d.message || 'Round scheduled';
                 msg.className = d.status==='success' ? 'message success' : 'message error';
                 document.getElementById('roundWard').value='';
-                document.getElementById('roundTime').value='';
+                document.getElementById('roundDateTime').value='';
                 setTimeout(()=>{ msg.className='message'; }, 3000);
                 loadAdminData();
             }).catch(e=>{ msg.textContent='Error: '+e; msg.className='message error'; });
@@ -1455,7 +1468,7 @@
                         <td>${p.age||'-'}</td>
                         <td>${p.issue||'-'}</td>
                         <td>${p.doctor||'-'}</td>
-                        <td><small>${(p.timestamp||'').slice(0,16)}</small></td>
+                        <td><small>${fmtDT(p.timestamp)}</small></td>
                         <td><span class="badge ${p.status||'pending'}">${p.status||'pending'}</span></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadPatients:', e); }
@@ -1502,19 +1515,25 @@
                 const tbody = document.getElementById('labReportsBody');
                 const orders = d.orders || [];
                 if (!orders.length) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No lab orders yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No lab orders yet</td></tr>';
                     return;
                 }
-                tbody.innerHTML = orders.slice(0,100).map((o,i) => `
+                tbody.innerHTML = orders.slice(0,200).map((o,i) => `
                     <tr>
                         <td>${i+1}</td>
-                        <td>${o.patient_name||'-'}<br><small>${o.patient_phone||''}</small></td>
+                        <td>
+                            ${o.status === 'COMPLETED'
+                                ? `<a href="#" onclick='openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});return false;' style="color:#1a73e8;font-weight:600;text-decoration:none;cursor:pointer;" title="Click to view full report">👁 ${o.patient_name||'-'}</a>`
+                                : `<strong>${o.patient_name||'-'}</strong>`}
+                            <br><small style="color:#888;">${o.patient_phone||''}</small>
+                        </td>
                         <td><span class="badge ${o.test_type==='LAB'?'active':'confirmed'}">${o.test_type||'-'}</span></td>
                         <td>${o.test_name||'-'}</td>
                         <td>${o.doctor_username||'-'}</td>
-                        <td><span class="badge ${o.status==='COMPLETED'?'completed':'pending'}">${o.status||'-'}</span></td>
-                        <td><small>${(o.result_text||'Pending').slice(0,50)}</small></td>
-                        <td><small>${(o.created_at||'').slice(0,16)}</small></td>
+                        <td><span class="badge ${o.status==='COMPLETED'?'confirmed':'pending'}">${o.status||'-'}</span></td>
+                        <td><small>${(o.result_text||'—').slice(0,60)}${(o.result_text||'').length>60?'…':''}</small></td>
+                        <td><small>${fmtDT(o.created_at)}</small></td>
+                        <td>${o.status==='COMPLETED' ? `<button class="btn" style="padding:3px 10px;font-size:11px;background:#1a73e8;color:#fff;" onclick='openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});return false;'>🗒 Report</button>` : '—'}</td>
                     </tr>`).join('');
             } catch(e) { console.error('loadLabReports:', e); }
         }
@@ -1574,7 +1593,7 @@
                         <td>₹${parseFloat(b.discount||0).toFixed(2)}</td>
                         <td><strong>₹${parseFloat(b.net_amount||0).toFixed(2)}</strong></td>
                         <td><span class="badge ${b.status==='paid'?'confirmed':b.status==='partial'?'active':'pending'}">${b.status||'unpaid'}</span></td>
-                        <td><small>${(b.created_at||'').slice(0,16)}</small></td>
+                        <td><small>${fmtDT(b.created_at)}</small></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadBills:', e); }
         }
@@ -1602,7 +1621,7 @@
                         <td><span class="badge ${l.role==='ADMIN'?'confirmed':'active'}">${l.role||'-'}</span></td>
                         <td>${l.action||'-'}</td>
                         <td><small>${(l.details||'').slice(0,80)}</small></td>
-                        <td><small>${(l.logged_at||'').slice(0,16)}</small></td>
+                        <td><small>${fmtDT(l.logged_at)}</small></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadSystemLogs:', e); }
         }
@@ -1626,7 +1645,7 @@
         }
 
         // ── IPD Admissions ────────────────────────────────────────────────────
-        async function admitPatient() {
+        async function admitPatient(forceAdmit = false) {
             const msg = document.getElementById('admitMsg');
             const payload = {
                 patient_name:    document.getElementById('admitName').value.trim(),
@@ -1642,9 +1661,15 @@
                 diagnosis:       document.getElementById('admitDiag').value.trim(),
                 admission_notes: document.getElementById('admitNotes').value.trim(),
             };
+            if (forceAdmit) payload.force_admit = true;
             if (!payload.patient_name) {
                 msg.textContent = 'Patient name is required'; msg.style.color = '#e74c3c';
                 msg.style.display = 'block'; return;
+            }
+            // Aadhar format check (if provided)
+            if (payload.patient_aadhar && !/^\d{12}$/.test(payload.patient_aadhar.replace(/\s|-/g,''))) {
+                msg.innerHTML = '⚠️ Aadhar should be 12 digits (spaces/dashes allowed). Please verify.';
+                msg.style.color = '#e67e22'; msg.style.display = 'block'; return;
             }
             try {
                 const r = await fetch('/api/ipd/admit', {
@@ -1652,8 +1677,27 @@
                     body: JSON.stringify(payload)
                 });
                 const d = await r.json();
+                if (r.status === 409 && d.status === 'duplicate') {
+                    // Show duplicate warning with confirmation option
+                    const ex = d.existing || {};
+                    msg.innerHTML = `
+                        <strong style="color:#e74c3c;">⚠️ Possible Duplicate Patient!</strong><br>
+                        <span style="font-size:.88rem;">
+                          <b>Existing Record #${ex.id}</b> — ${ex.patient_name}<br>
+                          Aadhar: ${ex.patient_aadhar||'—'} | Ward: ${ex.ward_name||'—'} | Bed: ${ex.bed_number||'—'}<br>
+                          Status: <b>${ex.status||'—'}</b> | Admitted: ${ex.admission_date||'—'}
+                        </span><br><br>
+                        <button onclick="admitPatient(true)" style="background:#e74c3c;color:#fff;padding:6px 16px;border:none;border-radius:6px;cursor:pointer;font-weight:600;margin-right:8px;">
+                          ⚠️ Admit Anyway (Different Person)
+                        </button>
+                        <button onclick="document.getElementById('admitMsg').style.display='none'" style="background:#eee;color:#333;padding:6px 14px;border:none;border-radius:6px;cursor:pointer;">
+                          ✕ Cancel
+                        </button>`;
+                    msg.style.color = '';  msg.style.display = 'block';
+                    return;
+                }
                 if (d.status === 'ok') {
-                    msg.textContent = `✅ ${d.message} (ID: ${d.admission_id})`;
+                    msg.textContent = `✅ ${d.message || 'Patient admitted'} (ID: ${d.admission_id})`;
                     msg.style.color = '#27ae60';
                     loadAdmissions();
                 } else {
@@ -1684,7 +1728,7 @@
                         <td>${a.bed_number||'-'}</td>
                         <td>${a.admitting_doctor||'-'}</td>
                         <td><small>${(a.diagnosis||'').slice(0,40)}</small></td>
-                        <td><small>${(a.admission_date||'').slice(0,16)}</small></td>
+                        <td><small>${fmtDT(a.admission_date)}</small></td>
                         <td><span class="badge ${a.status==='admitted'?'active':'confirmed'}">${a.status}</span></td>
                         <td>
                             ${a.status==='admitted' ?
@@ -1780,7 +1824,7 @@
                         <td>${s.surgery_type}</td>
                         <td>₹${parseFloat(s.estimated_cost||0).toFixed(0)}</td>
                         <td style="color:#27ae60;font-weight:bold;">₹${parseFloat(s.negotiated_cost||0).toFixed(0)}</td>
-                        <td><small>${(s.operation_date||'').slice(0,16)||'-'}</small></td>
+                        <td><small>${fmtDT(s.operation_date)||'-'}</small></td>
                         <td><span class="badge ${s.status==='completed'?'confirmed':s.status==='cancelled'?'pending':'active'}">${s.status}</span></td>
                     </tr>`).join('');
             } catch(e){console.error('loadSurgeries:',e);}
@@ -2041,7 +2085,311 @@
             msg.style.color = '#27ae60';
             msg.textContent = '✅ Full report files downloaded!';
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ── LAB REPORT MODAL ───────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════════
+        const LAB_NORMAL_RANGES = {
+            // CBC
+            'hemoglobin': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+            'hb': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+            'wbc': '4,000 – 11,000 /cmm',
+            'tlc': '4,000 – 11,000 /cmm',
+            'total leucocyte count': '4,000 – 11,000 /cmm',
+            'rbc': '4.5 – 5.5 million/cmm',
+            'platelets': '1.5 – 4.5 lakh/cmm',
+            'platelet count': '1.5 – 4.5 lakh/cmm',
+            'pcv': '36 – 50 %',
+            'hct': '36 – 50 %',
+            'haematocrit': '36 – 50 %',
+            'mcv': '76 – 96 fL',
+            'mch': '27 – 33 pg',
+            'mchc': '31 – 37 g/dL',
+            'neutrophils': '40 – 70 %',
+            'lymphocytes': '20 – 40 %',
+            'monocytes': '2 – 10 %',
+            'eosinophils': '1 – 6 %',
+            'basophils': '0 – 1 %',
+            // Blood Sugar
+            'fbs': '70 – 100 mg/dL',
+            'fasting blood sugar': '70 – 100 mg/dL',
+            'ppbs': '< 140 mg/dL',
+            'post prandial blood sugar': '< 140 mg/dL',
+            'rbs': '70 – 140 mg/dL',
+            'random blood sugar': '70 – 140 mg/dL',
+            'hba1c': '< 5.7% Normal | 5.7–6.4% Pre-Diabetic | ≥6.5% Diabetic',
+            'glycated haemoglobin': '< 5.7% Normal',
+            // LFT
+            'sgot': '10 – 40 U/L',
+            'ast': '10 – 40 U/L',
+            'sgpt': '7 – 56 U/L',
+            'alt': '7 – 56 U/L',
+            'alp': '44 – 147 U/L',
+            'alkaline phosphatase': '44 – 147 U/L',
+            'ggt': 'Male: 10–66 U/L | Female: 6–42 U/L',
+            'total bilirubin': '0.3 – 1.2 mg/dL',
+            'direct bilirubin': '0.1 – 0.4 mg/dL',
+            'indirect bilirubin': '0.2 – 0.8 mg/dL',
+            'total protein': '6.3 – 8.2 g/dL',
+            'albumin': '3.5 – 5.0 g/dL',
+            'globulin': '2.3 – 3.5 g/dL',
+            'a/g ratio': '1.2 – 2.2',
+            // KFT
+            'creatinine': 'Male: 0.7–1.3 mg/dL | Female: 0.6–1.1 mg/dL',
+            'serum creatinine': 'Male: 0.7–1.3 mg/dL | Female: 0.6–1.1 mg/dL',
+            'bun': '7 – 25 mg/dL',
+            'blood urea nitrogen': '7 – 25 mg/dL',
+            'urea': '10 – 40 mg/dL',
+            'blood urea': '10 – 40 mg/dL',
+            'uric acid': 'Male: 3.4–7.0 mg/dL | Female: 2.4–5.7 mg/dL',
+            'sodium': '135 – 145 mEq/L',
+            'potassium': '3.5 – 5.0 mEq/L',
+            'chloride': '98 – 107 mEq/L',
+            // Lipid Profile
+            'total cholesterol': '< 200 mg/dL (Desirable)',
+            'hdl cholesterol': 'Male: > 40 mg/dL | Female: > 50 mg/dL',
+            'hdl': 'Male: > 40 mg/dL | Female: > 50 mg/dL',
+            'ldl cholesterol': '< 130 mg/dL',
+            'ldl': '< 130 mg/dL',
+            'triglycerides': '< 150 mg/dL',
+            'vldl': '5 – 40 mg/dL',
+            // Thyroid
+            'tsh': '0.27 – 4.2 µIU/mL',
+            'free t3': '2.3 – 4.2 pg/mL',
+            'ft3': '2.3 – 4.2 pg/mL',
+            'free t4': '0.93 – 1.7 ng/dL',
+            'ft4': '0.93 – 1.7 ng/dL',
+            't3': '0.8 – 2.0 ng/mL',
+            't4': '5.1 – 14.1 µg/dL',
+            // Urine R/E
+            'colour': 'Pale Yellow',
+            'color': 'Pale Yellow',
+            'appearance': 'Clear',
+            'ph': '5.0 – 8.0',
+            'specific gravity': '1.010 – 1.025',
+            'protein': 'Nil / Negative',
+            'glucose': 'Nil / Negative',
+            'ketones': 'Nil / Negative',
+            'bilirubin': 'Nil / Negative',
+            'blood in urine': 'Nil / Negative',
+            'pus cells': '0 – 5 /hpf',
+            'rbcs': '0 – 2 /hpf',
+            'red blood cells': '0 – 2 /hpf',
+            'epithelial cells': 'Few /hpf',
+            'casts': 'Nil',
+            'bacteria': 'Nil',
+            // Widal
+            's. typhi o': '< 1:80',
+            's. typhi h': '< 1:80',
+            's. paratyphi ao': '< 1:80',
+            's. paratyphi ah': '< 1:80',
+            // Malaria
+            'rapid malaria test': 'Negative',
+            'malaria': 'Negative',
+            'mp smear': 'Negative',
+            // Dengue
+            'ns1 antigen': 'Negative',
+            'dengue ns1': 'Negative',
+            'dengue igm': 'Negative',
+            'dengue igg': 'Negative',
+            // CBC ESR
+            'esr': 'Male: 0–15 mm/hr | Female: 0–20 mm/hr',
+            // Haemoglobin variants
+            'haemoglobin': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+        };
+
+        function getNormalRange(paramName) {
+            const k = paramName.toLowerCase().trim();
+            if (LAB_NORMAL_RANGES[k]) return LAB_NORMAL_RANGES[k];
+            for (const [rk, rv] of Object.entries(LAB_NORMAL_RANGES)) {
+                if (k.includes(rk) || rk.includes(k)) return rv;
+            }
+            return '—';
+        }
+
+        function openLabReport(order) {
+            const o = (typeof order === 'string') ? JSON.parse(order) : order;
+            // ── Set patient/report info ──
+            document.getElementById('rptPatientName').textContent  = o.patient_name  || '—';
+            document.getElementById('rptPhone').textContent        = o.patient_phone || '—';
+            document.getElementById('rptOrderId').textContent      = 'LAB-' + String(o.id || '?').padStart(4, '0');
+            document.getElementById('rptDate').textContent         = fmtDT(o.completed_at || o.created_at);
+            document.getElementById('rptDoctor').textContent       = o.doctor_username ? 'Dr. ' + o.doctor_username : '—';
+            document.getElementById('rptType').textContent         = o.test_type === 'XRAY' ? 'Radiology / X-Ray' : 'Laboratory Test';
+            document.getElementById('rptTestTitle').textContent    = '🧪  ' + (o.test_name || 'Laboratory Test');
+            document.getElementById('rptGenDate').textContent      = new Date().toLocaleString('en-IN');
+            document.getElementById('rptResultsContainer').innerHTML = buildLabResultsHTML(o.test_name || '', o.result_text || '');
+            document.getElementById('labReportModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function buildLabResultsHTML(testName, resultText) {
+            if (!resultText || resultText.trim() === '') {
+                return '<p style="text-align:center;color:#888;font-style:italic;padding:20px;">Results not yet entered.</p>';
+            }
+
+            // Parse "Key: Value [unit]" lines
+            // Support both newline and comma-separated
+            const raw = resultText.replace(/,\s*(?=[A-Za-z\s]{2,}:)/g, '\n');
+            const lines = raw.split(/\n+/).map(l => l.trim()).filter(l => l && l.includes(':'));
+            const rows = [];
+            lines.forEach(line => {
+                // Match "Parameter Name: value (optional unit)" 
+                const m = line.match(/^([^:]+):\s*(.+)$/);
+                if (m) rows.push({ param: m[1].trim(), value: m[2].trim() });
+            });
+
+            if (rows.length === 0) {
+                // Plain text fallback
+                return `<div style="background:#fafafa;border:1px solid #e0e0e0;padding:20px;border-radius:6px;font-size:.9rem;white-space:pre-line;line-height:1.8;font-family:'Courier New',monospace;">${resultText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+            }
+
+            const rowsHTML = rows.map((row, i) => {
+                const ref = getNormalRange(row.param);
+                const bg  = i % 2 === 0 ? '#ffffff' : '#f5f5ff';
+                // Flag abnormal: very basic check
+                let flagStyle = '';
+                if (ref !== '—') {
+                    // simple numeric check
+                    const numVal  = parseFloat(row.value.replace(/[^0-9.]/g, ''));
+                    const numRefs = ref.match(/[\d.]+/g);
+                    if (numRefs && numRefs.length >= 2 && !isNaN(numVal)) {
+                        const lo = parseFloat(numRefs[0]), hi = parseFloat(numRefs[numRefs.length - 1]);
+                        if (lo > 0 && hi > lo && (numVal < lo || numVal > hi)) {
+                            flagStyle = 'color:#c62828;font-weight:bold;';
+                        }
+                    }
+                }
+                return `<tr style="background:${bg};">
+                    <td style="padding:8px 14px;border-bottom:1px solid #e8e8e8;font-weight:500;color:#333;">${row.param}</td>
+                    <td style="padding:8px 14px;border-bottom:1px solid #e8e8e8;text-align:center;font-size:.95rem;${flagStyle}">${row.value}</td>
+                    <td style="padding:8px 14px;border-bottom:1px solid #e8e8e8;text-align:left;color:#2e7d32;font-size:.82rem;">${ref}</td>
+                    <td style="padding:8px 14px;border-bottom:1px solid #e8e8e8;text-align:center;font-size:.8rem;color:#e53935;">${flagStyle ? '⚠ H/L' : ''}</td>
+                </tr>`;
+            }).join('');
+
+            return `<table style="width:100%;border-collapse:collapse;font-size:.88rem;font-family:'Segoe UI',Arial,sans-serif;">
+                <thead>
+                    <tr style="background:#1a237e;color:#fff;">
+                        <th style="padding:9px 14px;text-align:left;width:32%;">Parameter</th>
+                        <th style="padding:9px 14px;text-align:center;width:22%;">Result Value</th>
+                        <th style="padding:9px 14px;text-align:left;width:38%;">Reference Range</th>
+                        <th style="padding:9px 14px;text-align:center;width:8%;">Flag</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHTML}</tbody>
+            </table>
+            <p style="font-size:.78rem;color:#777;margin-top:10px;font-style:italic;">
+                ⚠ Values marked H/L may be outside the standard reference range. Consult your physician for interpretation.
+            </p>`;
+        }
+
+        function closeLabReportModal() {
+            document.getElementById('labReportModal').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        function printLabReport() {
+            const content = document.getElementById('labReportPrintArea').innerHTML;
+            const w = window.open('', '_blank', 'width=900,height=1100,scrollbars=yes');
+            w.document.write(`<!DOCTYPE html><html><head>
+            <title>Lab Report – SRP MediFlow</title>
+            <style>
+                body { font-family: 'Times New Roman', Georgia, serif; color: #000; padding: 30px; margin: 0; }
+                table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+                th { background: #1a237e; color: #fff; padding: 9px 12px; text-align: left; }
+                td { padding: 7px 12px; border-bottom: 1px solid #e0e0e0; }
+                h1 { font-size: 1.5rem; color: #1a237e; margin: 0 0 4px; }
+                .info-grid { width: 100%; font-size: .88rem; margin-bottom: 16px; border-collapse: collapse; }
+                .info-grid td { padding: 4px 8px; border: none; }
+                @media print { @page { margin: 1cm; size: A4; } button { display: none !important; } }
+            </style></head>
+            <body>${content}
+            <script>setTimeout(()=>window.print(),400);<\/script>
+            </body></html>`);
+            w.document.close();
+        }
     </script>
+
+    <!-- ═══════════════════════════════════════════════════════
+         LAB REPORT FULL-MODAL (Professional Print Ready)
+         ═══════════════════════════════════════════════════════ -->
+    <div id="labReportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:12000;overflow-y:auto;padding:20px 12px;">
+      <div style="max-width:860px;margin:0 auto;">
+
+        <!-- Print Area -->
+        <div id="labReportPrintArea" style="background:#fff;padding:44px 50px;font-family:'Times New Roman',Georgia,serif;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.4);">
+
+          <!-- Hospital Header -->
+          <div style="text-align:center;border-bottom:3px double #1a237e;padding-bottom:16px;margin-bottom:22px;">
+            <h1 id="rptHospName" style="font-size:1.7rem;color:#1a237e;margin:0 0 4px;letter-spacing:1px;">⭐ STAR HOSPITAL</h1>
+            <p style="font-size:.82rem;color:#555;margin:2px 0;">Bhadradri Kothagudem, Telangana &nbsp;|&nbsp; Ph: +91 7981971015 &nbsp;|&nbsp; Emergency: 24×7</p>
+            <p style="font-size:.75rem;color:#888;margin:2px 0;">Powered by SRP MediFlow HMS</p>
+            <div style="margin-top:12px;background:#1a237e;color:#fff;padding:6px 24px;display:inline-block;letter-spacing:3px;font-size:.88rem;font-weight:700;border-radius:4px;">
+              🧪&nbsp; CLINICAL LABORATORY REPORT
+            </div>
+          </div>
+
+          <!-- Patient Info Grid -->
+          <table class="info-grid" style="width:100%;font-size:.87rem;border-collapse:collapse;margin-bottom:18px;font-family:'Segoe UI',Arial,sans-serif;">
+            <tr style="border-bottom:1px solid #e0e0e0;">
+              <td style="padding:5px 10px;font-weight:700;width:20%;color:#444;">Patient Name</td>
+              <td id="rptPatientName" style="padding:5px 10px;width:30%;font-size:.95rem;font-weight:600;">—</td>
+              <td style="padding:5px 10px;font-weight:700;width:20%;color:#444;">Report ID</td>
+              <td id="rptOrderId" style="padding:5px 10px;width:30%;">—</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e0e0e0;">
+              <td style="padding:5px 10px;font-weight:700;color:#444;">Phone</td>
+              <td id="rptPhone" style="padding:5px 10px;">—</td>
+              <td style="padding:5px 10px;font-weight:700;color:#444;">Report Date</td>
+              <td id="rptDate" style="padding:5px 10px;">—</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;font-weight:700;color:#444;">Referred By</td>
+              <td id="rptDoctor" style="padding:5px 10px;">—</td>
+              <td style="padding:5px 10px;font-weight:700;color:#444;">Test Category</td>
+              <td id="rptType" style="padding:5px 10px;">—</td>
+            </tr>
+          </table>
+
+          <hr style="border:none;border-top:1px solid #bbb;margin:0 0 16px;">
+
+          <!-- Test Name Banner -->
+          <div style="background:#e8eaf6;border-left:5px solid #3949ab;padding:9px 16px;margin-bottom:18px;border-radius:0 6px 6px 0;">
+            <strong id="rptTestTitle" style="font-size:1rem;color:#1a237e;letter-spacing:.5px;">Test: —</strong>
+          </div>
+
+          <!-- Results Section -->
+          <div id="rptResultsContainer"></div>
+
+          <!-- Signature Footer -->
+          <div style="margin-top:40px;padding-top:14px;border-top:2px solid #1a237e;display:flex;justify-content:space-between;align-items:flex-end;font-family:'Segoe UI',Arial,sans-serif;">
+            <div style="font-size:.76rem;color:#777;max-width:340px;">
+              <em>* This report is for clinical use only.<br>
+              * Normal ranges are for adult reference. Please consult your treating physician for interpretation.<br>
+              * Values marked ⚠ H/L may require clinical correlation.</em>
+            </div>
+            <div style="text-align:center;">
+              <div style="height:48px;border-bottom:1px solid #333;width:180px;margin:0 auto;"></div>
+              <p style="font-size:.82rem;margin-top:5px;font-weight:600;">Authorised Signatory</p>
+              <p style="font-size:.76rem;color:#777;">Lab In-Charge / Pathologist</p>
+            </div>
+          </div>
+
+          <!-- Generated stamp -->
+          <div style="text-align:center;margin-top:14px;font-size:.72rem;color:#aaa;border-top:1px dotted #ccc;padding-top:8px;font-family:Arial,sans-serif;">
+            Report generated on <span id="rptGenDate"></span> &nbsp;|&nbsp; Powered by <strong style="color:#00b896;">SRP MediFlow</strong> HMS &bull; &copy; SRP Technologies
+          </div>
+        </div><!-- /printArea -->
+
+        <!-- Modal Controls -->
+        <div style="display:flex;gap:14px;justify-content:center;margin-top:18px;padding-bottom:24px;">
+          <button onclick="printLabReport()" style="padding:11px 32px;background:#1a73e8;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.95rem;font-weight:700;letter-spacing:.5px;">🖨️ Print / Save PDF</button>
+          <button onclick="closeLabReportModal()" style="padding:11px 24px;background:#555;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.95rem;">✕ Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- ═══════════════════════════════════════════════ end lab report modal -->
 
     <!-- SRP MediFlow product footer -->
     <footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;

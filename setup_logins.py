@@ -34,6 +34,13 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding='utf-8')
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+# Load .env so PG_PORT, PG_PASSWORD etc. are picked up automatically
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent / '.env', override=False)
+except ImportError:
+    pass  # python-dotenv not installed — rely on manually exported env vars
+
 import psycopg2
 import psycopg2.extras
 import auth   # our auth module — hash_password / verify_password
@@ -145,24 +152,41 @@ def seed_tenant(slug: str, db_name: str) -> list[tuple]:
     return results
 
 
-def seed_founder(db_name: str = "hospital_ai") -> tuple:
-    """Upsert the FOUNDER account. Returns (username, password, ok)."""
+def seed_founder() -> tuple:
+    """
+    Upsert the FOUNDER account into srp_platform_db.founder_accounts.
+
+    HIERARCHY RULE — Layer 1:
+      Founder credentials live ONLY in srp_platform_db.founder_accounts.
+      They MUST NOT be stored in any tenant (hospital) staff_users table.
+    """
     pw_hash = auth.hash_password(FOUNDER_PASSWORD)
+    platform_db_name = os.getenv('PLATFORM_DB_NAME', 'srp_platform_db')
     try:
-        conn = _conn(db_name)
+        conn = _conn(platform_db_name)
         cur  = conn.cursor()
+        # Ensure the table exists (idempotent)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS founder_accounts (
+                id              SERIAL PRIMARY KEY,
+                username        TEXT UNIQUE NOT NULL,
+                password_hash   TEXT NOT NULL,
+                email           TEXT DEFAULT '',
+                full_name       TEXT DEFAULT '',
+                is_active       BOOLEAN DEFAULT TRUE,
+                last_login      TIMESTAMP,
+                created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         cur.execute(
             """
-            INSERT INTO staff_users
-                (username, password_hash, role, full_name, department,
-                 is_active, must_change_password)
-            VALUES ('founder', %s, 'FOUNDER', 'SRP Technologies Founder', 'Platform', TRUE, FALSE)
+            INSERT INTO founder_accounts
+                (username, password_hash, full_name, email, is_active)
+            VALUES ('founder', %s, 'SRP Technologies Founder', 'founder@srpailabs.com', TRUE)
             ON CONFLICT (username) DO UPDATE
-              SET password_hash      = EXCLUDED.password_hash,
-                  role               = 'FOUNDER',
-                  full_name          = EXCLUDED.full_name,
-                  is_active          = TRUE,
-                  must_change_password = FALSE
+              SET password_hash = EXCLUDED.password_hash,
+                  full_name     = EXCLUDED.full_name,
+                  is_active     = TRUE
             """,
             (pw_hash,),
         )
@@ -170,6 +194,24 @@ def seed_founder(db_name: str = "hospital_ai") -> tuple:
         return ("founder", FOUNDER_PASSWORD, True)
     except Exception as e:
         return ("founder", FOUNDER_PASSWORD, f"ERROR: {e}")
+
+
+def test_founder_login() -> bool:
+    """Verify the founder password hash in srp_platform_db.founder_accounts."""
+    platform_db_name = os.getenv('PLATFORM_DB_NAME', 'srp_platform_db')
+    try:
+        conn = _conn(platform_db_name)
+        cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(
+            "SELECT password_hash FROM founder_accounts WHERE username='founder' AND is_active=TRUE"
+        )
+        row = cur.fetchone()
+        cur.close(); conn.close()
+        if not row:
+            return False
+        return auth.verify_password(FOUNDER_PASSWORD, row["password_hash"])
+    except Exception:
+        return False
 
 
 def test_login(db_name: str, username: str, plain_pw: str) -> bool:
@@ -289,14 +331,16 @@ def main():
     all_results: list[tuple[str, str, str, bool | str]] = []
     # (db_name, username, password, ok)
 
-    # ── FOUNDER ───────────────────────────────────────────────
-    print("\n👑  FOUNDER account (hospital_ai / star_hospital)")
-    fname, fpw, fok = seed_founder("hospital_ai")
+    # ── FOUNDER  (Layer 1 — srp_platform_db.founder_accounts) ──
+    platform_db_name = os.getenv('PLATFORM_DB_NAME', 'srp_platform_db')
+    print(f"\n👑  FOUNDER account  (DB: {platform_db_name} → founder_accounts table)")
+    print("    [Layer 1: Platform — NOT stored in any hospital DB]")
+    fname, fpw, fok = seed_founder()
     ok_str = "✅ OK" if fok is True else f"❌ {fok}"
     print(f"   {'founder':40s}  {fpw:30s}  {ok_str}")
-    # Verify
-    v = test_login("hospital_ai", "founder", fpw)
-    all_results.append(("hospital_ai", "founder", fpw, v))
+    # Verify against platform DB
+    v = test_founder_login()
+    all_results.append((platform_db_name, "founder", fpw, v))
     print(f"   Login test → {'✅ PASS' if v else '❌ FAIL'}")
 
     # ── TENANTS ───────────────────────────────────────────────

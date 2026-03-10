@@ -104,18 +104,22 @@ CREATE TABLE IF NOT EXISTS clients (
     id              SERIAL PRIMARY KEY,
     hospital_name   TEXT         NOT NULL,
     slug            TEXT         UNIQUE NOT NULL,
+    subdomain       TEXT         DEFAULT '',    -- short URL prefix e.g. 'star' for star.mediflow.srpailabs.com
     city            TEXT         DEFAULT '',
     phone           TEXT         DEFAULT '',
     db_name         TEXT         DEFAULT '',
     db_host         TEXT         DEFAULT 'localhost',
-    db_port         INTEGER      DEFAULT 5434,
+    db_port         INTEGER      DEFAULT 5432,
     db_user         TEXT         DEFAULT 'ats_user',
     admin_user      TEXT         DEFAULT '',
     created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     status          TEXT         DEFAULT 'active',
     last_activity   TIMESTAMP
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_slug ON clients (slug);
+-- Migration: add subdomain column FIRST (must run before index creation)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS subdomain TEXT DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_slug      ON clients (slug);
+CREATE INDEX        IF NOT EXISTS idx_clients_subdomain ON clients (subdomain);
 
 -- ── subscriptions: one row per client billing period ─────────────────────────
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -242,7 +246,7 @@ def get_all_clients() -> list[dict]:
         with get_platform_conn() as conn:
             cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute("""
-                SELECT id, hospital_name, slug, city, phone,
+                SELECT id, hospital_name, slug, subdomain, city, phone,
                        db_name, db_host, db_port,
                        status, created_at, last_activity
                   FROM clients
@@ -276,11 +280,12 @@ def get_client(slug: str) -> Optional[dict]:
 def upsert_client(
     slug: str,
     hospital_name: str,
+    subdomain: str = '',
     city: str = '',
     phone: str = '',
     db_name: str = '',
     db_host: str = 'localhost',
-    db_port: int = 5434,
+    db_port: int = 5432,
     db_user: str = 'ats_user',
     admin_user: str = '',
     status: str = 'active',
@@ -288,16 +293,21 @@ def upsert_client(
     """
     Insert or update a client record in the platform database.
     Called by the tenant provisioning module after creating a new hospital DB.
+    subdomain is the short URL prefix used in  <subdomain>.mediflow.srpailabs.com
     """
+    # Default subdomain to slug if not provided
+    if not subdomain:
+        subdomain = slug.replace('_', '')[:20]
     try:
         with get_platform_conn() as conn:
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO clients
-                    (slug, hospital_name, city, phone, db_name, db_host, db_port,
+                    (slug, subdomain, hospital_name, city, phone, db_name, db_host, db_port,
                      db_user, admin_user, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (slug) DO UPDATE SET
+                    subdomain     = EXCLUDED.subdomain,
                     hospital_name = EXCLUDED.hospital_name,
                     city          = EXCLUDED.city,
                     phone         = EXCLUDED.phone,
@@ -308,7 +318,7 @@ def upsert_client(
                     admin_user    = EXCLUDED.admin_user,
                     status        = EXCLUDED.status
             """, (
-                slug, hospital_name, city, phone, db_name,
+                slug, subdomain, hospital_name, city, phone, db_name,
                 db_host, db_port, db_user, admin_user, status,
             ))
             cur.close()
@@ -316,6 +326,28 @@ def upsert_client(
     except Exception as exc:
         print(f"[platform_db] upsert_client({slug}) error: {exc}")
         return False
+
+
+def get_client_by_subdomain(subdomain: str) -> Optional[dict]:
+    """
+    Return a single client record by its short subdomain label.
+    Used by the tenant router to resolve   star  →  star_hospital  etc.
+    """
+    if not subdomain:
+        return None
+    try:
+        with get_platform_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                "SELECT * FROM clients WHERE subdomain = %s AND status != 'deleted' LIMIT 1",
+                (subdomain.lower().strip(),)
+            )
+            row = cur.fetchone()
+            cur.close()
+        return dict(row) if row else None
+    except Exception as exc:
+        print(f"[platform_db] get_client_by_subdomain({subdomain}) error: {exc}")
+        return None
 
 
 def update_client_activity(slug: str) -> None:
@@ -344,7 +376,7 @@ def get_tenant_connection_params(slug: str) -> Optional[dict]:
         return None
     return {
         "host":            client.get("db_host", "localhost"),
-        "port":            int(client.get("db_port", 5434)),
+        "port":            int(client.get("db_port", 5432)),
         "dbname":          client.get("db_name")    or f"srp_{slug}",
         "user":            client.get("db_user")    or "ats_user",
         "password":        os.getenv("PG_PASSWORD", "ats_password"),
@@ -595,7 +627,7 @@ def sync_registry_to_platform_db() -> int:
             phone        = info.get('phone', ''),
             db_name      = info.get('db_name', f'srp_{slug}'),
             db_host      = info.get('db_host', 'localhost'),
-            db_port      = int(info.get('db_port', 5434)),
+            db_port      = int(info.get('db_port', 5432)),
             db_user      = info.get('db_user', 'ats_user'),
             admin_user   = info.get('admin_user', ''),
             status       = info.get('status', 'active'),
@@ -632,7 +664,7 @@ def check_all_tenants_health() -> list[dict]:
         slug      = client['slug']
         db_name   = client.get('db_name') or f"srp_{slug}"
         db_host   = client.get('db_host', 'localhost')
-        db_port   = int(client.get('db_port', 5434))
+        db_port   = int(client.get('db_port', 5432))
 
         cfg = {
             "host":            db_host,
@@ -703,6 +735,96 @@ def check_all_tenants_health() -> list[dict]:
         })
 
     return results
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LAYER 1 — FOUNDER / PLATFORM OWNER
+# These functions operate on founder_accounts in srp_platform_db ONLY.
+# Founder credentials NEVER live in any tenant (hospital) DB.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def get_founder_by_username(username: str) -> Optional[dict]:
+    """
+    Return a founder account record from the PLATFORM database.
+    This is the authoritative lookup for FOUNDER-layer authentication.
+    NEVER searches tenant (hospital) databases.
+    """
+    if not username:
+        return None
+    try:
+        with get_platform_conn() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute(
+                "SELECT * FROM founder_accounts WHERE username = %s AND is_active = TRUE LIMIT 1",
+                (username.strip().lower(),)
+            )
+            row = cur.fetchone()
+            cur.close()
+        return dict(row) if row else None
+    except Exception as exc:
+        print(f"[platform_db] get_founder_by_username({username!r}) error: {exc}")
+        return None
+
+
+def upsert_founder(
+    username: str,
+    password_hash: str,
+    full_name: str = 'SRP Technologies Founder',
+    email: str = '',
+) -> bool:
+    """
+    Insert or update a founder account in the PLATFORM database.
+    Called by setup_logins.py during initial setup / password reset.
+    """
+    try:
+        with get_platform_conn() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO founder_accounts
+                    (username, password_hash, full_name, email, is_active)
+                VALUES (%s, %s, %s, %s, TRUE)
+                ON CONFLICT (username) DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    full_name     = EXCLUDED.full_name,
+                    email         = EXCLUDED.email,
+                    is_active     = TRUE
+            """, (username.strip().lower(), password_hash, full_name, email))
+            cur.close()
+        return True
+    except Exception as exc:
+        print(f"[platform_db] upsert_founder({username!r}) error: {exc}")
+        return False
+
+
+def update_founder_password(username: str, new_hash: str) -> bool:
+    """Update founder password hash in the platform database."""
+    try:
+        with get_platform_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE founder_accounts SET password_hash = %s WHERE username = %s",
+                (new_hash, username.strip().lower())
+            )
+            updated = cur.rowcount
+            cur.close()
+        return updated > 0
+    except Exception as exc:
+        print(f"[platform_db] update_founder_password({username!r}) error: {exc}")
+        return False
+
+
+def update_founder_last_login(username: str) -> None:
+    """Stamp last_login for a founder account after successful authentication."""
+    try:
+        with get_platform_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE founder_accounts SET last_login = CURRENT_TIMESTAMP WHERE username = %s",
+                (username.strip().lower(),)
+            )
+            cur.close()
+    except Exception:
+        pass  # Non-fatal
 
 
 # ── Convenience bootstrap called from server at startup ───────────────────────

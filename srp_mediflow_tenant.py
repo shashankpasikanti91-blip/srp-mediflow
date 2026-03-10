@@ -60,6 +60,7 @@ def _slug(name: str) -> str:
 def create_tenant_db(
     slug: str,
     display_name: str,
+    subdomain: str = '',
     city: str = '',
     phone: str = '',
     admin_username: str = 'admin',
@@ -69,14 +70,20 @@ def create_tenant_db(
     1. Create a dedicated PostgreSQL database for the tenant.
     2. Run the full SRP MediFlow schema.
     3. Seed a default admin user.
-    4. Register in tenant_registry.json.
+    4. Register in tenant_registry.json (with subdomain field).
+    5. Register in platform_db.clients for subdomain routing.
     Returns connection info dict.
+
+    subdomain : short URL prefix, e.g. 'star' for star.mediflow.srpailabs.com
     """
     db_name  = f"srp_{slug}"
     db_user  = ADMIN_DB_CONFIG['user']     # reuse same DB user (simple setup)
     db_pass  = ADMIN_DB_CONFIG['password']
     host     = ADMIN_DB_CONFIG['host']
     port     = ADMIN_DB_CONFIG['port']
+    # Default subdomain: strip underscores from slug (e.g. star_hospital → starhospital)
+    if not subdomain:
+        subdomain = slug.replace('_', '')[:20]
 
     registry = _load_registry()
     if slug in registry:
@@ -145,6 +152,7 @@ def create_tenant_db(
     # Step 4: register tenant
     tenant_info = {
         "slug":         slug,
+        "subdomain":    subdomain,
         "display_name": display_name,
         "city":         city,
         "phone":        phone,
@@ -157,8 +165,26 @@ def create_tenant_db(
     }
     registry[slug] = tenant_info
     _save_registry(registry)
-    print(f"✅  Tenant '{display_name}' registered in tenant_registry.json")
+    print(f"\u2705  Tenant '{display_name}' registered in tenant_registry.json")
     print(f"    DB : {db_name}  |  Admin: {admin_username} / {admin_password}")
+    # Also register in platform_db for subdomain-based routing
+    try:
+        from platform_db import upsert_client
+        upsert_client(
+            slug=slug,
+            subdomain=subdomain,
+            hospital_name=display_name,
+            city=city,
+            phone=phone,
+            db_name=db_name,
+            db_host=host,
+            db_port=port,
+            db_user=db_user,
+            admin_user=admin_username,
+        )
+        print(f"\u2705  Tenant registered in platform_db (subdomain: {subdomain})")
+    except Exception as _pdb_err:
+        print(f"\u26a0\ufe0f  platform_db registration warning: {_pdb_err} (non-fatal)")
     return tenant_info
 
 

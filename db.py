@@ -373,16 +373,27 @@ def get_doctor_rounds() -> list:
             return [dict(r) for r in cur.fetchall()]
 
 
-def add_doctor_round(doctor_name: str, ward: str, round_time: str) -> int:
-    """Schedule a new doctor round."""
-    sql = """
-        INSERT INTO doctor_rounds (doctor_name, ward, round_time, status, scheduled_at)
-        VALUES (%s, %s, %s, 'pending', NOW())
-        RETURNING id
-    """
+def add_doctor_round(doctor_name: str, ward: str, round_time: str, visit_datetime: str = None) -> int:
+    """Schedule a new doctor round. visit_datetime (ISO/datetime-local) sets both
+    round_time text and scheduled_at timestamp if provided."""
+    # Use visit_datetime for scheduled_at if valid ISO string provided
+    if visit_datetime:
+        sql = """
+            INSERT INTO doctor_rounds (doctor_name, ward, round_time, status, scheduled_at)
+            VALUES (%s, %s, %s, 'pending', %s::timestamp)
+            RETURNING id
+        """
+        params = (doctor_name, ward, round_time or visit_datetime, visit_datetime.replace('T', ' '))
+    else:
+        sql = """
+            INSERT INTO doctor_rounds (doctor_name, ward, round_time, status, scheduled_at)
+            VALUES (%s, %s, %s, 'pending', NOW())
+            RETURNING id
+        """
+        params = (doctor_name, ward, round_time)
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute(sql, (doctor_name, ward, round_time))
+            cur.execute(sql, params)
             return cur.fetchone()[0]
 
 
@@ -393,6 +404,61 @@ def complete_doctor_round(round_id: int) -> bool:
         with conn.cursor() as cur:
             cur.execute(sql, (round_id,))
             return cur.rowcount > 0
+
+
+def check_duplicate_patient(patient_name: str, patient_aadhar: str) -> dict | None:
+    """Check if patient already exists by Aadhar (strong match) or by name+active admission.
+    Returns a dict with existing record details, or None if no duplicate found."""
+    conn = get_connection()
+    if not conn:
+        return None
+    try:
+        cur = conn.cursor()
+        # Priority 1: Aadhar match (unique identifier)
+        if patient_aadhar and len(patient_aadhar.strip()) >= 8:
+            cur.execute(
+                """SELECT id, patient_name, patient_aadhar, ward_name, bed_number, status,
+                          TO_CHAR(admission_date, 'DD/MM/YYYY HH24:MI') AS admission_date
+                   FROM patient_admissions
+                   WHERE TRANSLATE(patient_aadhar,' -','') = TRANSLATE(%s,' -','')
+                   AND patient_aadhar IS NOT NULL AND patient_aadhar != ''
+                   ORDER BY admission_date DESC LIMIT 1""",
+                (patient_aadhar.strip(),)
+            )
+            row = cur.fetchone()
+            if row:
+                cur.close(); conn.close()
+                return {
+                    'match_type': 'aadhar',
+                    'id': row[0], 'patient_name': row[1], 'patient_aadhar': row[2],
+                    'ward_name': row[3], 'bed_number': row[4], 'status': row[5],
+                    'admission_date': row[6]
+                }
+        # Priority 2: Same name with active admission
+        if patient_name:
+            cur.execute(
+                """SELECT id, patient_name, patient_aadhar, ward_name, bed_number, status,
+                          TO_CHAR(admission_date, 'DD/MM/YYYY HH24:MI') AS admission_date
+                   FROM patient_admissions
+                   WHERE LOWER(TRIM(patient_name)) = LOWER(TRIM(%s))
+                   AND status = 'admitted'
+                   ORDER BY admission_date DESC LIMIT 1""",
+                (patient_name.strip(),)
+            )
+            row = cur.fetchone()
+            if row:
+                cur.close(); conn.close()
+                return {
+                    'match_type': 'name',
+                    'id': row[0], 'patient_name': row[1], 'patient_aadhar': row[2],
+                    'ward_name': row[3], 'bed_number': row[4], 'status': row[5],
+                    'admission_date': row[6]
+                }
+        cur.close(); conn.close()
+        return None
+    except Exception as e:
+        print(f'check_duplicate_patient error: {e}')
+        return None
 
 
 # â”€â”€â”€ ADMIN DASHBOARD DATA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

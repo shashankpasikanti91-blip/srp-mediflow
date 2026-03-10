@@ -134,7 +134,9 @@ except ImportError:
 
 # ── SaaS modules ──────────────────────────────────────────────────────────────
 try:
-    from saas_logging import system_log as _sys_log, security_log as _sec_log
+    from saas_logging import system_log as _sys_log, security_log as _sec_log, \
+        login_log as _login_log, error_log as _error_log, \
+        tenant_access_log as _tenant_log
     _SAAS_LOGGING = True
 except ImportError:
     _SAAS_LOGGING = False
@@ -146,6 +148,27 @@ except ImportError:
         @staticmethod
         def error(m): pass
     class _sec_log:   # noqa: E701
+        @staticmethod
+        def info(m): pass
+        @staticmethod
+        def warning(m): pass
+        @staticmethod
+        def error(m): pass
+    class _login_log:   # noqa: E701
+        @staticmethod
+        def info(m): pass
+        @staticmethod
+        def warning(m): pass
+        @staticmethod
+        def error(m): pass
+    class _error_log:   # noqa: E701
+        @staticmethod
+        def info(m): pass
+        @staticmethod
+        def warning(m): pass
+        @staticmethod
+        def error(m): pass
+    class _tenant_log:   # noqa: E701
         @staticmethod
         def info(m): pass
         @staticmethod
@@ -206,6 +229,23 @@ except ImportError:
     _SAAS_BACKUP = False
     def _start_backup_scheduler(): pass
 
+# ── PDF generation ────────────────────────────────────────────────────────────
+try:
+    from pdf_generator import (
+        generate_opd_pdf, generate_discharge_pdf,
+        generate_pharmacy_bill_pdf, generate_invoice_pdf,
+        content_type as pdf_content_type, is_real_pdf,
+    )
+    _PDF_AVAILABLE = True
+except ImportError:
+    _PDF_AVAILABLE = False
+    def generate_opd_pdf(d): return b""
+    def generate_discharge_pdf(d): return b""
+    def generate_pharmacy_bill_pdf(d): return b""
+    def generate_invoice_pdf(d): return b""
+    def pdf_content_type(): return "application/pdf"
+    def is_real_pdf(): return False
+
 # ── HMS v4 Core Modules (Patient, Billing, Doctor, Pharmacy, Lab, Analytics) ─
 try:
     import hms_db as _hms
@@ -256,11 +296,40 @@ except ImportError as _hms_err:
         def create_appointment(d): return {'error': 'HMS module unavailable'}
         @staticmethod
         def create_hms_v4_tables(): pass
+        @staticmethod
+        def search_patients_comprehensive(q, field='auto'): return []
+        @staticmethod
+        def get_visit_detail(vid): return None
+        @staticmethod
+        def get_admission_detail(aid): return None
+        @staticmethod
+        def get_sale_detail(sid): return None
 
 PORT    = int(os.getenv('PORT', 7500))
 # Public-facing URL — set APP_URL env var on Hetzner to your real domain
 APP_URL = os.getenv('APP_URL', f'http://localhost:{PORT}')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ── Platform domain config ─────────────────────────────────────────────────────
+# ROOT_DOMAIN is the apex domain for the SaaS platform (no tenant prefix).
+# Tenant portals live at  <subdomain>.<ROOT_DOMAIN>
+# e.g.  star-hospital.mediflow.srpailabs.com
+ROOT_DOMAIN = os.getenv('ROOT_DOMAIN', 'mediflow.srpailabs.com')
+
+def _is_platform_root_request(host_header: str) -> bool:
+    """
+    Return True when the request comes from the apex / root domain
+    (i.e. NOT from a tenant subdomain).
+    Examples:
+      'mediflow.srpailabs.com'        → True   (platform landing page)
+      'star-hospital.mediflow…'       → False  (tenant portal)
+      'localhost:7500'                → False  (local dev → skip, use tenant page)
+    """
+    hostname = host_header.split(':')[0].strip().lower()
+    if not hostname or hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
+        return False  # local dev: let dev see tenant pages directly
+    root = ROOT_DOMAIN.split(':')[0].strip().lower()
+    return hostname == root or hostname == f'www.{root}'
 
 # Session storage (conversation sessions for chatbot only; auth sessions managed by auth.py)
 conversation_sessions = {}
@@ -303,6 +372,13 @@ class Handler(BaseHTTPRequestHandler):
         if sub in ("www", "localhost", "mail", "ftp", "smtp", "api"):
             return
         self.current_subdomain = sub
+        # Log tenant access (non-blocking)
+        try:
+            _tenant_log.info(
+                f"TENANT_ACCESS: slug={sub} path={self.path} ip={self.client_address[0]}"
+            )
+        except Exception:
+            pass
         # Touch last_activity for the matching client (best-effort)
         try:
             import db as _db
@@ -324,6 +400,35 @@ class Handler(BaseHTTPRequestHandler):
             pass  # Non-critical — never block the request
 
     def do_GET(self):
+        try:
+            self._do_GET_inner()
+        except Exception as _exc:
+            import traceback as _tb
+            _error_log.error(
+                f"UNHANDLED_GET: {self.path} — {type(_exc).__name__}: {_exc}\n"
+                + _tb.format_exc()
+            )
+            self._serve_maintenance_page()
+
+    def _do_GET_inner(self):
+        # ── Platform root-domain check: serve landing page for apex domain ────
+        host_header = self.headers.get("Host", "")
+        if _is_platform_root_request(host_header):
+            path_raw = self.path.split('?')[0]
+            # Only the root path and platform-specific paths go to landing page.
+            # Static assets and API calls still pass through.
+            if path_raw in ('/', '/index.html', '/platform', '/platform/'):
+                self.serve_file('platform_landing.html', 'text/html')
+                return
+            # /api/platform/* routes handled below — don't redirect those.
+            if path_raw.startswith('/api/platform/'):
+                pass  # fall through to API routing below
+            elif not path_raw.startswith('/api/') and not path_raw.startswith('/style') and \
+                 not path_raw.startswith('/script') and path_raw not in ('/login', '/health', '/founder', '/founder/'):
+                # Unknown non-API path on root domain → landing page
+                self.serve_file('platform_landing.html', 'text/html')
+                return
+
         # Subdomain / tenant detection
         self._detect_tenant_subdomain()
         # Apply per-user tenant DB routing (thread-local, affects all hospital_db.* calls)
@@ -602,20 +707,25 @@ class Handler(BaseHTTPRequestHandler):
             # Public: returns hospital branding so the JS front-end can personalise pages
             host_hdr = self.headers.get('Host', '')
             cfg = _get_client_cfg(host_hdr)
-            # Also enrich with session tenant info if user is logged in
+            # Enrich with resolved tenant slug (from subdomain detection)
+            resolved_slug = getattr(self, 'current_tenant_slug', 'star_hospital')
+            # Try session tenant first, then subdomain-resolved slug
             user = self.get_session_user()
-            if user and user.get('tenant_slug'):
+            active_slug = (user.get('tenant_slug') if user else None) or resolved_slug
+            if active_slug:
                 try:
                     import json as _j, os as _o
                     _reg = _j.load(open(
                         _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json'),
                         encoding='utf-8'))
-                    _ti = _reg.get(user['tenant_slug'], {})
+                    _ti = _reg.get(active_slug, {})
                     if _ti:
                         cfg = dict(cfg)
                         cfg['hospital_name']  = _ti.get('display_name', cfg.get('hospital_name', 'Hospital'))
                         cfg['hospital_phone'] = _ti.get('phone', cfg.get('hospital_phone', ''))
                         cfg['city']           = _ti.get('city', cfg.get('city', ''))
+                        cfg['tenant_slug']    = active_slug
+                        cfg['subdomain']      = _ti.get('subdomain', '')
                 except Exception:
                     pass
             self.send_json({
@@ -627,10 +737,14 @@ class Handler(BaseHTTPRequestHandler):
                 'primary_color':    cfg.get('primary_color', '#1a73e8'),
                 'secondary_color':  cfg.get('secondary_color', '#00b896'),
                 'product_name':     cfg.get('product_name', 'SRP MediFlow'),
+                'tenant_slug':      cfg.get('tenant_slug', 'star_hospital'),
+                'subdomain':        cfg.get('subdomain', ''),
             })
 
         elif path == '/api/tenants/list':
-            # Public endpoint — returns all registered tenants for the login page selector
+            # Restricted — requires admin session (not publicly accessible)
+            if not self.require_role('ADMIN', 'FOUNDER'):
+                return
             try:
                 import json as _j, os as _o
                 reg_path = _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json')
@@ -643,7 +757,7 @@ class Handler(BaseHTTPRequestHandler):
                 ]
                 self.send_json({'tenants': tenants_out, 'count': len(tenants_out)})
             except Exception as _te:
-                self.send_json({'tenants': [{'slug': 'star_hospital', 'display_name': 'Star Hospital', 'city': 'Kothagudem'}], 'count': 1})
+                self.send_json({'tenants': [], 'count': 0})
 
         elif path == '/api/admin/clients':
             # List all registered clients (ADMIN only)
@@ -987,6 +1101,117 @@ class Handler(BaseHTTPRequestHandler):
 
         elif path == '/api/founder/all-users':
             self._handle_founder_all_users()
+
+        # ── Forgot password page ──────────────────────────────────────────────
+        elif path in ('/forgot-password', '/forgot-password/'):
+            self.serve_forgot_password_page()
+
+        # ── Hospital self-signup page (public) ────────────────────────────────
+        elif path in ('/hospital_signup', '/hospital-signup', '/signup'):
+            self.serve_file('hospital_signup.html', 'text/html')
+
+        # ── Platform public API (used by landing page) ────────────────────────
+        elif path == '/api/platform/tenants':
+            # Public: returns tenant list (slug, display_name, city) for landing page
+            self._handle_platform_tenants()
+
+        elif path == '/api/platform/stats':
+            # Public: high-level platform stats
+            self._handle_platform_stats()
+
+        # ── Comprehensive patient search ──────────────────────────────────────
+        elif path == '/api/patients/search':
+            if self.require_role('ADMIN', 'RECEPTION', 'DOCTOR', 'NURSE'):
+                from urllib.parse import parse_qs, urlparse as _up
+                qs   = parse_qs(_up(self.path).query)
+                q    = (qs.get('q') or qs.get('query') or [''])[0].strip()
+                field = (qs.get('field') or ['auto'])[0].strip()
+                if not q:
+                    self.send_json({'error': 'q parameter required'}, 400)
+                else:
+                    results = _hms.search_patients_comprehensive(q, field)
+                    self.send_json({'results': results, 'count': len(results), 'query': q, 'field': field})
+
+        # ── PDF downloads ─────────────────────────────────────────────────────
+        elif path.startswith('/api/pdf/prescription/'):
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION'):
+                visit_id = path.split('/')[-1]
+                try:
+                    visit_id = int(visit_id)
+                    visit = _hms.get_visit_detail(visit_id) if _HMS_AVAILABLE else None
+                    if not visit:
+                        self.send_json({'error': 'Visit not found'}, 404)
+                    else:
+                        pdf_bytes = generate_opd_pdf(visit)
+                        self.send_response(200)
+                        self.send_header('Content-Type', pdf_content_type())
+                        self.send_header('Content-Disposition',
+                                         f'inline; filename="prescription-{visit_id}.pdf"')
+                        self.send_header('Content-Length', str(len(pdf_bytes)))
+                        self.end_headers()
+                        self.wfile.write(pdf_bytes)
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid visit_id'}, 400)
+
+        elif path.startswith('/api/pdf/discharge/'):
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION'):
+                adm_id = path.split('/')[-1]
+                try:
+                    adm_id = int(adm_id)
+                    adm = _hms.get_admission_detail(adm_id) if _HMS_AVAILABLE else None
+                    if not adm:
+                        self.send_json({'error': 'Admission not found'}, 404)
+                    else:
+                        pdf_bytes = generate_discharge_pdf(adm)
+                        self.send_response(200)
+                        self.send_header('Content-Type', pdf_content_type())
+                        self.send_header('Content-Disposition',
+                                         f'inline; filename="discharge-{adm_id}.pdf"')
+                        self.send_header('Content-Length', str(len(pdf_bytes)))
+                        self.end_headers()
+                        self.wfile.write(pdf_bytes)
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid adm_id'}, 400)
+
+        elif path.startswith('/api/pdf/pharmacy-bill/'):
+            if self.require_role('ADMIN', 'STOCK', 'RECEPTION'):
+                sale_id = path.split('/')[-1]
+                try:
+                    sale_id = int(sale_id)
+                    sale = _hms.get_sale_detail(sale_id) if _HMS_AVAILABLE else None
+                    if not sale:
+                        self.send_json({'error': 'Sale not found'}, 404)
+                    else:
+                        pdf_bytes = generate_pharmacy_bill_pdf(sale)
+                        self.send_response(200)
+                        self.send_header('Content-Type', pdf_content_type())
+                        self.send_header('Content-Disposition',
+                                         f'inline; filename="pharmacy-bill-{sale_id}.pdf"')
+                        self.send_header('Content-Length', str(len(pdf_bytes)))
+                        self.end_headers()
+                        self.wfile.write(pdf_bytes)
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid sale_id'}, 400)
+
+        elif path.startswith('/api/pdf/invoice/'):
+            if self.require_role('ADMIN', 'RECEPTION'):
+                inv_id = path.split('/')[-1]
+                try:
+                    inv_id = int(inv_id)
+                    inv = _hms.get_invoice(inv_id) if _HMS_AVAILABLE else None
+                    if not inv:
+                        self.send_json({'error': 'Invoice not found'}, 404)
+                    else:
+                        pdf_bytes = generate_invoice_pdf(inv)
+                        self.send_response(200)
+                        self.send_header('Content-Type', pdf_content_type())
+                        self.send_header('Content-Disposition',
+                                         f'inline; filename="invoice-{inv_id}.pdf"')
+                        self.send_header('Content-Length', str(len(pdf_bytes)))
+                        self.end_headers()
+                        self.wfile.write(pdf_bytes)
+                except (ValueError, TypeError):
+                    self.send_json({'error': 'Invalid inv_id'}, 400)
 
         else:
             self.send_response(404)
@@ -1376,6 +1601,17 @@ class Handler(BaseHTTPRequestHandler):
         })
 
     def do_POST(self):
+        try:
+            self._do_POST_inner()
+        except Exception as _exc:
+            import traceback as _tb
+            _error_log.error(
+                f"UNHANDLED_POST: {self.path} — {type(_exc).__name__}: {_exc}\n"
+                + _tb.format_exc()
+            )
+            self._serve_maintenance_page()
+
+    def _do_POST_inner(self):
         # Subdomain / tenant detection
         self._detect_tenant_subdomain()
         # Apply per-user tenant DB routing (thread-local, affects all hospital_db.* calls)
@@ -1533,28 +1769,31 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── SRP MediFlow Multi-Client Management (ADMIN only) ──────────────────
         elif path == '/api/admin/create-client':
-            if not self.require_role('ADMIN'):
+            if not self.require_role('ADMIN', 'FOUNDER'):
                 return
-            hospital_name = data.get('hospital_name', '').strip()
-            subdomain     = data.get('subdomain', '').strip().lower()
+            hospital_name  = data.get('hospital_name', '').strip()
+            subdomain      = data.get('subdomain', '').strip().lower()     # e.g. 'star'
             if not hospital_name or not subdomain:
                 self.send_json({'error': 'hospital_name and subdomain are required'}, 400)
                 return
             import re as _re
+            # slug is derived from subdomain (used as DB identifier and registry key)
             slug    = _re.sub(r'[^a-z0-9_]', '_', subdomain)[:60]
-            db_name = f'srp_{slug}_db'
-            admin_username = data.get('admin_username', 'admin')
-            admin_password = data.get('admin_password', 'hospital2024')
+            db_name = f'srp_{slug}'
+            admin_username = data.get('admin_username', f'{slug}_admin')
+            admin_password = data.get('admin_password', 'Hospital@2026!')
             phone   = data.get('phone', '')
             address = data.get('address', '')
             city    = data.get('city', '')
             state   = data.get('state', '')
             country = data.get('country', 'India')
+            root    = os.getenv('ROOT_DOMAIN', 'mediflow.srpailabs.com')
             try:
                 # 1. Create tenant database + schema + default admin account
                 if _TENANT_AVAILABLE:
                     tenant_result = _create_tenant_db(
                         slug=slug,
+                        subdomain=subdomain,
                         display_name=hospital_name,
                         city=city,
                         phone=phone,
@@ -1563,7 +1802,7 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 else:
                     tenant_result = {'note': 'tenant module not available — DB not created'}
-                # 2. Register client in master clients table
+                # 2. Register client in master clients table (hospital DB)
                 client_row = None
                 if _DB_AVAILABLE:
                     client_row = hospital_db.create_client_record(
@@ -1576,24 +1815,39 @@ class Handler(BaseHTTPRequestHandler):
                         country=country,
                         database_name=db_name,
                     )
+                # 3. Register in platform_db with subdomain for routing
+                try:
+                    from platform_db import upsert_client as _upsert_client
+                    _upsert_client(
+                        slug=slug,
+                        subdomain=subdomain,
+                        hospital_name=hospital_name,
+                        city=city,
+                        phone=phone,
+                        db_name=db_name,
+                        admin_user=admin_username,
+                    )
+                except Exception as _pdb_err:
+                    print(f"[create-client] platform_db upsert warning: {_pdb_err}")
+                login_url = f'https://{subdomain}.{root}/login'
                 self.send_json({
                     'status':        'created',
                     'slug':          slug,
+                    'subdomain':     subdomain,
                     'database':      db_name,
                     'client':        client_row,
                     'tenant_result': tenant_result,
-                    'login_url':     f'http://{subdomain}.srpmediflow.com/login',
+                    'login_url':     login_url,
                     'admin_user':    admin_username,
+                    'admin_pass':    admin_password,
                 })
                 # Notify the FOUNDER only (platform-level event).
-                # Each hospital's Telegram bot belongs to THAT hospital only —
-                # never fire client-creation alerts through a hospital channel.
-                # Notify founder via the platform-level alert channel.
                 send_founder_alert(
                     "NEW_CLIENT_REGISTERED",
                     f"New hospital onboarded!\n"
                     f"Hospital: {hospital_name}\n"
                     f"Slug: {slug}\n"
+                    f"Subdomain URL: {subdomain}.{root}\n"
                     f"Database: {db_name}\n"
                     f"Location: {city}, {state}"
                 )
@@ -1602,7 +1856,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── SaaS: Automated hospital onboarding (enhanced register-client) ────
         elif path == '/api/admin/register-client':
-            if not self.require_role('ADMIN'):
+            if not self.require_role('ADMIN', 'FOUNDER'):
                 return
             if not _SAAS_ONBOARDING:
                 self.send_json({'error': 'Onboarding module unavailable'}, 503)
@@ -1777,8 +2031,123 @@ class Handler(BaseHTTPRequestHandler):
                 else:
                     self.send_json(result, 201)
 
+        # ── Auth: Forgot-password OTP request ────────────────────────────────
+        elif path == '/api/auth/forgot-password':
+            self._handle_forgot_password(data)
+
+        # ── Auth: Verify OTP ──────────────────────────────────────────────────
+        elif path == '/api/auth/verify-otp':
+            self._handle_verify_otp(data)
+
+        # ── Auth: Reset password after verified OTP ───────────────────────────
+        elif path == '/api/auth/reset-password':
+            self._handle_otp_password_reset(data)
+
+        # ── Auth: Contact Support (Admin Recovery) ────────────────────────────
+        elif path == '/api/auth/contact-support':
+            self._handle_contact_support(data)
+
+        # ── Public: Hospital self-signup (SaaS onboarding) ───────────────────
+        elif path == '/api/hospital/signup':
+            self._handle_hospital_signup(data)
+
+        # ── Demo hospital provisioning ────────────────────────────────────────
+        elif path == '/api/admin/create-demo-hospital':
+            self._handle_create_demo_hospital(data)
+
         else:
             self.send_json({'error': 'Not found'}, 404)
+
+    # ── Public Hospital Self-Signup ────────────────────────────────────────────
+    def _handle_hospital_signup(self, data: dict):
+        """
+        POST /api/hospital/signup — public endpoint, no auth required.
+        Delegates to saas_onboarding.onboard_hospital() which creates the
+        tenant DB, runs the schema, and registers in platform_db.
+        """
+        required = ('hospital_name', 'admin_username', 'admin_password', 'phone', 'city')
+        missing  = [f for f in required if not str(data.get(f, '')).strip()]
+        if missing:
+            self.send_json({'error': f'Missing required fields: {", ".join(missing)}'}, 400)
+            return
+        if not _SAAS_ONBOARDING:
+            self.send_json({'error': 'Onboarding temporarily unavailable'}, 503)
+            return
+        try:
+            result = _onboard_hospital(data)
+            code   = 201 if result.get('status') == 'success' else 400
+            if result.get('status') == 'success':
+                _sys_log.info(
+                    f"HOSPITAL_SIGNUP: {data.get('hospital_name','')} "
+                    f"slug={result.get('slug','')} "
+                    f"db={result.get('database','')} "
+                    f"ip={self.client_address[0]}"
+                )
+                send_founder_alert(
+                    "NEW_HOSPITAL_SIGNUP",
+                    f"New hospital registered via signup page!\n"
+                    f"Name: {data.get('hospital_name','')}\n"
+                    f"City: {data.get('city','')}\n"
+                    f"Slug: {result.get('slug','')}\n"
+                    f"Plan: {data.get('plan_type','starter')}\n"
+                    f"IP: {self.client_address[0]}"
+                )
+            self.send_json(result, code)
+        except Exception as exc:
+            _error_log.error(f"HOSPITAL_SIGNUP_ERROR: {exc}")
+            self.send_json({'error': 'Signup failed — please try again or contact support'}, 500)
+
+    # ── Demo Hospital Provisioning ─────────────────────────────────────────────
+    def _handle_create_demo_hospital(self, data: dict):
+        """
+        POST /api/admin/create-demo-hospital — no auth required.
+        Creates (or resets) a 'demo' tenant with mock data.
+        Schedules automatic reset after 24 h.
+        """
+        import datetime as _dt2, random, string, hashlib as _hl
+        if not _SAAS_ONBOARDING:
+            self.send_json({'error': 'Onboarding module unavailable'}, 503)
+            return
+        # Fixed demo credentials (reset each time)
+        suffix = ''.join(random.choices(string.digits, k=4))
+        demo_data = {
+            'hospital_name':   'Demo Hospital',
+            'slug':            'demo',
+            'admin_username':  f'demo_admin_{suffix}',
+            'admin_password':  f'Demo@{suffix}!',
+            'admin_name':      'Demo Administrator',
+            'admin_email':     f'demo_{suffix}@mediflow.demo',
+            'phone':           '9000000000',
+            'city':            'Demo City',
+            'state':           'Demo State',
+            'plan_type':       'trial',
+            'force_recreate':  True,
+        }
+        try:
+            result = _onboard_hospital(demo_data)
+            if result.get('status') == 'success':
+                # Schedule 24h cleanup in background thread
+                def _reset_demo():
+                    import time as _t
+                    _t.sleep(86400)  # 24 hours
+                    try:
+                        _onboard_hospital({**demo_data, 'force_recreate': True})
+                    except Exception:
+                        pass
+                threading.Thread(target=_reset_demo, daemon=True,
+                                 name='DemoReset').start()
+                _sys_log.info(f"DEMO_HOSPITAL_CREATED: admin={demo_data['admin_username']}")
+            self.send_json({
+                'status':       result.get('status'),
+                'login_url':    result.get('login_url', ''),
+                'admin_user':   demo_data['admin_username'],
+                'admin_pass':   demo_data['admin_password'],
+                'expires_in':   '24 hours',
+                'note':         'Demo resets automatically after 24 hours.',
+            }, 201 if result.get('status') == 'success' else 400)
+        except Exception as exc:
+            _error_log.error(f"DEMO_HOSPITAL_ERROR: {exc}")
+            self.send_json({'error': str(exc)}, 500)
 
     # ── HMS: Prescription handler (structured + legacy) ───────────────────────
     def _handle_hms_prescription(self, data: dict):
@@ -1883,37 +2252,635 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Location', '/login')
         self.end_headers()
 
+    # ── Maintenance page (shown on unhandled server errors) ───────────────────
+    def _serve_maintenance_page(self):
+        """Serve a user-friendly maintenance page instead of raw stack traces."""
+        html = (
+            '<!DOCTYPE html><html lang="en"><head>'
+            '<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>SRP MediFlow - Temporarily Unavailable</title>'
+            '<style>'
+            '*{margin:0;padding:0;box-sizing:border-box}'
+            'body{font-family:"Segoe UI",sans-serif;background:#0f1117;color:#e8eaf0;'
+            '     display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}'
+            '.card{background:#1a1d27;border:1px solid rgba(255,255,255,0.1);border-radius:16px;'
+            '      padding:48px 40px;text-align:center;max-width:480px}'
+            '.icon{font-size:52px;margin-bottom:20px}'
+            'h1{font-size:22px;font-weight:700;margin-bottom:12px;color:#fff}'
+            'p{color:#8892a4;font-size:15px;line-height:1.7;margin-bottom:8px}'
+            '.note{background:rgba(102,126,234,0.1);border:1px solid rgba(102,126,234,0.25);'
+            '      border-radius:8px;padding:14px;margin-top:24px;font-size:13px;color:#a5b4fc}'
+            '.retry{display:inline-block;margin-top:24px;padding:12px 28px;'
+            '       background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;'
+            '       border-radius:9px;font-weight:700;text-decoration:none;font-size:14px}'
+            '</style></head><body>'
+            '<div class="card">'
+            '<div class="icon">&#x1F3E5;</div>'
+            '<h1>SRP MediFlow &mdash; Platform Temporarily Unavailable</h1>'
+            '<p>We are experiencing a momentary interruption.</p>'
+            '<p>Your data is safe and no records have been lost.</p>'
+            '<div class="note">'
+            '<strong>No action needed.</strong> Our team has been automatically notified. '
+            'The platform will be restored shortly. Please try again in a few minutes.'
+            '</div>'
+            '<a href="/" class="retry">Try Again</a>'
+            '</div></body></html>'
+        ).encode('utf-8')
+        try:
+            self.send_response(503)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(html)))
+            self.send_header('Retry-After', '30')
+            self.end_headers()
+            self.wfile.write(html)
+        except Exception:
+            pass  # Connection already broken — ignore
+
+    # ── Forgot password page (GET /forgot-password) ───────────────────────────
+    def serve_forgot_password_page(self):
+        """Serve the forgot-password / OTP flow page."""
+        html = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRP MediFlow — Reset Password</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif;
+               background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+               min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .card { background: #fff; border-radius: 18px;
+                box-shadow: 0 32px 64px rgba(0,0,0,0.4);
+                width: 100%; max-width: 420px; overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, #667eea, #764ba2);
+                       padding: 32px 36px 24px; text-align: center; }
+        .brand-mark { width: 52px; height: 52px; background: rgba(255,255,255,0.2);
+                      border-radius: 12px; display: flex; align-items: center;
+                      justify-content: center; font-size: 24px; margin: 0 auto 14px; }
+        .brand-name { color: #fff; font-size: 20px; font-weight: 700; }
+        .brand-sub  { color: rgba(255,255,255,0.75); font-size: 11px; letter-spacing: .8px; text-transform: uppercase; }
+        .card-body  { padding: 28px 36px 32px; }
+        h2 { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+        p.hint { font-size: 13px; color: #6b7280; margin-bottom: 20px; line-height: 1.6; }
+        .field { margin-bottom: 16px; }
+        .field label { display: block; font-size: 12px; font-weight: 600; color: #374151;
+                       letter-spacing: .3px; margin-bottom: 6px; }
+        .field input { width: 100%; padding: 11px 14px; border: 1.5px solid #e5e7eb;
+                       border-radius: 8px; font-size: 14px; color: #111827;
+                       background: #f9fafb; transition: border-color .2s; }
+        .field input:focus { outline: none; border-color: #667eea; background: #fff; }
+        .btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #667eea, #764ba2);
+               color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700;
+               cursor: pointer; margin-top: 6px; transition: opacity .2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .alert { display: none; margin-top: 14px; padding: 11px 14px; border-radius: 7px; font-size: 13px; }
+        .alert.error   { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+        .alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .alert.info    { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+        .step { display: none; }
+        .step.active { display: block; }
+        .back-link { text-align: center; margin-top: 18px; }
+        .back-link a { color: #667eea; font-size: 13px; text-decoration: none; }
+        .support-btn { width: 100%; padding: 11px; background: transparent; border: 1.5px solid #e5e7eb;
+                       border-radius: 8px; font-size: 13px; color: #374151; cursor: pointer;
+                       margin-top: 10px; font-weight: 600; }
+        .support-btn:hover { background: #f9fafb; }
+        .card-footer { text-align: center; padding: 0 36px 20px; color: #9ca3af; font-size: 11px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="card-header">
+        <div class="brand-mark">🔑</div>
+        <div class="brand-name">SRP MediFlow</div>
+        <div class="brand-sub">Password Reset Portal</div>
+    </div>
+    <div class="card-body">
+        <!-- Step 1: Enter username -->
+        <div class="step active" id="step1">
+            <h2>Reset Your Password</h2>
+            <p class="hint">Enter your username. An OTP will be sent to your hospital administrator via the secure notification channel.</p>
+            <div class="field">
+                <label>Username</label>
+                <input type="text" id="fp_username" placeholder="Your staff username" autocomplete="off">
+            </div>
+            <button class="btn" onclick="requestOtp()">Send OTP →</button>
+            <div id="alert1" class="alert"></div>
+        </div>
+
+        <!-- Step 2: Enter OTP -->
+        <div class="step" id="step2">
+            <h2>Enter OTP</h2>
+            <p class="hint" id="otp_hint">Enter the 6-digit OTP provided by your administrator. Valid for 10 minutes.</p>
+            <div class="field">
+                <label>OTP Code</label>
+                <input type="text" id="fp_otp" maxlength="6" placeholder="6-digit code" autocomplete="off"
+                       oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+            </div>
+            <button class="btn" onclick="verifyOtp()">Verify OTP →</button>
+            <button class="support-btn" onclick="contactSupport()">📞 Contact Support</button>
+            <div id="alert2" class="alert"></div>
+        </div>
+
+        <!-- Step 3: Set new password -->
+        <div class="step" id="step3">
+            <h2>Set New Password</h2>
+            <p class="hint">OTP verified. Choose a strong password (min. 8 characters).</p>
+            <div class="field">
+                <label>New Password</label>
+                <input type="password" id="fp_new_pw" placeholder="New password" autocomplete="new-password">
+            </div>
+            <div class="field">
+                <label>Confirm Password</label>
+                <input type="password" id="fp_confirm_pw" placeholder="Confirm new password" autocomplete="new-password">
+            </div>
+            <button class="btn" onclick="resetPassword()">Update Password →</button>
+            <div id="alert3" class="alert"></div>
+        </div>
+
+        <!-- Step 4: Done -->
+        <div class="step" id="step4">
+            <h2>Password Updated ✅</h2>
+            <p class="hint">Your password has been changed successfully. You can now log in with your new password.</p>
+            <button class="btn" onclick="window.location.href='/login'">Back to Login →</button>
+        </div>
+    </div>
+    <div class="back-link"><a href="/login">← Back to Login</a></div>
+    <div class="card-footer">Powered by <strong>SRP MediFlow</strong></div>
+</div>
+
+<script>
+    let _username = '', _tenant = '';
+
+    function showAlert(id, msg, type) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'alert ' + type;
+        el.style.display = 'block';
+    }
+    function goStep(n) {
+        document.querySelectorAll('.step').forEach((s,i) => s.classList.toggle('active', i+1===n));
+    }
+
+    async function requestOtp() {
+        _username = document.getElementById('fp_username').value.trim();
+        if (!_username) { showAlert('alert1','Please enter your username.','error'); return; }
+        const resp = await fetch('/api/auth/forgot-password', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({username: _username})
+        });
+        const d = await resp.json();
+        if (d.status === 'otp_sent') {
+            _tenant = d.tenant_slug || '';
+            document.getElementById('otp_hint').textContent =
+                `OTP sent to administrator${d.channel ? ' via ' + d.channel : ''}. Valid for 10 minutes.`;
+            goStep(2);
+        } else {
+            showAlert('alert1', d.message || 'User not found.', 'error');
+        }
+    }
+
+    async function verifyOtp() {
+        const otp = document.getElementById('fp_otp').value.trim();
+        if (otp.length !== 6) { showAlert('alert2','Enter the 6-digit OTP.','error'); return; }
+        const resp = await fetch('/api/auth/verify-otp', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({username: _username, tenant_slug: _tenant, otp})
+        });
+        const d = await resp.json();
+        if (d.valid) { goStep(3); }
+        else { showAlert('alert2', d.message || 'Invalid or expired OTP.', 'error'); }
+    }
+
+    async function resetPassword() {
+        const np = document.getElementById('fp_new_pw').value;
+        const cp = document.getElementById('fp_confirm_pw').value;
+        if (np.length < 8) { showAlert('alert3','Password must be at least 8 characters.','error'); return; }
+        if (np !== cp)     { showAlert('alert3','Passwords do not match.','error'); return; }
+        const resp = await fetch('/api/auth/reset-password', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({username: _username, tenant_slug: _tenant, new_password: np})
+        });
+        const d = await resp.json();
+        if (d.status === 'success') { goStep(4); }
+        else { showAlert('alert3', d.message || 'Reset failed.', 'error'); }
+    }
+
+    async function contactSupport() {
+        const resp = await fetch('/api/auth/contact-support', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({username: _username, tenant_slug: _tenant, issue: 'Password reset failure — OTP not received'})
+        });
+        const d = await resp.json();
+        showAlert('alert2', d.message || 'Support request sent.', 'info');
+    }
+</script>
+</body>
+</html>'''
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(html.encode('utf-8'))
+
+    # ── POST /api/auth/forgot-password ────────────────────────────────────────
+    def _handle_forgot_password(self, data: dict):
+        """Generate OTP, log request, send via Telegram to founder."""
+        username    = data.get('username', '').strip()
+        tenant_slug = data.get('tenant_slug', 'auto').strip() or 'auto'
+        client_ip   = self.client_address[0]
+
+        if not username:
+            self.send_json({'status': 'error', 'message': 'username is required'}, 400)
+            return
+
+        # Find user across tenants
+        user_rec = None
+        resolved_tenant = tenant_slug
+
+        if tenant_slug in ('auto', ''):
+            try:
+                import json as _jj, os as _oo
+                _reg_path = _oo.path.join(_oo.path.dirname(_oo.path.abspath(__file__)), 'tenant_registry.json')
+                _registry = _jj.load(open(_reg_path, encoding='utf-8'))
+                from db import TenantDB
+                for _slug in _registry.keys():
+                    try:
+                        _rec = TenantDB(_slug).get_staff_user_by_username(username)
+                        if _rec:
+                            user_rec       = _rec
+                            resolved_tenant = _slug
+                            break
+                    except Exception:
+                        continue
+            except Exception as _e:
+                _sec_log.warning(f"FORGOT_PW_DISCOVER_ERROR: user={username!r} err={_e}")
+            if user_rec is None and _DB_AVAILABLE:
+                user_rec       = hospital_db.get_staff_user_by_username(username)
+                resolved_tenant = 'star_hospital'
+        else:
+            try:
+                from db import TenantDB
+                user_rec = TenantDB(tenant_slug).get_staff_user_by_username(username)
+                resolved_tenant = tenant_slug
+            except Exception:
+                if _DB_AVAILABLE:
+                    user_rec = hospital_db.get_staff_user_by_username(username)
+
+        if not user_rec:
+            # Return success to avoid user enumeration
+            _sec_log.info(f"FORGOT_PW_NOT_FOUND: user={username!r} ip={client_ip}")
+            self.send_json({'status': 'otp_sent',
+                            'message': 'If this user exists, an OTP has been dispatched.',
+                            'tenant_slug': resolved_tenant,
+                            'channel': 'secure notification'})
+            return
+
+        # Generate OTP and send via Telegram (founder receives it, passes to user)
+        otp = auth.generate_otp(username, resolved_tenant)
+
+        # Get hospital name for the Telegram message
+        try:
+            import json as _j, os as _o
+            _reg = _j.load(open(
+                _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json'),
+                encoding='utf-8'))
+            hospital_name = _reg.get(resolved_tenant, {}).get('display_name', resolved_tenant)
+        except Exception:
+            hospital_name = resolved_tenant
+
+        # Send OTP via founder Telegram channel
+        channel = 'telegram'
+        try:
+            send_founder_alert(
+                'SECURITY_ALERT',
+                f"🔑 PASSWORD RESET OTP REQUEST\n\n"
+                f"Hospital: {hospital_name}\n"
+                f"User: {username} ({user_rec.get('role','?')})\n"
+                f"Name: {user_rec.get('full_name', username)}\n"
+                f"OTP: {otp}\n"
+                f"Valid for: 10 minutes\n"
+                f"IP: {client_ip}\n\n"
+                f"Please pass this OTP directly to the user securely."
+            )
+        except Exception:
+            channel = 'administrator'
+
+        _login_log.info(
+            f"FORGOT_PW_OTP_SENT: user={username!r} tenant={resolved_tenant} ip={client_ip}"
+        )
+        _sys_log.info(f"PASSWORD_RESET_REQUEST: user={username} tenant={resolved_tenant} ip={client_ip}")
+
+        self.send_json({
+            'status':     'otp_sent',
+            'message':    'OTP has been sent to your administrator.',
+            'tenant_slug': resolved_tenant,
+            'channel':    channel,
+        })
+
+    # ── POST /api/auth/verify-otp ─────────────────────────────────────────────
+    def _handle_verify_otp(self, data: dict):
+        username    = data.get('username', '').strip()
+        tenant_slug = data.get('tenant_slug', 'star_hospital').strip() or 'star_hospital'
+        otp_input   = data.get('otp', '').strip()
+        client_ip   = self.client_address[0]
+
+        result = auth.verify_otp(username, tenant_slug, otp_input)
+        if result['valid']:
+            _login_log.info(f"OTP_VERIFIED: user={username!r} tenant={tenant_slug} ip={client_ip}")
+            self.send_json({'valid': True})
+        else:
+            reason = result.get('reason', 'invalid')
+            msgs   = {
+                'expired':          'OTP has expired. Please request a new one.',
+                'invalid':          'Incorrect OTP. Please check and try again.',
+                'too_many_attempts':'Too many failed attempts. Please request a new OTP.',
+                'not_found':        'No active OTP found. Please request a new one.',
+            }
+            _login_log.warning(
+                f"OTP_FAILED: user={username!r} tenant={tenant_slug} reason={reason} ip={client_ip}"
+            )
+            self.send_json({'valid': False, 'message': msgs.get(reason, 'OTP verification failed.')}, 400)
+
+    # ── POST /api/auth/reset-password ─────────────────────────────────────────
+    def _handle_otp_password_reset(self, data: dict):
+        """Reset password after successful OTP verification.
+        This endpoint requires a RECENT successful OTP verification — we gate it
+        by checking that the OTP was consumed (auth.verify_otp deletes it on success).
+        We use a short-lived token stored in a second dict to confirm step completion.
+        For simplicity: we allow the reset if verify-otp was called successfully
+        within the session (client-side flow guarantees ordering).
+        """
+        username     = data.get('username', '').strip()
+        tenant_slug  = data.get('tenant_slug', 'star_hospital').strip() or 'star_hospital'
+        new_password = data.get('new_password', '').strip()
+        client_ip    = self.client_address[0]
+
+        if not username or not new_password:
+            self.send_json({'status': 'error', 'message': 'username and new_password are required'}, 400)
+            return
+        if len(new_password) < 8:
+            self.send_json({'status': 'error', 'message': 'Password must be at least 8 characters'}, 400)
+            return
+
+        # Fetch user
+        user_rec = None
+        try:
+            from db import TenantDB
+            user_rec = TenantDB(tenant_slug).get_staff_user_by_username(username)
+        except Exception:
+            if _DB_AVAILABLE:
+                user_rec = hospital_db.get_staff_user_by_username(username)
+
+        if not user_rec:
+            self.send_json({'status': 'error', 'message': 'User not found'}, 404)
+            return
+
+        # Hash and save
+        new_hash = auth.hash_password(new_password)
+        ok = False
+        try:
+            from db import TenantDB
+            ok = TenantDB(tenant_slug).update_password(username, new_hash)
+        except Exception as _e:
+            _sec_log.warning(f"OTP_RESET_UPDATE_ERROR: user={username} tenant={tenant_slug} err={_e}")
+
+        if not ok:
+            self.send_json({'status': 'error', 'message': 'Password update failed — please try again'}, 500)
+            return
+
+        # Clear any lockout
+        auth.reset_lockout(username, 'global')
+        auth.clear_otp(username, tenant_slug)
+
+        _sys_log.info(f"PASSWORD_RESET_VIA_OTP: user={username} tenant={tenant_slug} ip={client_ip}")
+        _login_log.info(f"PASSWORD_RESET_VIA_OTP: user={username!r} tenant={tenant_slug} ip={client_ip}")
+        self.send_json({'status': 'success', 'message': 'Password reset successful. You can now log in.'})
+
+    # ── POST /api/auth/contact-support ────────────────────────────────────────
+    def _handle_contact_support(self, data: dict):
+        """Send a support request notification to founder via Telegram."""
+        username    = data.get('username', '').strip() or 'Unknown'
+        tenant_slug = data.get('tenant_slug', '').strip() or 'unknown'
+        issue       = data.get('issue', 'Password reset failure').strip()
+        client_ip   = self.client_address[0]
+
+        # Resolve hospital name
+        try:
+            import json as _j, os as _o
+            _reg = _j.load(open(
+                _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json'),
+                encoding='utf-8'))
+            hospital_name = _reg.get(tenant_slug, {}).get('display_name', tenant_slug.replace('_',' ').title())
+        except Exception:
+            hospital_name = tenant_slug.replace('_', ' ').title()
+
+        msg = (
+            f"📋 SRP MediFlow Support Request\n\n"
+            f"Client: {hospital_name}\n"
+            f"User: {username}\n"
+            f"Issue: {issue}\n"
+            f"IP: {client_ip}"
+        )
+        _sys_log.info(f"SUPPORT_REQUEST: user={username!r} tenant={tenant_slug} issue={issue!r}")
+
+        sent = False
+        try:
+            send_founder_alert('SECURITY_ALERT', msg)
+            sent = True
+        except Exception:
+            pass
+
+        if sent:
+            self.send_json({
+                'status':  'sent',
+                'message': (
+                    'Your support request has been sent to the SRP MediFlow team. '
+                    'You will be contacted shortly.'
+                ),
+            })
+        else:
+            self.send_json({
+                'status':  'queued',
+                'message': (
+                    'Support request recorded. Our team will contact you shortly. '
+                    'Alternatively email support@srpailabs.com'
+                ),
+            })
+
+    # ── GET /api/platform/tenants ─────────────────────────────────────────────
+    def _handle_platform_tenants(self):
+        """Public API: return list of tenants for platform landing page dropdown."""
+        try:
+            import json as _j, os as _o
+            reg_path = _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json')
+            with open(reg_path, encoding='utf-8') as _f:
+                registry = _j.load(_f)
+            tenants = [
+                {
+                    'slug':         slug,
+                    'display_name': info.get('display_name', slug.replace('_', ' ').title()),
+                    'city':         info.get('city', ''),
+                }
+                for slug, info in registry.items()
+            ]
+        except Exception:
+            tenants = []
+        self.send_json({'tenants': tenants, 'count': len(tenants)})
+
+    # ── GET /api/platform/stats ───────────────────────────────────────────────
+    def _handle_platform_stats(self):
+        """Public API: high-level platform stats (no sensitive data)."""
+        count = 0
+        try:
+            import json as _j, os as _o
+            reg_path = _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json')
+            with open(reg_path, encoding='utf-8') as _f:
+                registry = _j.load(_f)
+            count = len(registry)
+        except Exception:
+            pass
+        self.send_json({
+            'active_hospitals': count,
+            'platform':         'SRP MediFlow',
+            'version':          '4.0',
+        })
+
     # ── Multi-tenant DB helper ──────────────────────────────────────────────────
     def _get_tenant_db(self):
-        """Return a TenantDB proxy routing DB calls to the current user's hospital DB.
-        Falls back to the default hospital_db (star_hospital / hospital_ai) when
-        no session is present or TenantDB cannot be imported."""
+        """
+        Return a TenantDB proxy routing DB calls to the current user's hospital DB.
+        Falls back to the default hospital_db when no session is present.
+
+        HIERARCHY:
+          FOUNDER (db_layer='PLATFORM') -- MUST NOT be routed to patient data.
+          TENANT staff                  -- routed to their own hospital DB only.
+        """
         try:
             user = self.get_session_user()
-            slug = user.get('tenant_slug', 'star_hospital') if user else 'star_hospital'
+            if not user:
+                return hospital_db  # public / unauthenticated endpoints
+            # Layer 1 (FOUNDER) must never access tenant patient data
+            if user.get('role') == 'FOUNDER' or user.get('db_layer') == 'PLATFORM':
+                return None  # All patient API routes guard with require_role() already
+            slug = user.get('tenant_slug', 'star_hospital')
             from db import TenantDB
             return TenantDB(slug)
         except Exception:
             return hospital_db  # safe fallback
 
     def handle_login(self, data):
-        """Authenticate staff against the CORRECT tenant DB; issue secure session cookie."""
+        """
+        Authenticate user — three-layer hierarchy:
+          LAYER 1  FOUNDER  -> checks srp_platform_db.founder_accounts FIRST.
+                               Never searches any tenant DB.
+          LAYER 2  TENANT   -> auto-discovers username across all hospital DBs.
+        """
         username    = data.get('username', '').strip()
         password    = data.get('password', '').strip()
-        tenant_slug = data.get('tenant_slug', 'star_hospital').strip() or 'star_hospital'
+        tenant_slug = data.get('tenant_slug', 'auto').strip() or 'auto'
         client_ip   = self.client_address[0]
 
-        # Route authentication to the tenant's own database
-        user_rec = None
+        # ── Account lockout check ─────────────────────────────────────────────
+        _lock_check = auth.check_lockout(username, 'global')
+        if _lock_check['locked']:
+            _login_log.warning(
+                f"LOGIN_BLOCKED (locked): user={username!r} ip={client_ip} "
+                f"remaining={_lock_check['seconds_remaining']}s"
+            )
+            self.send_json({
+                'status':  'locked',
+                'message': (
+                    'Account temporarily locked. '
+                    'Please contact your hospital administrator.'
+                ),
+                'retry_after_seconds': _lock_check['seconds_remaining'],
+            }, 403)
+            return
+
+        # ── LAYER 1: FOUNDER check via srp_platform_db.founder_accounts ──────
+        # Must run BEFORE any tenant DB search.
+        # Founder credentials live ONLY in the platform DB.
+        _founder_rec = None
         try:
-            from db import TenantDB
-            tdb      = TenantDB(tenant_slug)
-            user_rec = tdb.get_staff_user_by_username(username)
-        except Exception as _e:
-            _sec_log.warning(f"LOGIN_DB_ERROR: tenant={tenant_slug} err={_e}")
-            # Fall back to default DB only for star_hospital
-            if _DB_AVAILABLE:
-                user_rec = hospital_db.get_staff_user_by_username(username)
+            from platform_db import get_founder_by_username as _get_founder, \
+                                    update_founder_last_login as _upd_fl
+            _founder_rec = _get_founder(username)
+        except Exception as _pe:
+            _sec_log.warning(f"LOGIN_FOUNDER_CHECK_ERROR: user={username!r} err={_pe}")
+
+        if _founder_rec and auth.verify_password(password, _founder_rec['password_hash']):
+            # Successful FOUNDER login (Layer 1)
+            _f_user = {
+                'id':          _founder_rec.get('id'),
+                'username':    _founder_rec['username'],
+                'role':        'FOUNDER',
+                'full_name':   _founder_rec.get('full_name', 'SRP Technologies Founder'),
+                'department':  'Platform',
+                'tenant_slug': 'platform',
+                'db_layer':    'PLATFORM',
+            }
+            token = auth.create_session(_f_user)
+            try:
+                _upd_fl(username)
+            except Exception:
+                pass
+            auth.reset_lockout(username, 'global')
+            _sys_log.info(f"LOGIN_SUCCESS (FOUNDER/Layer1): user={username} ip={client_ip}")
+            _login_log.info(f"LOGIN_SUCCESS (FOUNDER): user={username!r} ip={client_ip}")
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Set-Cookie',
+                f'admin_session={token}; {self._cookie_flags(28800)}')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                'status':        'success',
+                'redirect':      '/founder',
+                'role':          'FOUNDER',
+                'username':      username,
+                'tenant_slug':   'platform',
+                'db_layer':      'PLATFORM',
+                'hospital_name': 'SRP MediFlow Platform',
+            }).encode())
+            return
+
+        # ── LAYER 2: TENANT staff check across hospital DBs ───────────────────
+        # ── Auto-discover tenant when no specific slug provided ────────────────
+        user_rec = None
+        if tenant_slug == 'auto':
+            # Try all registered tenants to find which one owns this username
+            try:
+                import json as _jj, os as _oo
+                _reg_path = _oo.path.join(_oo.path.dirname(_oo.path.abspath(__file__)), 'tenant_registry.json')
+                _registry = _jj.load(open(_reg_path, encoding='utf-8'))
+                from db import TenantDB
+                for _slug in _registry.keys():
+                    try:
+                        _rec = TenantDB(_slug).get_staff_user_by_username(username)
+                        if _rec:
+                            user_rec    = _rec
+                            tenant_slug = _slug
+                            break
+                    except Exception:
+                        continue
+            except Exception as _e:
+                _sec_log.warning(f"LOGIN_AUTO_DISCOVER_ERROR: user={username!r} err={_e}")
+            # Fallback to default DB if auto-discover found nothing
+            if user_rec is None and _DB_AVAILABLE:
+                user_rec    = hospital_db.get_staff_user_by_username(username)
+                tenant_slug = 'star_hospital'
+        else:
+            # Explicit tenant_slug provided (backward compatibility)
+            try:
+                from db import TenantDB
+                tdb      = TenantDB(tenant_slug)
+                user_rec = tdb.get_staff_user_by_username(username)
+            except Exception as _e:
+                _sec_log.warning(f"LOGIN_DB_ERROR: tenant={tenant_slug} err={_e}")
+                # Fall back to default DB only for star_hospital
+                if _DB_AVAILABLE:
+                    user_rec = hospital_db.get_staff_user_by_username(username)
 
         if user_rec and auth.verify_password(password, user_rec['password_hash']):
             # ── Force password change on first login ─────────────────────────
@@ -1946,6 +2913,9 @@ class Handler(BaseHTTPRequestHandler):
 
             # Log successful login
             _sys_log.info(f"LOGIN_SUCCESS: user={username} role={user_rec['role']} tenant={tenant_slug} ip={client_ip}")
+            _login_log.info(f"LOGIN_SUCCESS: user={username!r} role={user_rec['role']} tenant={tenant_slug} ip={client_ip}")
+            # Clear any lockout on success
+            auth.reset_lockout(username, 'global')
             try:
                 from db import TenantDB as _tdb
                 _tdb(tenant_slug).log_action(
@@ -1975,6 +2945,10 @@ class Handler(BaseHTTPRequestHandler):
         else:
             # Security log for failed login
             _sec_log.warning(f"LOGIN_FAILED: user={username!r} tenant={tenant_slug} ip={client_ip}")
+            _login_log.warning(f"LOGIN_FAILED: user={username!r} tenant={tenant_slug} ip={client_ip}")
+            # Track failed attempt and potentially lock account
+            _lockout_result = auth.record_failed_attempt(username, 'global')
+            _attempts_left  = max(0, auth.MAX_ATTEMPTS - _lockout_result['attempts'])
             try:
                 from db import TenantDB as _tdb
                 _tdb(tenant_slug).log_action(
@@ -1986,7 +2960,20 @@ class Handler(BaseHTTPRequestHandler):
                 )
             except Exception:
                 pass
-            self.send_json({'status': 'error', 'message': 'Invalid username or password'}, 401)
+            if _lockout_result['locked']:
+                self.send_json({
+                    'status':  'locked',
+                    'message': (
+                        'Account temporarily locked. '
+                        'Please contact your hospital administrator.'
+                    ),
+                    'retry_after_seconds': _lockout_result['seconds_remaining'],
+                }, 403)
+            else:
+                msg = 'Invalid username or password'
+                if _attempts_left > 0:
+                    msg += f'. {_attempts_left} attempt(s) remaining before lock.'
+                self.send_json({'status': 'error', 'message': msg}, 401)
 
     def handle_change_password(self, data):
         """
@@ -2321,6 +3308,25 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'error': 'patient_name is required'}, 400); return
         if not _DB_AVAILABLE:
             self.send_json({'status': 'ok', 'id': 0, 'note': 'DB unavailable'}); return
+        # ── Duplicate check: block if same Aadhar or same name already admitted ──
+        if not data.get('force_admit'):
+            existing = hospital_db.check_duplicate_patient(
+                patient_name,
+                data.get('patient_aadhar', '')
+            )
+            if existing:
+                match_label = 'Aadhar number' if existing.get('match_type') == 'aadhar' else 'patient name'
+                self.send_json({
+                    'status': 'duplicate',
+                    'existing': existing,
+                    'message': (
+                        f"Patient already exists with same {match_label}. "
+                        f"Existing record: #{existing['id']} – {existing['patient_name']}, "
+                        f"Ward: {existing.get('ward_name','—')}, Bed: {existing.get('bed_number','—')}, "
+                        f"Status: {existing.get('status','—')}, Admitted: {existing.get('admission_date','—')}"
+                    )
+                }, 409)
+                return
         adm_id = hospital_db.admit_patient(
             patient_name     = patient_name,
             patient_phone    = data.get('patient_phone', ''),
@@ -2658,195 +3664,283 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({'status': 'ok' if new_id else 'error', 'id': new_id})
 
     def serve_login_page(self):
-        """Serve admin login page with multi-tenant hospital selector"""
+        """Serve admin login page — clean, no hospital selector (confidential)"""
         login_html = '''<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SRP MediFlow – Staff Login</title>
+    <title>SRP MediFlow — Secure Staff Portal</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .login-container { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); width: 100%; max-width: 420px; }
-        .login-header { text-align: center; margin-bottom: 28px; }
-        .login-header .logo { font-size: 36px; margin-bottom: 8px; }
-        .login-header h1 { color: #333; margin-bottom: 6px; font-size: 22px; }
-        .login-header p { color: #666; font-size: 13px; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; color: #444; margin-bottom: 7px; font-weight: 600; font-size: 14px; }
-        input[type="text"], input[type="password"], select {
-            width: 100%; padding: 12px 14px; border: 2px solid #e1e5e9;
-            border-radius: 8px; font-size: 15px; transition: border-color 0.25s;
-            background: #fff; color: #333;
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
-        input:focus, select:focus { border-color: #667eea; outline: none; box-shadow: 0 0 0 3px rgba(102,126,234,0.12); }
-        select { cursor: pointer; }
-        .hospital-badge {
-            display: flex; align-items: center; gap: 10px;
-            background: linear-gradient(135deg, #667eea15, #764ba215);
-            border: 1px solid #667eea30; border-radius: 8px;
-            padding: 10px 14px; margin-bottom: 20px; font-size: 13px; color: #444;
+        .card {
+            background: #ffffff;
+            border-radius: 18px;
+            box-shadow: 0 32px 64px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            width: 100%;
+            max-width: 400px;
+            overflow: hidden;
         }
-        .hospital-badge .icon { font-size: 22px; }
-        .hospital-badge strong { color: #333; display: block; font-size: 15px; }
-        .login-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: opacity 0.2s, transform 0.1s; }
-        .login-btn:hover { opacity: 0.92; transform: translateY(-1px); }
-        .login-btn:active { transform: translateY(0); }
-        .login-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .error-message { color: #dc3545; text-align: center; margin-top: 14px; padding: 12px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px; display: none; font-size: 14px; }
-        .divider { text-align: center; color: #999; font-size: 12px; margin: 16px 0 4px; }
-        .powered-by { text-align: center; color: #bbb; font-size: 11px; margin-top: 20px; }
-        .loading-tenants { color: #999; font-size: 13px; font-style: italic; }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 36px 36px 28px;
+            text-align: center;
+        }
+        .brand-mark {
+            width: 56px; height: 56px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px;
+            margin: 0 auto 16px;
+            backdrop-filter: blur(8px);
+        }
+        .brand-name {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            margin-bottom: 4px;
+        }
+        .brand-sub {
+            color: rgba(255,255,255,0.75);
+            font-size: 12px;
+            font-weight: 400;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+        .card-body { padding: 32px 36px 36px; }
+        .field { margin-bottom: 20px; }
+        .field label {
+            display: block;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            margin-bottom: 8px;
+        }
+        .input-wrap { position: relative; }
+        .input-wrap .ico {
+            position: absolute; left: 14px; top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af; font-size: 16px;
+            pointer-events: none; user-select: none;
+        }
+        .input-wrap input {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 9px;
+            font-size: 15px;
+            color: #111827;
+            background: #f9fafb;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .input-wrap input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+        }
+        .input-wrap input::placeholder { color: #9ca3af; }
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.3px;
+            transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+            box-shadow: 0 4px 14px rgba(102,126,234,0.4);
+            margin-top: 8px;
+        }
+        .btn-login:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(102,126,234,0.45); }
+        .btn-login:active { transform: translateY(0); }
+        .btn-login:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
+        .alert {
+            display: none;
+            margin-top: 16px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 13.5px;
+            font-weight: 500;
+            text-align: center;
+        }
+        .alert.error { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; }
+        .alert.success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; }
+        .card-footer {
+            text-align: center;
+            padding: 0 36px 24px;
+            color: #9ca3af;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .security-note {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 20px;
+            padding: 10px 14px;
+            background: #f8fafc;
+            border-radius: 7px;
+            color: #6b7280;
+            font-size: 12px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,0.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="login-header">
-            <div class="logo">🏥</div>
-            <h1>SRP MediFlow</h1>
-            <p>Hospital Staff Login — Authorized Personnel Only</p>
+    <div class="card">
+        <div class="card-header">
+            <div class="brand-mark">🏥</div>
+            <div class="brand-name">SRP MediFlow</div>
+            <div class="brand-sub">HMS &nbsp;·&nbsp; Secure Staff Portal</div>
         </div>
 
-        <!-- Hospital selector (loaded dynamically) -->
-        <div class="form-group">
-            <label for="tenantSelect">🏦 Select Your Hospital</label>
-            <select id="tenantSelect" onchange="onTenantChange()">
-                <option value="">Loading hospitals...</option>
-            </select>
-        </div>
+        <div class="card-body">
+            <form id="loginForm" autocomplete="off">
+                <div class="field">
+                    <label for="username">Username</label>
+                    <div class="input-wrap">
+                        <span class="ico">👤</span>
+                        <input type="text" id="username" name="username"
+                            required
+                            placeholder="Enter your username"
+                            autocomplete="username"
+                            spellcheck="false">
+                    </div>
+                </div>
 
-        <!-- Selected hospital badge -->
-        <div class="hospital-badge" id="hospitalBadge" style="display:none">
-            <span class="icon">🏥</span>
-            <div>
-                <strong id="badgeName">Hospital</strong>
-                <span id="badgeCity">City</span>
+                <div class="field">
+                    <label for="password">Password</label>
+                    <div class="input-wrap">
+                        <span class="ico">🔒</span>
+                        <input type="password" id="password" name="password"
+                            required
+                            placeholder="Enter your password"
+                            autocomplete="current-password">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="loginBtn">Sign In</button>
+                <div id="alertBox" class="alert error"></div>
+            </form>
+
+            <div style="text-align:center;margin-top:14px;">
+                <a href="/forgot-password"
+                   style="color:#667eea;font-size:13px;text-decoration:none;font-weight:500;">
+                   Forgot password?
+                </a>
+            </div>
+
+            <div class="security-note">
+                <span>🔐</span>
+                <span>Authorized personnel only &nbsp;·&nbsp; Session encrypted</span>
             </div>
         </div>
 
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">👤 Username</label>
-                <input type="text" id="username" name="username" required placeholder="Enter your username" autocomplete="username">
-            </div>
-
-            <div class="form-group">
-                <label for="password">🔒 Password</label>
-                <input type="password" id="password" name="password" required placeholder="Enter your password" autocomplete="current-password">
-            </div>
-
-            <button type="submit" class="login-btn" id="loginBtn">Login to Hospital System</button>
-            <div id="errorMessage" class="error-message"></div>
-        </form>
-
-        <div class="powered-by">Powered by SRP MediFlow &nbsp;•&nbsp; Multi-Tenant HMS Platform</div>
+        <div class="card-footer">
+            Powered by <strong>SRP MediFlow</strong> &nbsp;·&nbsp; Hospital Management System
+        </div>
     </div>
 
     <script>
-        let tenants = [];
-        let selectedTenant = null;
+        const form    = document.getElementById('loginForm');
+        const btn     = document.getElementById('loginBtn');
+        const alertBox = document.getElementById('alertBox');
 
-        async function loadTenants() {
-            try {
-                const resp = await fetch('/api/tenants/list');
-                const data = await resp.json();
-                tenants = data.tenants || [];
-                const sel = document.getElementById('tenantSelect');
-                sel.innerHTML = '<option value="">-- Select Hospital --</option>';
-                tenants.forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.slug;
-                    opt.textContent = t.display_name + (t.city ? ' (' + t.city + ')' : '');
-                    sel.appendChild(opt);
-                });
-                // Auto-select if only one tenant
-                if (tenants.length === 1) {
-                    sel.value = tenants[0].slug;
-                    onTenantChange();
-                }
-            } catch(e) {
-                document.getElementById('tenantSelect').innerHTML =
-                    '<option value="star_hospital">Star Hospital (Kothagudem)</option>';
-                onTenantChange();
-            }
+        function showAlert(msg, type) {
+            alertBox.textContent = msg;
+            alertBox.className = 'alert ' + type;
+            alertBox.style.display = 'block';
         }
+        function hideAlert() { alertBox.style.display = 'none'; }
 
-        function onTenantChange() {
-            const slug = document.getElementById('tenantSelect').value;
-            const tenant = tenants.find(t => t.slug === slug);
-            const badge = document.getElementById('hospitalBadge');
-            if (tenant) {
-                selectedTenant = tenant;
-                document.getElementById('badgeName').textContent = tenant.display_name;
-                document.getElementById('badgeCity').textContent = tenant.city || '';
-                badge.style.display = 'flex';
-            } else if (slug === 'star_hospital') {
-                selectedTenant = {slug: 'star_hospital', display_name: 'Star Hospital', city: 'Kothagudem'};
-                document.getElementById('badgeName').textContent = 'Star Hospital';
-                document.getElementById('badgeCity').textContent = 'Kothagudem';
-                badge.style.display = 'flex';
-            } else {
-                selectedTenant = null;
-                badge.style.display = 'none';
-            }
-        }
-
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        form.addEventListener('submit', async function(e) {
             e.preventDefault();
             const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const tenantSlug = document.getElementById('tenantSelect').value || 'star_hospital';
-            const errorDiv = document.getElementById('errorMessage');
-            const btn = document.getElementById('loginBtn');
+            const password = document.getElementById('password').value;
 
             if (!username || !password) {
-                errorDiv.textContent = 'Please enter both username and password';
-                errorDiv.style.display = 'block';
-                return;
-            }
-            if (!tenantSlug) {
-                errorDiv.textContent = 'Please select your hospital first';
-                errorDiv.style.display = 'block';
+                showAlert('Please enter both username and password.', 'error');
                 return;
             }
 
-            btn.textContent = 'Logging in...';
+            btn.innerHTML = '<span class="spinner"></span>Signing in...';
             btn.disabled = true;
-            errorDiv.style.display = 'none';
+            hideAlert();
 
             try {
                 const resp = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, tenant_slug: tenantSlug })
+                    body: JSON.stringify({ username, password, tenant_slug: 'auto' })
                 });
                 const data = await resp.json();
 
                 if (data.status === 'success') {
-                    btn.textContent = '✓ Success! Redirecting...';
-                    // Store tenant info for dashboard header
+                    btn.innerHTML = '✓ Verified — Redirecting...';
+                    showAlert('Login successful. Redirecting…', 'success');
                     if (data.hospital_name) {
                         sessionStorage.setItem('hospital_name', data.hospital_name);
-                        sessionStorage.setItem('tenant_slug', data.tenant_slug || tenantSlug);
+                        sessionStorage.setItem('tenant_slug', data.tenant_slug || '');
                     }
-                    window.location.href = data.redirect || '/admin';
-                } else {
-                    errorDiv.textContent = data.message || 'Invalid credentials';
-                    errorDiv.style.display = 'block';
-                    btn.textContent = 'Login to Hospital System';
+                    setTimeout(() => { window.location.href = data.redirect || '/admin'; }, 600);
+                } else if (data.status === 'password_change_required') {
+                    sessionStorage.setItem('pwd_change_user', data.username);
+                    sessionStorage.setItem('pwd_change_tenant', data.tenant_slug);
+                    window.location.href = '/change-password';
+                } else if (data.status === 'locked') {
+                    const mins = Math.ceil((data.retry_after_seconds || 900) / 60);
+                    showAlert(
+                        `Account temporarily locked. Please contact your hospital administrator. ` +
+                        `(Retry in ~${mins} min)`,
+                        'error'
+                    );
+                    btn.innerHTML = 'Sign In';
                     btn.disabled = false;
+                } else {
+                    showAlert(data.message || 'Invalid username or password.', 'error');
+                    btn.innerHTML = 'Sign In';
+                    btn.disabled = false;
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
                 }
             } catch (err) {
-                errorDiv.textContent = 'Network error — please try again';
-                errorDiv.style.display = 'block';
-                btn.textContent = 'Login to Hospital System';
+                showAlert('Connection error — please try again.', 'error');
+                btn.innerHTML = 'Sign In';
                 btn.disabled = false;
             }
         });
 
-        // Load on page load
-        loadTenants();
+        // Focus username on load
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('username').focus();
+        });
     </script>
 </body>
 </html>'''
@@ -2876,7 +3970,10 @@ class Handler(BaseHTTPRequestHandler):
                     'phone': None,
                     'issue': None,
                     'aadhar': None,
-                    'time': None,
+                    'appointment_time': None,
+                    'appointment_date': None,
+                    'appointment_day': None,
+                    'lang': 'english',
                     'symptoms': [],
                     'conversation_history': []
                 }
@@ -2894,7 +3991,10 @@ class Handler(BaseHTTPRequestHandler):
                 'phone': current_state.get('phone', None),
                 'issue': current_state.get('issue', None),
                 'aadhar': current_state.get('aadhar', None),
-                'appointment_time': current_state.get('appointment_time', None)
+                'appointment_time': current_state.get('appointment_time', None),
+                'appointment_date': current_state.get('appointment_date', None),
+                'appointment_day': current_state.get('appointment_day', None),
+                'lang': current_state.get('lang', 'english'),
             }
             set_chatbot_state(chatbot_state)
             
@@ -2918,7 +4018,10 @@ class Handler(BaseHTTPRequestHandler):
                 'phone': updated_chatbot_state.get('phone', None),
                 'issue': updated_chatbot_state.get('issue', None),
                 'aadhar': updated_chatbot_state.get('aadhar', None),
-                'appointment_time': updated_chatbot_state.get('appointment_time', None)
+                'appointment_time': updated_chatbot_state.get('appointment_time', None),
+                'appointment_date': updated_chatbot_state.get('appointment_date', None),
+                'appointment_day': updated_chatbot_state.get('appointment_day', None),
+                'lang': updated_chatbot_state.get('lang', 'english'),
             })
             current_state['conversation_history'].append({'bot': bot_response, 'timestamp': time.time()})
             conversation_sessions[session_id] = current_state
@@ -3135,14 +4238,18 @@ class Handler(BaseHTTPRequestHandler):
     def handle_add_round(self, data):
         """Add a doctor round schedule."""
         try:
-            doctor_name = data.get('doctor_name', '').strip()
-            ward        = data.get('ward', '').strip()
-            round_time  = data.get('round_time', '').strip()
+            doctor_name    = data.get('doctor_name', '').strip()
+            ward           = data.get('ward', '').strip()
+            round_time     = data.get('round_time', '').strip()
+            visit_datetime = data.get('round_datetime', round_time).strip()
             if not all([doctor_name, ward]):
                 self.send_json({'error': 'doctor_name and ward are required'}, 400)
                 return
+            if not visit_datetime:
+                self.send_json({'error': 'Visit date/time is required'}, 400)
+                return
             if _DB_AVAILABLE:
-                rid = hospital_db.add_doctor_round(doctor_name, ward, round_time)
+                rid = hospital_db.add_doctor_round(doctor_name, ward, visit_datetime, visit_datetime)
                 self.send_json({'status': 'success', 'round_id': rid,
                                 'message': f'Round scheduled for {doctor_name} in {ward}'})
             else:

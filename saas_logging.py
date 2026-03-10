@@ -53,14 +53,20 @@ def _make_logger(name: str, filename: str, level: int = logging.INFO) -> logging
 
 
 # ── Public convenience loggers ────────────────────────────────────────────────
-def get_system_logger()   -> logging.Logger: return _make_logger("srp.system",   "system.log")
-def get_security_logger() -> logging.Logger: return _make_logger("srp.security", "security.log")
-def get_alerts_logger()   -> logging.Logger: return _make_logger("srp.alerts",   "system_alerts.log")
+def get_system_logger()        -> logging.Logger: return _make_logger("srp.system",   "system.log")
+def get_security_logger()      -> logging.Logger: return _make_logger("srp.security", "security.log")
+def get_alerts_logger()        -> logging.Logger: return _make_logger("srp.alerts",   "system_alerts.log")
+def get_login_logger()         -> logging.Logger: return _make_logger("srp.login",    "login_attempts.log")
+def get_error_logger()         -> logging.Logger: return _make_logger("srp.errors",   "server_errors.log")
+def get_tenant_access_logger() -> logging.Logger: return _make_logger("srp.tenant",   "tenant_access.log")
 
 # Ready-to-use singletons
-system_log   = get_system_logger()
-security_log = get_security_logger()
-alerts_log   = get_alerts_logger()
+system_log        = get_system_logger()
+security_log      = get_security_logger()
+alerts_log        = get_alerts_logger()
+login_log         = get_login_logger()        # all login attempts (success + failure + lockout)
+error_log         = get_error_logger()        # unhandled server exceptions
+tenant_access_log = get_tenant_access_logger()  # every subdomain/tenant hit with timestamp + slug
 
 
 def log_event(category: str, message: str, level: str = "info") -> None:
@@ -73,6 +79,8 @@ def log_event(category: str, message: str, level: str = "info") -> None:
         "system":   system_log,
         "security": security_log,
         "alert":    alerts_log,
+        "login":    login_log,
+        "error":    error_log,
     }
     logger = _loggers.get(category.lower(), system_log)
     getattr(logger, level.lower(), logger.info)(message)

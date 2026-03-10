@@ -16,22 +16,26 @@ CREATE TABLE IF NOT EXISTS clients (
     id              SERIAL PRIMARY KEY,
     hospital_name   TEXT         NOT NULL,
     slug            TEXT         UNIQUE NOT NULL,
+    subdomain       TEXT         DEFAULT '',       -- short URL prefix e.g. 'star' → star.mediflow.srpailabs.com
     city            TEXT         DEFAULT '',
     phone           TEXT         DEFAULT '',
     db_name         TEXT         DEFAULT '',       -- e.g. hospital_ai, srp_sai_care
     db_host         TEXT         DEFAULT 'localhost',
-    db_port         INTEGER      DEFAULT 5434,
+    db_port         INTEGER      DEFAULT 5432,
     db_user         TEXT         DEFAULT 'ats_user',
     admin_user      TEXT         DEFAULT '',
     created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
     status          TEXT         DEFAULT 'active', -- active | suspended | trial | expired
     last_activity   TIMESTAMP
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_slug ON clients (slug);
+-- Migration: add subdomain column FIRST (must precede index creation for pre-existing tables)
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS subdomain TEXT DEFAULT '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_slug      ON clients (slug);
+CREATE INDEX        IF NOT EXISTS idx_clients_subdomain ON clients (subdomain);
 
 -- Example rows (DO NOT hard-code generated IDs in data migrations):
--- INSERT INTO clients (hospital_name, slug, city, db_name, status)
--- VALUES ('Star Hospital', 'star_hospital', 'Bhadradri Kothagudem', 'hospital_ai', 'active');
+-- INSERT INTO clients (hospital_name, slug, subdomain, city, db_name, status)
+-- VALUES ('Star Hospital', 'star_hospital', 'star', 'Bhadradri Kothagudem', 'hospital_ai', 'active');
 
 -- ── subscriptions: one billing record per client period ───────────────────────
 CREATE TABLE IF NOT EXISTS subscriptions (

@@ -105,6 +105,11 @@ def onboard_hospital(data: dict) -> dict:
     admin_username = data.get("admin_username", "admin").strip() or "admin"
     admin_password = data.get("admin_password") or _generate_password()
     admin_email    = data.get("admin_email", "").strip()
+    # subdomain: the short URL prefix for  <subdomain>.mediflow.srpailabs.com
+    # If not provided, derive from subdomain input (strip underscores)
+    subdomain_url  = data.get("subdomain_url", subdomain.replace('_', ''))[:20]
+    import os as _os
+    root_domain    = _os.getenv('ROOT_DOMAIN', 'mediflow.srpailabs.com')
 
     from saas_logging import system_log
     system_log.info(
@@ -117,8 +122,7 @@ def onboard_hospital(data: dict) -> dict:
     try:
         from srp_mediflow_tenant import create_tenant_db
         tenant_result = create_tenant_db(
-            slug=slug,
-            display_name=hospital_name,
+            slug=slug,            subdomain=subdomain_url,            display_name=hospital_name,
             city=city,
             phone=phone,
             admin_username=admin_username,
@@ -208,10 +212,11 @@ def onboard_hospital(data: dict) -> dict:
         "status":          "success",
         "client_id":       client_id,
         "slug":            slug,
+        "subdomain":       subdomain_url,
         "hospital_name":   hospital_name,
         "database":        db_name,
         "plan":            plan_type,
-        "login_url":       f"http://{subdomain.replace('_', '-')}.srpmediflow.com/login",
+        "login_url":       f"https://{subdomain_url}.{root_domain}/login",
         "admin_username":  admin_username,
         "admin_password":  admin_password,
         "admin_email":     admin_email,

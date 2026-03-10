@@ -152,6 +152,10 @@ def create_hms_v4_tables() -> None:
             status       VARCHAR(20)  DEFAULT 'waiting'  -- waiting / with_doctor / done
         )
         """,
+
+        # ── UHID: Unique Hospital ID per patient (added as optional migration) ─
+        "ALTER TABLE patients ADD COLUMN IF NOT EXISTS uhid VARCHAR(20) DEFAULT NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_uhid ON patients (uhid) WHERE uhid IS NOT NULL",
     ]
 
     conn = get_connection()
@@ -211,6 +215,7 @@ def register_patient(data: dict) -> dict:
             if existing:
                 patient_id = existing["id"]
                 is_new = False
+                uhid_val = existing.get("uhid") or f"UHID{patient_id:06d}"
             else:
                 cur.execute(
                     """
@@ -223,6 +228,12 @@ def register_patient(data: dict) -> dict:
                 )
                 patient_id = cur.fetchone()["id"]
                 is_new = True
+                # Generate UHID: UHID + zero-padded patient_id
+                uhid_val = f"UHID{patient_id:06d}"
+                cur.execute(
+                    "UPDATE patients SET uhid=%s WHERE id=%s AND uhid IS NULL",
+                    (uhid_val, patient_id)
+                )
 
             # Create a new visit record for this encounter
             doctor   = (data.get("doctor") or data.get("doctor_assigned") or "").strip()
@@ -267,6 +278,7 @@ def register_patient(data: dict) -> dict:
 
     return {
         "patient_id":    patient_id,
+        "uhid":          uhid_val,
         "visit_id":      visit_id,
         "op_ticket_no":  ticket_no,
         "full_name":     full_name,
@@ -277,6 +289,58 @@ def register_patient(data: dict) -> dict:
         "is_new_patient": is_new,
         "registered_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+
+def search_patients_comprehensive(query: str, field: str = "auto") -> list:
+    """
+    Search patients by UHID, name, phone, or admission date.
+    field: 'uhid' | 'name' | 'phone' | 'date' | 'auto'
+    Returns list of dicts with patient + last visit info.
+    """
+    query = query.strip()
+    if not query:
+        return []
+
+    # Auto-detect field from query format
+    if field == "auto":
+        if query.upper().startswith("UHID") or ("-" in query and query.replace("-", "").isalnum()):
+            field = "uhid"
+        elif query.isdigit() and len(query) >= 7:
+            field = "phone"
+        elif len(query) == 10 and query.isdigit():
+            field = "phone"
+        elif "-" in query and len(query) == 10:  # YYYY-MM-DD
+            field = "date"
+        else:
+            field = "name"
+
+    sql_map = {
+        "uhid":  "SELECT p.*, pv.visit_id, pv.doctor_assigned, pv.created_at AS last_visit"
+                 " FROM patients p LEFT JOIN patient_visits pv ON pv.patient_id=p.id"
+                 " AND pv.visit_id=(SELECT MAX(visit_id) FROM patient_visits WHERE patient_id=p.id)"
+                 " WHERE p.uhid ILIKE %s ORDER BY p.id LIMIT 50",
+        "name":  "SELECT p.*, pv.visit_id, pv.doctor_assigned, pv.created_at AS last_visit"
+                 " FROM patients p LEFT JOIN patient_visits pv ON pv.patient_id=p.id"
+                 " AND pv.visit_id=(SELECT MAX(visit_id) FROM patient_visits WHERE patient_id=p.id)"
+                 " WHERE p.full_name ILIKE %s ORDER BY p.id LIMIT 50",
+        "phone": "SELECT p.*, pv.visit_id, pv.doctor_assigned, pv.created_at AS last_visit"
+                 " FROM patients p LEFT JOIN patient_visits pv ON pv.patient_id=p.id"
+                 " AND pv.visit_id=(SELECT MAX(visit_id) FROM patient_visits WHERE patient_id=p.id)"
+                 " WHERE p.phone LIKE %s ORDER BY p.id LIMIT 50",
+        "date":  "SELECT p.*, pv.visit_id, pv.doctor_assigned, pv.created_at AS last_visit"
+                 " FROM patients p LEFT JOIN patient_visits pv ON pv.patient_id=p.id"
+                 " AND pv.visit_id=(SELECT MAX(visit_id) FROM patient_visits WHERE patient_id=p.id)"
+                 " WHERE DATE(p.created_at)=%s ORDER BY p.id LIMIT 100",
+    }
+
+    sql  = sql_map.get(field, sql_map["name"])
+    param = f"%{query}%" if field in ("uhid", "name", "phone") else query
+
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, (param,))
+            rows = cur.fetchall()
+    return [dict(r) for r in (rows or [])]
 
 
 def search_patient_by_phone(phone: str) -> list:
@@ -542,6 +606,111 @@ def get_invoice(invoice_id: int) -> dict | None:
             )
             bill["payments"] = [dict(r) for r in cur.fetchall()]
     return _serialise(bill)
+
+
+def get_visit_detail(visit_id: int) -> dict | None:
+    """Return full visit record with patient info and prescriptions (for OPD PDF)."""
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT pv.*, p.full_name, p.phone, p.dob, p.gender,
+                       p.blood_group, p.allergies, p.uhid,
+                       TO_CHAR(pv.created_at, 'YYYY-MM-DD HH24:MI') AS visit_date
+                FROM patient_visits pv
+                JOIN patients p ON p.id = pv.patient_id
+                WHERE pv.visit_id = %s
+                """,
+                (visit_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            visit = dict(row)
+            # Structured prescriptions
+            cur.execute(
+                "SELECT * FROM prescriptions WHERE visit_id=%s ORDER BY id",
+                (visit_id,)
+            )
+            presc_rows = cur.fetchall() or []
+            visit["prescriptions"] = [dict(r) for r in presc_rows]
+            # Doctor notes
+            cur.execute(
+                "SELECT * FROM doctor_notes WHERE visit_id=%s ORDER BY id",
+                (visit_id,)
+            )
+            note_rows = cur.fetchall() or []
+            visit["notes"] = [dict(r) for r in note_rows]
+    return _serialise(visit)
+
+
+def get_admission_detail(adm_id: int) -> dict | None:
+    """Return full IPD admission record with rounds for discharge PDF."""
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT pa.*, p.full_name, p.phone, p.dob, p.gender,
+                       p.blood_group, p.allergies, p.uhid,
+                       w.ward_name, b.bed_number,
+                       TO_CHAR(pa.admission_date, 'YYYY-MM-DD HH24:MI') AS adm_date_fmt,
+                       TO_CHAR(pa.discharge_date, 'YYYY-MM-DD HH24:MI') AS dis_date_fmt
+                FROM patient_admissions pa
+                JOIN patients p ON p.id = pa.patient_id
+                LEFT JOIN beds b ON b.id = pa.bed_id
+                LEFT JOIN wards w ON w.id = pa.ward_id
+                WHERE pa.id = %s
+                """,
+                (adm_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            adm = dict(row)
+            # Daily rounds
+            cur.execute(
+                "SELECT * FROM daily_rounds WHERE admission_id=%s ORDER BY round_date",
+                (adm_id,)
+            )
+            rounds_rows = cur.fetchall() or []
+            adm["rounds"] = [dict(r) for r in rounds_rows]
+            # Discharge summary text
+            cur.execute(
+                "SELECT * FROM discharge_summaries WHERE admission_id=%s ORDER BY id DESC LIMIT 1",
+                (adm_id,)
+            )
+            ds = cur.fetchone()
+            adm["discharge_summary"] = dict(ds) if ds else {}
+    return _serialise(adm)
+
+
+def get_sale_detail(sale_id: int) -> dict | None:
+    """Return full pharmacy sale record with items (for pharmacy bill PDF)."""
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT ps.*,
+                       TO_CHAR(ps.sold_at, 'YYYY-MM-DD HH24:MI') AS sale_date
+                FROM pharmacy_sales ps
+                WHERE ps.id = %s
+                """,
+                (sale_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            sale = dict(row)
+            # Individual line items from medicines JSON or separate table
+            items = sale.get("items") or sale.get("medicines") or []
+            if isinstance(items, str):
+                import json as _j
+                try:
+                    items = _j.loads(items)
+                except Exception:
+                    items = []
+            sale["items"] = items
+    return _serialise(sale)
 
 
 def get_daily_revenue_report(target_date: Optional[str] = None) -> dict:

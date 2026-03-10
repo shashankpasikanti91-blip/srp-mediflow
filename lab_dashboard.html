@@ -76,7 +76,7 @@ textarea{resize:vertical;min-height:70px}
         <button class="btn" style="margin-bottom:12px;background:#eee;" onclick="loadCompleted()">↻ Refresh</button>
         <table>
           <thead>
-            <tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Result</th><th>Completed</th></tr>
+            <tr><th>#</th><th>Patient</th><th>Type</th><th>Test</th><th>Result</th><th>Completed</th><th>Action</th></tr>
           </thead>
           <tbody id="completedBody">
             <tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr>
@@ -104,8 +104,55 @@ textarea{resize:vertical;min-height:70px}
     </div>  </div>
 </div>
 
+<!-- ── RESULT ENTRY MODAL ─────────────────────────────────────────── -->
+<div id="resultEntryModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:10px;width:100%;max-width:820px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.35);">
+    <div style="background:#7b2d8b;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div>
+        <h3 id="reModalTitle" style="margin:0;font-size:1.05rem;">Enter Result</h3>
+        <small id="reTestName" style="opacity:.8;font-size:.82rem;"></small>
+      </div>
+      <button onclick="closeResultEntry()" style="background:rgba(255,255,255,.25);border:none;color:#fff;font-size:1.3rem;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div style="overflow-y:auto;flex:1;padding:16px;">
+      <div id="reModalBody"></div>
+      <div id="reFreeText" style="display:none;margin-top:8px;">
+        <label style="font-size:.85rem;font-weight:600;color:#555;display:block;margin-bottom:6px;">Enter result / findings:</label>
+        <textarea id="reFreeTextArea" rows="8" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:.9rem;resize:vertical;" placeholder="e.g. Haemoglobin: 13.5 g/dL&#10;WBC: 7200 /cmm&#10;..."></textarea>
+      </div>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid #eee;display:flex;gap:10px;flex-shrink:0;">
+      <button class="btn btn-primary" onclick="submitStructuredResult()" style="flex:1;">✅ Save & Complete</button>
+      <button class="btn" onclick="closeResultEntry()" style="background:#eee;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── LAB REPORT PRINT MODAL ─────────────────────────────────────── -->
+<div id="labPrintModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#fff;border-radius:10px;width:100%;max-width:820px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.35);">
+    <div style="background:#1a237e;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <span style="font-weight:700;font-size:1rem;">🧪 Lab Investigation Report</span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="printLabReport()" style="background:#fff;color:#1a237e;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:700;">🖨 Print / PDF</button>
+        <button onclick="closeLabPrintModal()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;">✕ Close</button>
+      </div>
+    </div>
+    <div id="labPrintArea" style="overflow-y:auto;flex:1;padding:24px;font-family:'Segoe UI',sans-serif;"></div>
+  </div>
+</div>
+
 <script>
 let myRole = 'LAB';
+
+// Compact datetime helper — "DD/MM HH:MM"
+function fmtDT(dt) {
+  if (!dt) return '—';
+  const s = (dt+'').replace('T',' ');
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+  if (m) return `${m[3]}/${m[2]} ${m[4]}:${m[5]}`;
+  return s.slice(0, 16);
+}
 
 async function checkSession() {
   const r = await fetch('/api/session/me');
@@ -136,14 +183,15 @@ function renderPending() {
   tbody.innerHTML = pending.map((o,i) => `
     <tr>
       <td>${i+1}</td>
-      <td>${o.patient_name}<br><small style="color:#888">${o.patient_phone}</small></td>
+      <td><strong>${o.patient_name}</strong><br><small style="color:#888">${o.patient_phone}</small></td>
       <td><span class="badge pending">${o.test_type}</span></td>
-      <td>${o.test_name}</td>
+      <td><strong>${o.test_name}</strong></td>
       <td>${o.doctor_username}</td>
-      <td><small>${(o.created_at||'').slice(0,16)}</small></td>
-      <td style="display:flex;gap:5px;align-items:center;">
-        <input type="text" id="res_${o.id}" placeholder="Result summary" style="width:160px;">
-        <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="completeOrder(${o.id})">Done</button>
+      <td><small>${fmtDT(o.created_at)}</small></td>
+      <td>
+        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;" onclick="openResultEntry(${o.id},'${(o.test_name||'').replace(/'/g,'&#39;')}','${(o.patient_name||'').replace(/'/g,'&#39;')}')">
+          📋 Enter Result
+        </button>
       </td>
     </tr>`).join('');
 }
@@ -165,16 +213,26 @@ async function loadCompleted() {
   const completed = allOrders.filter(o => o.status === 'COMPLETED');
   const tbody = document.getElementById('completedBody');
   if (!completed.length) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888">No completed orders</td></tr>'; return;
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888">No completed orders</td></tr>'; return;
   }
   tbody.innerHTML = completed.map((o,i) => `
     <tr>
       <td>${i+1}</td>
-      <td>${o.patient_name}<br><small style="color:#888">${o.patient_phone}</small></td>
+      <td>
+        <a href="#" onclick='openLabPrintModal(${JSON.stringify(o).replace(/'/g,"&#39;")});return false;' style="color:#7b2d8b;font-weight:600;text-decoration:none;">
+          🗒 ${o.patient_name}
+        </a>
+        <br><small style="color:#888">${o.patient_phone}</small>
+      </td>
       <td><span class="badge done">${o.test_type}</span></td>
       <td>${o.test_name}</td>
-      <td>${o.result_text||'-'}</td>
-      <td><small>${(o.completed_at||'').slice(0,16)}</small></td>
+      <td><small>${o.result_text||'—'}</small></td>
+      <td><small>${fmtDT(o.completed_at)}</small></td>
+      <td>
+        <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;background:#7b2d8b;" onclick='openLabPrintModal(${JSON.stringify(o).replace(/'/g,"&#39;")})'>
+          🖨 Print Report
+        </button>
+      </td>
     </tr>`).join('');
 }
 
@@ -216,6 +274,348 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (sec === 'completed-orders') loadCompleted();
   });
 });
+
+// ──────────────────────────────────────────────────────────────────────────
+// STRUCTURED RESULT ENTRY MODAL
+// ──────────────────────────────────────────────────────────────────────────
+
+let _currentOrderId = null;
+
+const LAB_TEMPLATES = {
+  'CBC': [
+    { name:'Haemoglobin (Hb)', unit:'g/dL', normal:'Male: 13–17 | Female: 12–16' },
+    { name:'Total Leucocyte Count (TLC/WBC)', unit:'/cmm', normal:'4,000 – 11,000' },
+    { name:'RBC Count', unit:'million/cmm', normal:'4.5 – 5.5' },
+    { name:'Platelet Count', unit:'lakh/cmm', normal:'1.5 – 4.5' },
+    { name:'PCV / Haematocrit', unit:'%', normal:'36 – 50' },
+    { name:'MCV', unit:'fL', normal:'76 – 96' },
+    { name:'MCH', unit:'pg', normal:'27 – 33' },
+    { name:'MCHC', unit:'g/dL', normal:'31 – 37' },
+    { name:'Neutrophils', unit:'%', normal:'40 – 70' },
+    { name:'Lymphocytes', unit:'%', normal:'20 – 40' },
+    { name:'Monocytes', unit:'%', normal:'2 – 10' },
+    { name:'Eosinophils', unit:'%', normal:'1 – 6' },
+    { name:'Basophils', unit:'%', normal:'0 – 1' },
+    { name:'ESR', unit:'mm/hr', normal:'Male: 0–15 | Female: 0–20' },
+  ],
+  'BLOOD SUGAR': [
+    { name:'Fasting Blood Sugar (FBS)', unit:'mg/dL', normal:'70 – 100' },
+    { name:'Post Prandial Blood Sugar (PPBS)', unit:'mg/dL', normal:'< 140' },
+    { name:'Random Blood Sugar (RBS)', unit:'mg/dL', normal:'70 – 140' },
+    { name:'HbA1c (Glycated Haemoglobin)', unit:'%', normal:'< 5.7% Normal | 5.7–6.4% Pre-DM | ≥6.5% DM' },
+  ],
+  'URINE': [
+    { name:'Colour', unit:'', normal:'Pale Yellow' },
+    { name:'Appearance', unit:'', normal:'Clear' },
+    { name:'pH', unit:'', normal:'5.0 – 8.0' },
+    { name:'Specific Gravity', unit:'', normal:'1.010 – 1.025' },
+    { name:'Protein', unit:'', normal:'Nil' },
+    { name:'Glucose', unit:'', normal:'Nil' },
+    { name:'Ketones', unit:'', normal:'Nil' },
+    { name:'Bilirubin', unit:'', normal:'Nil' },
+    { name:'Blood', unit:'', normal:'Nil' },
+    { name:'Pus Cells', unit:'/hpf', normal:'0 – 5' },
+    { name:'RBCs', unit:'/hpf', normal:'0 – 2' },
+    { name:'Epithelial Cells', unit:'/hpf', normal:'Few' },
+    { name:'Casts', unit:'', normal:'Nil' },
+    { name:'Bacteria', unit:'', normal:'Nil' },
+  ],
+  'LFT': [
+    { name:'SGOT / AST', unit:'U/L', normal:'10 – 40' },
+    { name:'SGPT / ALT', unit:'U/L', normal:'7 – 56' },
+    { name:'ALP (Alkaline Phosphatase)', unit:'U/L', normal:'44 – 147' },
+    { name:'GGT', unit:'U/L', normal:'Male: 10–66 | Female: 6–42' },
+    { name:'Total Bilirubin', unit:'mg/dL', normal:'0.3 – 1.2' },
+    { name:'Direct Bilirubin', unit:'mg/dL', normal:'0.1 – 0.4' },
+    { name:'Indirect Bilirubin', unit:'mg/dL', normal:'0.2 – 0.8' },
+    { name:'Total Protein', unit:'g/dL', normal:'6.3 – 8.2' },
+    { name:'Albumin', unit:'g/dL', normal:'3.5 – 5.0' },
+    { name:'Globulin', unit:'g/dL', normal:'2.3 – 3.5' },
+    { name:'A/G Ratio', unit:'', normal:'1.2 – 2.2' },
+  ],
+  'KFT': [
+    { name:'Serum Creatinine', unit:'mg/dL', normal:'Male: 0.7–1.3 | Female: 0.6–1.1' },
+    { name:'Blood Urea', unit:'mg/dL', normal:'10 – 40' },
+    { name:'BUN (Blood Urea Nitrogen)', unit:'mg/dL', normal:'7 – 25' },
+    { name:'Uric Acid', unit:'mg/dL', normal:'Male: 3.4–7.0 | Female: 2.4–5.7' },
+    { name:'Sodium (Na+)', unit:'mEq/L', normal:'135 – 145' },
+    { name:'Potassium (K+)', unit:'mEq/L', normal:'3.5 – 5.0' },
+    { name:'Chloride (Cl-)', unit:'mEq/L', normal:'98 – 107' },
+    { name:'Bicarbonate (HCO3-)', unit:'mEq/L', normal:'22 – 29' },
+  ],
+  'LIPID': [
+    { name:'Total Cholesterol', unit:'mg/dL', normal:'< 200 (Desirable)' },
+    { name:'HDL Cholesterol', unit:'mg/dL', normal:'Male: >40 | Female: >50' },
+    { name:'LDL Cholesterol', unit:'mg/dL', normal:'< 130' },
+    { name:'Triglycerides', unit:'mg/dL', normal:'< 150' },
+    { name:'VLDL Cholesterol', unit:'mg/dL', normal:'5 – 40' },
+    { name:'Total Cholesterol / HDL Ratio', unit:'', normal:'< 5.0' },
+    { name:'LDL / HDL Ratio', unit:'', normal:'< 3.5' },
+  ],
+  'THYROID': [
+    { name:'TSH (Thyroid Stimulating Hormone)', unit:'µIU/mL', normal:'0.27 – 4.2' },
+    { name:'Free T3 (FT3)', unit:'pg/mL', normal:'2.3 – 4.2' },
+    { name:'Free T4 (FT4)', unit:'ng/dL', normal:'0.93 – 1.7' },
+    { name:'Total T3', unit:'ng/mL', normal:'0.8 – 2.0' },
+    { name:'Total T4', unit:'µg/dL', normal:'5.1 – 14.1' },
+  ],
+  'WIDAL': [
+    { name:'S. Typhi "O"', unit:'Titre', normal:'< 1:80' },
+    { name:'S. Typhi "H"', unit:'Titre', normal:'< 1:80' },
+    { name:'S. Para Typhi "AO"', unit:'Titre', normal:'< 1:80' },
+    { name:'S. Para Typhi "AH"', unit:'Titre', normal:'< 1:80' },
+    { name:'S. Para Typhi "BO"', unit:'Titre', normal:'< 1:80' },
+    { name:'S. Para Typhi "BH"', unit:'Titre', normal:'< 1:80' },
+  ],
+  'DENGUE': [
+    { name:'NS1 Antigen', unit:'', normal:'Negative' },
+    { name:'IgM Antibody', unit:'', normal:'Negative' },
+    { name:'IgG Antibody', unit:'', normal:'Negative' },
+  ],
+  'MALARIA': [
+    { name:'Rapid Malaria Test', unit:'', normal:'Negative' },
+    { name:'P. Falciparum', unit:'', normal:'Negative' },
+    { name:'P. Vivax', unit:'', normal:'Negative' },
+    { name:'MP Smear', unit:'', normal:'No Parasites Seen' },
+  ],
+};
+
+function detectTemplate(testName) {
+  const t = (testName || '').toUpperCase();
+  if (t.includes('CBC') || t.includes('COMPLETE BLOOD') || t.includes('HAEMOGRAM') || t.includes('HEMOGRAM')) return 'CBC';
+  if (t.includes('BLOOD SUGAR') || t.includes('GLUCOSE') || t.includes('HBA1C') || t.includes('SUGAR')) return 'BLOOD SUGAR';
+  if (t.includes('URINE') || t.includes('U/E') || t.includes('URINALYSIS')) return 'URINE';
+  if (t.includes('LFT') || t.includes('LIVER') || t.includes('BILIRUBIN') || t.includes('SGPT') || t.includes('SGOT')) return 'LFT';
+  if (t.includes('KFT') || t.includes('KIDNEY') || t.includes('CREATININE') || t.includes('RENAL')) return 'KFT';
+  if (t.includes('LIPID') || t.includes('CHOLESTEROL') || t.includes('TRIGLYCERIDE')) return 'LIPID';
+  if (t.includes('THYROID') || t.includes('TSH') || t.includes('T3') || t.includes('T4')) return 'THYROID';
+  if (t.includes('WIDAL') || t.includes('TYPHOID')) return 'WIDAL';
+  if (t.includes('DENGUE')) return 'DENGUE';
+  if (t.includes('MALARIA')) return 'MALARIA';
+  return null;
+}
+
+function openResultEntry(orderId, testName, patientName) {
+  _currentOrderId = orderId;
+  document.getElementById('reModalTitle').textContent = `Enter Result — ${patientName}`;
+  document.getElementById('reTestName').textContent   = testName;
+
+  const tplKey  = detectTemplate(testName);
+  const tpl     = tplKey ? LAB_TEMPLATES[tplKey] : null;
+  const body    = document.getElementById('reModalBody');
+
+  if (tpl) {
+    // Structured form with template
+    document.getElementById('reFreeText').style.display = 'none';
+    body.innerHTML = `
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.88rem;">
+        <thead>
+          <tr style="background:#7b2d8b;color:#fff;">
+            <th style="padding:8px 10px;text-align:left;width:38%;">Parameter</th>
+            <th style="padding:8px 10px;text-align:left;width:22%;">Result Value</th>
+            <th style="padding:8px 10px;text-align:left;width:12%;">Unit</th>
+            <th style="padding:8px 10px;text-align:left;width:28%;">Normal Range</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tpl.map((row, i) => `
+          <tr style="background:${i%2===0?'#fff':'#f9f0fb'};">
+            <td style="padding:6px 10px;font-weight:500;">${row.name}</td>
+            <td style="padding:4px 6px;">
+              <input type="text" data-param="${row.name}" data-unit="${row.unit}"
+                     style="width:100%;padding:4px 6px;border:1px solid #ccc;border-radius:4px;font-size:.88rem;"
+                     placeholder="Enter value">
+            </td>
+            <td style="padding:6px 10px;color:#666;font-size:.82rem;">${row.unit}</td>
+            <td style="padding:6px 10px;color:#2e7d32;font-size:.82rem;">${row.normal}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>
+      <p style="font-size:.8rem;color:#888;margin-top:8px;">Fill in the measured values. Leave blank to omit a parameter from the report.</p>`;
+  } else {
+    // Free text fallback
+    document.getElementById('reFreeText').style.display = 'block';
+    body.innerHTML = '';
+  }
+
+  document.getElementById('resultEntryModal').style.display = 'flex';
+}
+
+function closeResultEntry() {
+  document.getElementById('resultEntryModal').style.display = 'none';
+  _currentOrderId = null;
+}
+
+async function submitStructuredResult() {
+  if (!_currentOrderId) return;
+  let result = '';
+  const inputs = document.querySelectorAll('#reModalBody input[data-param]');
+  if (inputs.length > 0) {
+    // Collect filled rows
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) {
+        const unit = inp.dataset.unit ? ' ' + inp.dataset.unit : '';
+        result += `${inp.dataset.param}: ${val}${unit}\n`;
+      }
+    });
+  } else {
+    result = document.getElementById('reFreeTextArea').value.trim();
+  }
+  if (!result) { alert('Please enter at least one result value.'); return; }
+
+  const r = await fetch('/api/lab/complete', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({id: _currentOrderId, result: result.trim()})
+  });
+  const d = await r.json();
+  if (d.status === 'ok') {
+    closeResultEntry();
+    loadOrders();
+  } else {
+    alert('Error saving result: ' + (d.error || 'Unknown error'));
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LAB REPORT PRINT MODAL (from completed tab)
+// ──────────────────────────────────────────────────────────────────────────
+
+const LAB_NORMAL_RANGES = {
+  'haemoglobin': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+  'hb': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+  'haemoglobin (hb)': 'Male: 13–17 g/dL | Female: 12–16 g/dL',
+  'total leucocyte count (tlc/wbc)': '4,000 – 11,000 /cmm',
+  'rbc count': '4.5 – 5.5 million/cmm',
+  'platelet count': '1.5 – 4.5 lakh/cmm',
+  'pcv / haematocrit': '36 – 50 %',
+  'mcv': '76 – 96 fL',
+  'mch': '27 – 33 pg',
+  'mchc': '31 – 37 g/dL',
+  'neutrophils': '40 – 70 %',
+  'lymphocytes': '20 – 40 %',
+  'monocytes': '2 – 10 %',
+  'eosinophils': '1 – 6 %',
+  'basophils': '0 – 1 %',
+  'esr': 'Male: 0–15 mm/hr | Female: 0–20 mm/hr',
+  'fasting blood sugar (fbs)': '70 – 100 mg/dL',
+  'post prandial blood sugar (ppbs)': '< 140 mg/dL',
+  'random blood sugar (rbs)': '70 – 140 mg/dL',
+  'hba1c (glycated haemoglobin)': '< 5.7% Normal',
+  'sgot / ast': '10 – 40 U/L',
+  'sgpt / alt': '7 – 56 U/L',
+  'alp (alkaline phosphatase)': '44 – 147 U/L',
+  'ggt': 'Male: 10–66 | Female: 6–42 U/L',
+  'total bilirubin': '0.3 – 1.2 mg/dL',
+  'direct bilirubin': '0.1 – 0.4 mg/dL',
+  'indirect bilirubin': '0.2 – 0.8 mg/dL',
+  'total protein': '6.3 – 8.2 g/dL',
+  'albumin': '3.5 – 5.0 g/dL',
+  'serum creatinine': 'Male: 0.7–1.3 mg/dL | Female: 0.6–1.1 mg/dL',
+  'blood urea': '10 – 40 mg/dL',
+  'bun (blood urea nitrogen)': '7 – 25 mg/dL',
+  'uric acid': 'Male: 3.4–7.0 mg/dL | Female: 2.4–5.7 mg/dL',
+  'sodium (na+)': '135 – 145 mEq/L',
+  'potassium (k+)': '3.5 – 5.0 mEq/L',
+  'total cholesterol': '< 200 mg/dL',
+  'hdl cholesterol': 'Male: >40 | Female: >50 mg/dL',
+  'ldl cholesterol': '< 130 mg/dL',
+  'triglycerides': '< 150 mg/dL',
+  'tsh (thyroid stimulating hormone)': '0.27 – 4.2 µIU/mL',
+  'free t3 (ft3)': '2.3 – 4.2 pg/mL',
+  'free t4 (ft4)': '0.93 – 1.7 ng/dL',
+};
+
+function getRef(param) {
+  const k = param.toLowerCase().trim();
+  if (LAB_NORMAL_RANGES[k]) return LAB_NORMAL_RANGES[k];
+  for (const [rk, rv] of Object.entries(LAB_NORMAL_RANGES)) {
+    if (k.includes(rk) || rk.includes(k)) return rv;
+  }
+  return '—';
+}
+
+function buildResultHTML(testName, resultText) {
+  if (!resultText || !resultText.trim()) {
+    return '<p style="color:#888;font-style:italic;text-align:center;padding:20px;">Not yet available.</p>';
+  }
+  const raw  = resultText.replace(/,\s*(?=[A-Za-z\s]{2,}:)/g, '\n');
+  const lines = raw.split(/\n+/).map(l=>l.trim()).filter(l=>l && l.includes(':'));
+  const rows  = [];
+  lines.forEach(l => { const m = l.match(/^([^:]+):\s*(.+)$/); if (m) rows.push({p:m[1].trim(),v:m[2].trim()}); });
+  if (!rows.length) return `<pre style="font-size:.88rem;white-space:pre-wrap;background:#fafafa;padding:14px;border:1px solid #ddd;border-radius:4px;">${resultText}</pre>`;
+  return `<table style="width:100%;border-collapse:collapse;font-size:.87rem;">
+    <thead><tr style="background:#1a237e;color:#fff;">
+      <th style="padding:8px 12px;text-align:left;width:35%;">Parameter</th>
+      <th style="padding:8px 12px;text-align:center;width:22%;">Result</th>
+      <th style="padding:8px 12px;text-align:left;">Reference Range</th>
+    </tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr style="background:${i%2===0?'#fff':'#f5f5ff'};">
+      <td style="padding:7px 12px;border-bottom:1px solid #e0e0e0;font-weight:500;">${r.p}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid #e0e0e0;text-align:center;font-weight:bold;">${r.v}</td>
+      <td style="padding:7px 12px;border-bottom:1px solid #e0e0e0;color:#2e7d32;font-size:.82rem;">${getRef(r.p)}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function openLabPrintModal(order) {
+  const o = typeof order === 'string' ? JSON.parse(order) : order;
+  const area = document.getElementById('labPrintArea');
+  area.innerHTML = `
+    <div style="text-align:center;border-bottom:3px double #1a237e;padding-bottom:14px;margin-bottom:18px;">
+      <h2 style="font-size:1.5rem;color:#1a237e;margin:0 0 4px;">⭐ STAR HOSPITAL</h2>
+      <p style="font-size:.8rem;color:#666;margin:2px 0;">Bhadradri Kothagudem, Telangana | Ph: +91 7981971015 | 24×7 Emergency</p>
+      <div style="margin-top:10px;background:#1a237e;color:#fff;padding:5px 20px;display:inline-block;letter-spacing:2px;font-size:.85rem;font-weight:700;border-radius:4px;">🧪 LABORATORY INVESTIGATION REPORT</div>
+    </div>
+    <table style="width:100%;font-size:.86rem;border-collapse:collapse;margin-bottom:14px;">
+      <tr><td style="padding:4px 8px;font-weight:700;width:20%;">Patient Name</td><td style="padding:4px 8px;width:30%;font-weight:600;font-size:.95rem;">${o.patient_name||'—'}</td><td style="padding:4px 8px;font-weight:700;width:20%;">Report ID</td><td style="padding:4px 8px;">LAB-${String(o.id||'?').padStart(4,'0')}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:700;">Phone</td><td style="padding:4px 8px;">${o.patient_phone||'—'}</td><td style="padding:4px 8px;font-weight:700;">Date</td><td style="padding:4px 8px;">${fmtDT(o.completed_at||o.created_at)}</td></tr>
+      <tr><td style="padding:4px 8px;font-weight:700;">Referred By</td><td style="padding:4px 8px;">${o.doctor_username ? 'Dr. '+o.doctor_username : '—'}</td><td style="padding:4px 8px;font-weight:700;">Type</td><td style="padding:4px 8px;">${o.test_type==='XRAY'?'Radiology':'Laboratory'}</td></tr>
+    </table>
+    <hr style="border:none;border-top:1px solid #bbb;margin:0 0 14px;">
+    <div style="background:#e8eaf6;border-left:4px solid #3949ab;padding:8px 14px;margin-bottom:14px;border-radius:0 4px 4px 0;">
+      <strong style="color:#1a237e;font-size:.95rem;">🧪 ${o.test_name||'Lab Test'}</strong>
+    </div>
+    ${buildResultHTML(o.test_name, o.result_text)}
+    <div style="margin-top:32px;padding-top:12px;border-top:2px solid #1a237e;display:flex;justify-content:space-between;align-items:flex-end;">
+      <div style="font-size:.74rem;color:#777;max-width:320px;">
+        <em>* Consult your physician for interpretation of results.<br>
+        * Normal ranges are for adult reference only.<br>
+        * This report is generated by SRP MediFlow HMS.</em>
+      </div>
+      <div style="text-align:center;">
+        <div style="height:44px;border-bottom:1px solid #333;width:160px;margin:0 auto;"></div>
+        <p style="font-size:.8rem;margin-top:4px;font-weight:600;">Authorised Signatory</p>
+        <p style="font-size:.74rem;color:#777;">Lab In-Charge / Pathologist</p>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:.7rem;color:#aaa;border-top:1px dotted #ccc;padding-top:6px;">
+      Report Date: ${new Date().toLocaleString('en-IN')} | Powered by <strong style="color:#00b896;">SRP MediFlow</strong> HMS
+    </div>`;
+  document.getElementById('labPrintModal').style.display = 'flex';
+}
+
+function closeLabPrintModal() {
+  document.getElementById('labPrintModal').style.display = 'none';
+}
+
+function printLabReport() {
+  const content = document.getElementById('labPrintArea').innerHTML;
+  const w = window.open('', '_blank', 'width=880,height=1100,scrollbars=yes');
+  w.document.write(`<!DOCTYPE html><html><head><title>Lab Report</title>
+  <style>
+    body{font-family:'Times New Roman',Georgia,serif;color:#000;padding:28px;margin:0;}
+    table{width:100%;border-collapse:collapse;font-size:.87rem;}
+    th{background:#1a237e;color:#fff;padding:8px 12px;}
+    td{padding:6px 12px;border-bottom:1px solid #e0e0e0;}
+    @media print{@page{margin:1cm;size:A4;}button{display:none!important;}}
+  </style></head><body>${content}
+  <script>setTimeout(()=>window.print(),400);<\/script>
+  </body></html>`);
+  w.document.close();
+}
 
 checkSession();
 </script>
