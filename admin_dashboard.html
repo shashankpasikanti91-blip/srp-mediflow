@@ -747,8 +747,8 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadPatients()">&#8635; Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Age</th><th>Issue</th><th>Doctor</th><th>Booked</th><th>Status</th></tr></thead>
-                        <tbody id="patientsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                        <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Age</th><th>Issue</th><th>Doctor</th><th>Booked</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="patientsBody"><tr><td colspan="9" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -762,8 +762,8 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadDoctors()">&#8635; Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Name</th><th>Department</th><th>Specialization</th><th>Status</th><th>On Duty</th></tr></thead>
-                        <tbody id="doctorsBody"><tr><td colspan="6" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                        <thead><tr><th>#</th><th>Name</th><th>Department</th><th>Specialization</th><th>Status</th><th>On Duty</th><th>Action</th></tr></thead>
+                        <tbody id="doctorsBody"><tr><td colspan="7" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -840,8 +840,8 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadBills()">&#8635; Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Total</th><th>Discount</th><th>Net</th><th>Status</th><th>Date</th></tr></thead>
-                        <tbody id="billsBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                        <thead><tr><th>#</th><th>Patient</th><th>Type</th><th>Total</th><th>Discount</th><th>Net</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+                        <tbody id="billsBody"><tr><td colspan="9" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -932,8 +932,8 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadSurgeries()">↻ Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Patient</th><th>Surgeon</th><th>Surgery Type</th><th>Est. Cost ₹</th><th>Neg. Cost ₹</th><th>Date</th><th>Status</th></tr></thead>
-                        <tbody id="surgeriesBody"><tr><td colspan="8" style="text-align:center;color:#888;">Loading…</td></tr></tbody>
+                        <thead><tr><th>#</th><th>Patient</th><th>Surgeon</th><th>Surgery Type</th><th>Est. Cost ₹</th><th>Neg. Cost ₹</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="surgeriesBody"><tr><td colspan="9" style="text-align:center;color:#888;">Loading…</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1084,6 +1084,47 @@
 
                     <button class="btn btn-success" style="padding:10px 24px;" onclick="adminNsSave()">💾 Save Settings</button>
                     <div id="adminNsMsg" style="margin-top:10px;font-size:.88rem;"></div>
+
+                    <!-- ✨ AI Message Generator -->
+                    <div style="margin-top:28px;padding:18px;background:#f8f4ff;border-radius:10px;border:1px solid #e0d4ff;">
+                      <h3 style="color:#6d28d9;margin-bottom:12px;">✨ AI Smart Message Generator</h3>
+                      <p style="font-size:.85rem;color:#666;margin-bottom:14px;">Generate professional patient notification messages using AI. Copy the result and send via Telegram or WhatsApp.</p>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Message Type</label>
+                          <select id="aiMsgType" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;">
+                            <option value="appointment">📅 Appointment Confirmation</option>
+                            <option value="prescription">💊 Prescription Ready</option>
+                            <option value="lab">🧪 Lab Results Ready</option>
+                            <option value="discharge">🏠 Discharge Notice</option>
+                            <option value="alert">🔔 General Alert</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Patient Name</label>
+                          <input id="aiMsgPatient" type="text" placeholder="e.g. Narsimha Reddy" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;">
+                        </div>
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Doctor Name (optional)</label>
+                          <input id="aiMsgDoctor" type="text" placeholder="e.g. Dr. K. Ramyanadh" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;">
+                        </div>
+                        <div>
+                          <label style="font-size:.8rem;color:#555;display:block;margin-bottom:3px;">Additional Details (optional)</label>
+                          <input id="aiMsgDetails" type="text" placeholder="e.g. tomorrow at 10 AM, Ward B-12" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;">
+                        </div>
+                      </div>
+                      <button onclick="aiGenerateMessage()" style="padding:8px 20px;background:#6d28d9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.88rem;">✨ Generate Message</button>
+                      <span id="aiMsgLoader" style="display:none;margin-left:10px;color:#888;font-size:.85rem;">Generating…</span>
+                      <div id="aiMsgResult" style="display:none;margin-top:14px;">
+                        <label style="font-size:.8rem;font-weight:600;color:#555;display:block;margin-bottom:5px;">Generated Message</label>
+                        <textarea id="aiMsgText" rows="3" style="width:100%;padding:10px;border:1px solid #c4b5fd;border-radius:6px;font-size:.88rem;background:#fff;resize:vertical;"></textarea>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                          <button onclick="aiCopyMessage()" style="padding:6px 14px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;">📋 Copy</button>
+                          <button onclick="aiSendViaTelegram()" style="padding:6px 14px;background:#0088cc;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:.82rem;">📱 Send via Telegram</button>
+                          <span id="aiMsgSource" style="font-size:.78rem;color:#999;align-self:center;"></span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
             </div>
@@ -1659,19 +1700,20 @@
                 const tbody = document.getElementById('patientsBody');
                 const list  = d.registrations || [];
                 if (!list.length) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No patients yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No patients yet</td></tr>';
                     return;
                 }
                 tbody.innerHTML = list.slice(0,100).map((p,i) => `
-                    <tr>
+                    <tr style="cursor:pointer;" onclick='viewPatient(${JSON.stringify(p).replace(/'/g,"&#39;")});'>
                         <td>${i+1}</td>
-                        <td>${p.name||'-'}</td>
+                        <td><strong>${p.name||'-'}</strong></td>
                         <td>${p.phone||'-'}</td>
                         <td>${p.age||'-'}</td>
                         <td>${p.issue||'-'}</td>
                         <td>${p.doctor||'-'}</td>
                         <td><small>${fmtDT(p.timestamp)}</small></td>
                         <td><span class="badge ${p.status||'pending'}">${p.status||'pending'}</span></td>
+                        <td><button class="btn" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();viewPatient(${JSON.stringify(p).replace(/'/g,"&#39;")});'>👁 View</button></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadPatients:', e); }
         }
@@ -1694,17 +1736,18 @@
         function renderDoctorsTable(docs) {
             const tbody = document.getElementById('doctorsBody');
             if (!docs.length) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">No doctors found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No doctors found</td></tr>';
                 return;
             }
             tbody.innerHTML = docs.map((doc,i) => `
-                <tr>
+                <tr style="cursor:pointer;" onclick='viewDoctor(${JSON.stringify(doc).replace(/'/g,"&#39;")});'>
                     <td>${i+1}</td>
                     <td><strong>${doc.name||'-'}</strong></td>
                     <td>${doc.department||'-'}</td>
                     <td>${doc.specialization||'-'}</td>
                     <td><span class="badge ${doc.status==='available'?'confirmed':'pending'}">${doc.status||'Unknown'}</span></td>
                     <td>${doc.on_duty ? '<span class="badge active">On Duty</span>' : '<span class="badge absent">Off Duty</span>'}</td>
+                    <td><button class="btn" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();viewDoctor(${JSON.stringify(doc).replace(/'/g,"&#39;")});'>👁 View</button></td>
                 </tr>`).join('');
         }
 
@@ -1723,10 +1766,8 @@
                 tbody.innerHTML = orders.slice(0,200).map((o,i) => `
                     <tr>
                         <td>${i+1}</td>
-                        <td>
-                            ${o.status === 'COMPLETED'
-                                ? `<a href="#" onclick='openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});return false;' style="color:#1a73e8;font-weight:600;text-decoration:none;cursor:pointer;" title="Click to view full report">👁 ${o.patient_name||'-'}</a>`
-                                : `<strong>${o.patient_name||'-'}</strong>`}
+                        <td style="cursor:pointer;" onclick='openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});'>
+                            <span style="color:#1a73e8;font-weight:600;">${o.patient_name||'-'}</span>
                             <br><small style="color:#888;">${o.patient_phone||''}</small>
                         </td>
                         <td><span class="badge ${o.test_type==='LAB'?'active':'confirmed'}">${o.test_type||'-'}</span></td>
@@ -1735,7 +1776,7 @@
                         <td><span class="badge ${o.status==='COMPLETED'?'confirmed':'pending'}">${o.status||'-'}</span></td>
                         <td><small>${(o.result_text||'—').slice(0,60)}${(o.result_text||'').length>60?'…':''}</small></td>
                         <td><small>${fmtDT(o.created_at)}</small></td>
-                        <td>${o.status==='COMPLETED' ? `<button class="btn" style="padding:3px 10px;font-size:11px;background:#1a73e8;color:#fff;" onclick='openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});return false;'>🗒 Report</button>` : '—'}</td>
+                        <td><button class="btn" style="padding:3px 10px;font-size:11px;background:${o.status==='COMPLETED'?'#1a73e8':'#6c757d'};color:#fff;" onclick='event.stopPropagation();openLabReport(${JSON.stringify(o).replace(/'/g,"&#39;")});'>${o.status==='COMPLETED'?'🗒 Report':'👁 View'}</button></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadLabReports:', e); }
         }
@@ -1783,19 +1824,20 @@
                 const tbody = document.getElementById('billsBody');
                 const bills = d.bills || [];
                 if (!bills.length) {
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#888;">No bills yet</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No bills yet</td></tr>';
                     return;
                 }
                 tbody.innerHTML = bills.map((b,i) => `
-                    <tr>
+                    <tr style="cursor:pointer;" onclick='viewBill(${JSON.stringify(b).replace(/'/g,"&#39;")});'>
                         <td>${b.id}</td>
-                        <td>${b.patient_name||'-'}<br><small>${b.patient_phone||''}</small></td>
+                        <td><strong>${b.patient_name||'-'}</strong><br><small>${b.patient_phone||''}</small></td>
                         <td>${b.bill_type||'-'}</td>
                         <td>₹${parseFloat(b.total_amount||0).toFixed(2)}</td>
                         <td>₹${parseFloat(b.discount||0).toFixed(2)}</td>
                         <td><strong>₹${parseFloat(b.net_amount||0).toFixed(2)}</strong></td>
                         <td><span class="badge ${b.status==='paid'?'confirmed':b.status==='partial'?'active':'pending'}">${b.status||'unpaid'}</span></td>
                         <td><small>${fmtDT(b.created_at)}</small></td>
+                        <td><button class="btn" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();viewBill(${JSON.stringify(b).replace(/'/g,"&#39;")});'>👁 View</button></td>
                     </tr>`).join('');
             } catch(e) { console.error('loadBills:', e); }
         }
@@ -2017,9 +2059,9 @@
                 const d = await r.json();
                 const tbody = document.getElementById('surgeriesBody');
                 const surs  = d.surgeries || [];
-                if (!surs.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888;">No surgery records found</td></tr>';return;}
+                if (!surs.length){tbody.innerHTML='<tr><td colspan="9" style="text-align:center;color:#888;">No surgery records found</td></tr>';return;}
                 tbody.innerHTML = surs.map(s=>`
-                    <tr>
+                    <tr style="cursor:pointer;" onclick='viewSurgery(${JSON.stringify(s).replace(/'/g,"&#39;")});'>
                         <td>${s.id}</td>
                         <td><strong>${s.patient_name}</strong></td>
                         <td>${s.surgeon_name||'-'}</td>
@@ -2028,6 +2070,7 @@
                         <td style="color:#27ae60;font-weight:bold;">₹${parseFloat(s.negotiated_cost||0).toFixed(0)}</td>
                         <td><small>${fmtDT(s.operation_date)||'-'}</small></td>
                         <td><span class="badge ${s.status==='completed'?'confirmed':s.status==='cancelled'?'pending':'active'}">${s.status}</span></td>
+                        <td><button class="btn" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();viewSurgery(${JSON.stringify(s).replace(/'/g,"&#39;")});'>👁 View</button></td>
                     </tr>`).join('');
             } catch(e){console.error('loadSurgeries:',e);}
         }
@@ -2518,6 +2561,83 @@
         // ══════════════════════════════════════════════════════════════════
         // ADMIN NOTIFICATION SETTINGS
         // ══════════════════════════════════════════════════════════════════
+        // ── Detail View Modals ─────────────────────────────────────────────
+        function _showDetailModal(title, rows) {
+            const existing = document.getElementById('_detailModal');
+            if (existing) existing.remove();
+            const html = rows.map(([k,v]) => `
+                <div style="display:flex;padding:8px 0;border-bottom:1px solid #f0f0f0;">
+                    <div style="width:160px;font-weight:600;color:#555;font-size:13px;flex-shrink:0;">${k}</div>
+                    <div style="flex:1;color:#222;font-size:13px;word-break:break-word;">${v||'—'}</div>
+                </div>`).join('');
+            const modal = document.createElement('div');
+            modal.id = '_detailModal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+            modal.innerHTML = `
+                <div style="background:#fff;border-radius:12px;padding:28px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                        <h3 style="margin:0;color:#222;font-size:18px;">${title}</h3>
+                        <button onclick="document.getElementById('_detailModal').remove()" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">&times;</button>
+                    </div>
+                    ${html}
+                </div>`;
+            modal.addEventListener('click', e => { if (e.target===modal) modal.remove(); });
+            document.body.appendChild(modal);
+        }
+        function viewPatient(p) {
+            _showDetailModal('👤 Patient Details', [
+                ['Name', p.name], ['Phone', p.phone], ['Age', p.age],
+                ['Gender', p.gender], ['Issue / Complaint', p.issue],
+                ['Assigned Doctor', p.doctor],
+                ['Preferred Date', p.preferred_date||p.date||'—'],
+                ['Preferred Time', p.time||'—'],
+                ['Status', p.status], ['Registered', p.timestamp]
+            ]);
+        }
+        function viewDoctor(doc) {
+            _showDetailModal('🩺 Doctor Details', [
+                ['Name', doc.name], ['Username', doc.username],
+                ['Department', doc.department], ['Specialization', doc.specialization],
+                ['Phone', doc.phone||doc.mobile], ['Email', doc.email],
+                ['Status', doc.status],
+                ['On Duty', doc.on_duty ? 'Yes' : 'No'],
+                ['Qualification', doc.qualification]
+            ]);
+        }
+        function viewBill(b) {
+            _showDetailModal('🧾 Bill Details #' + b.id, [
+                ['Patient', b.patient_name], ['Phone', b.patient_phone],
+                ['Bill Type', b.bill_type],
+                ['Consultation Fee', '₹' + parseFloat(b.consultation_fee||0).toFixed(2)],
+                ['Lab Charges', '₹' + parseFloat(b.lab_charges||0).toFixed(2)],
+                ['Pharmacy Charges', '₹' + parseFloat(b.pharmacy_charges||0).toFixed(2)],
+                ['Imaging Charges', '₹' + parseFloat(b.imaging_charges||0).toFixed(2)],
+                ['Surgery Charges', '₹' + parseFloat(b.surgery_charges||0).toFixed(2)],
+                ['Bed Charges', '₹' + parseFloat(b.bed_charges||0).toFixed(2)],
+                ['Misc Charges', '₹' + parseFloat(b.misc_charges||0).toFixed(2)],
+                ['Total Amount', '₹' + parseFloat(b.total_amount||0).toFixed(2)],
+                ['Discount', '₹' + parseFloat(b.discount||0).toFixed(2)],
+                ['Net Amount', '₹' + parseFloat(b.net_amount||0).toFixed(2)],
+                ['Status', b.status], ['Notes', b.notes],
+                ['Created', b.created_at]
+            ]);
+        }
+        function viewSurgery(s) {
+            _showDetailModal('⚕️ Surgery Details #' + s.id, [
+                ['Patient', s.patient_name], ['Phone', s.patient_phone],
+                ['Surgeon', s.surgeon_name],
+                ['Surgery Type', s.surgery_type],
+                ['Anaesthesia', s.anesthesia_type],
+                ['Operation Date', s.operation_date],
+                ['Estimated Cost', '₹' + parseFloat(s.estimated_cost||0).toFixed(0)],
+                ['Negotiated Cost', '₹' + parseFloat(s.negotiated_cost||0).toFixed(0)],
+                ['Status', s.status],
+                ['Complications', s.complications],
+                ['Operation Notes', s.operation_notes],
+                ['Duration (min)', s.duration_minutes]
+            ]);
+        }
+
         async function adminNsLoad() {
             const msgEl  = document.getElementById('adminNsLoadMsg');
             const formEl = document.getElementById('adminNsForm');
@@ -2595,6 +2715,57 @@
                 msg.style.color = d.status==='ok' ? '#16a34a' : '#dc2626';
             } catch(e) { msg.textContent='❌ Error.'; msg.style.color='#dc2626'; }
         }
+
+        // ── AI Message Generator ──────────────────────────────────────────────
+        async function aiGenerateMessage() {
+            const type    = document.getElementById('aiMsgType').value;
+            const patient = document.getElementById('aiMsgPatient').value.trim() || 'Patient';
+            const doctor  = document.getElementById('aiMsgDoctor').value.trim();
+            const details = document.getElementById('aiMsgDetails').value.trim();
+            const loader  = document.getElementById('aiMsgLoader');
+            const result  = document.getElementById('aiMsgResult');
+            const textarea= document.getElementById('aiMsgText');
+            const source  = document.getElementById('aiMsgSource');
+            loader.style.display = 'inline';
+            result.style.display = 'none';
+            try {
+                const params = new URLSearchParams({type, patient_name: patient, doctor_name: doctor, details});
+                const r = await authFetch('/api/ai/generate-message?' + params.toString());
+                const d = await r.json();
+                textarea.value = d.message || '(No message generated)';
+                source.textContent = d.source === 'openai' ? '✨ AI generated' : '📄 Template (AI unavailable)';
+                result.style.display = 'block';
+            } catch(e) {
+                textarea.value = `Dear ${patient}, your hospital appointment has been confirmed. Please arrive 10 minutes early. — SRP MediFlow`;
+                source.textContent = '📄 Fallback template';
+                result.style.display = 'block';
+            }
+            loader.style.display = 'none';
+        }
+        function aiCopyMessage() {
+            const text = document.getElementById('aiMsgText').value;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => btn.textContent = '📋 Copy', 2000);
+            });
+        }
+        async function aiSendViaTelegram() {
+            const text = document.getElementById('aiMsgText').value;
+            if (!text) return;
+            const btn = event.target;
+            btn.textContent = '⏳ Sending…'; btn.disabled = true;
+            try {
+                const r = await authFetch('/api/settings/notifications/test', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({channel:'telegram', message: text})
+                });
+                const d = await r.json();
+                btn.textContent = d.status==='ok' ? '✅ Sent!' : '❌ Failed';
+                btn.style.background = d.status==='ok' ? '#059669' : '#dc2626';
+            } catch(e) { btn.textContent='❌ Error'; btn.style.background='#dc2626'; }
+            setTimeout(() => { btn.textContent='📱 Send via Telegram'; btn.style.background='#0088cc'; btn.disabled=false; }, 3000);
+        }
     </script>
 
     <!-- ═══════════════════════════════════════════════════════
@@ -2664,7 +2835,7 @@
 
           <!-- Generated stamp -->
           <div style="text-align:center;margin-top:14px;font-size:.72rem;color:#aaa;border-top:1px dotted #ccc;padding-top:8px;font-family:Arial,sans-serif;">
-            Report generated on <span id="rptGenDate"></span> &nbsp;|&nbsp; Powered by <strong style="color:#00b896;">SRP MediFlow</strong> HMS &bull; &copy; SRP Technologies
+            Report generated on <span id="rptGenDate"></span> &nbsp;|&nbsp; Powered by <strong style="color:#00b896;">SRP MediFlow</strong> HMS &bull; &copy; SRP AI Labs
           </div>
         </div><!-- /printArea -->
 
@@ -2683,7 +2854,7 @@
                    border-top:1px solid #222;">
         Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
         &nbsp;&bull;&nbsp; Hospital Management System
-        &nbsp;&bull;&nbsp; &copy; SRP Technologies
+        &nbsp;&bull;&nbsp; &copy; SRP AI Labs
     </footer>
     <div style="height:32px;"></div>
 </body>

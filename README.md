@@ -635,6 +635,50 @@ pyngrok           # ngrok tunnel (dev only, optional)
 
 ## 📝 Changelog
 
+### v6.3 — Click Actions · AI Messages · Date Field · Branding · Demo Data (March 2026)
+
+#### 🖱️ Click Actions on All Admin Dashboard Tables
+- **Patients table** — every row now has `cursor:pointer` + `onclick='viewPatient(...)'`; an **👁 View** button launches a detail modal showing name, phone, age, issue, doctor, preferred date/time, status
+- **Doctors table** — every row clickable; **👁 View** modal shows department, specialization, qualification, duty status
+- **Billing table** — every row clickable; **👁 View** modal shows full fee breakdown (consultation, lab, pharmacy, imaging, surgery, bed, misc, discount, net) with payment status
+- **Surgery table** — every row clickable; **👁 View** modal shows surgeon, surgery type, anaesthesia, cost, operation notes, complications
+- **Lab Reports** — all rows (PENDING and COMPLETED) are now clickable; COMPLETED shows 🗒 Report button, PENDING shows 👁 View button — both open the full lab report modal
+- Action column added to thead for: Patients, Doctors, Billing, Surgery tables
+- `_showDetailModal(title, rows)` helper renders a clean overlay modal; `viewPatient()`, `viewDoctor()`, `viewBill()`, `viewSurgery()` functions all use it
+
+#### ✨ AI Smart Message Generator (OpenAI GPT-4o-mini)
+- New **`GET /api/ai/generate-message`** endpoint accepts `type`, `patient_name`, `doctor_name`, `details` query params
+- Also exposed as **`POST /api/ai/generate-message`** for form-based usage
+- Uses `OPENAI_API_KEY` from `.env` with GPT-4o-mini model; falls back gracefully to a professional template if key is unavailable
+- 5 message types: **Appointment Confirmation**, **Prescription Ready**, **Lab Results Ready**, **Discharge Notice**, **General Alert**
+- New UI panel in Admin → Notification Settings → **✨ AI Smart Message Generator**:
+  - Select type, enter patient name, doctor (optional), details (optional)
+  - Click **✨ Generate Message** → AI drafts a professional SMS under 160 chars
+  - **📋 Copy** to clipboard or **📱 Send via Telegram** directly from the dashboard
+  - Source badge shows "AI generated" vs "Template (AI unavailable)"
+
+#### 📅 Date Field in Chatbot Registration
+- `index.html` appointment form now includes **Preferred Date** (`<input type="date">`) before the time field
+- Previously only Preferred Time was available — patients can now specify both date and time
+
+#### 🏷️ Branding: SRP AI Labs
+- Footer changed from `© SRP Technologies` → `© SRP AI Labs` across all 6 HTML dashboards: `admin_dashboard.html`, `doctor_dashboard.html`, `index.html`, `lab_dashboard.html`, `nurse_dashboard.html`, `stock_dashboard.html`
+
+#### 🗄️ Demo / Seed Records
+- New seed data for fresh deployments (idempotent — safe to re-run):
+  - **IPD admission**: Narsimha Reddy, General Ward B-12, Typhoid Fever
+  - **Surgery**: Lakshmi Devi, Appendectomy by Dr. B. Ramachandra Nayak, Scheduled
+  - **Pharmacy**: 4 medicines (Paracetamol, Cetirizine, Metformin, Amoxicillin) with stock batches
+  - **Lab**: 1 COMPLETED CBC report + 1 PENDING X-Ray
+  - **Billing**: 2 bills (OPD ₹1550 net, IPD ₹17500 net)
+  - **Notification settings**: Telegram token + chat ID pre-loaded in key-value format
+
+#### 🔧 DB Schema Corrections
+- Server routes now use correct table names: `surgery_records` (not `surgeries`), `pharmacy_stock` (not `medicine_inventory`), `billing` (not `invoices`)
+- `notification_settings` saves/reads correctly using key-value row format: `(tenant_slug, setting_key, setting_value, is_encrypted)`
+
+---
+
 ### v6.2 — Dashboard Fix · Per-Client Chatbot URLs · Telegram on Registration (March 2026)
 
 #### 🐛 Critical Bug Fixes — Admin Dashboard Data Loading
@@ -1498,4 +1542,4 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
-*SRP MediFlow v6.2 · Built for Indian hospitals · Powered by SRP AI Labs*
+*SRP MediFlow v6.3 · Built for Indian hospitals · Powered by SRP AI Labs*

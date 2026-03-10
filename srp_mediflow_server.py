@@ -693,6 +693,17 @@ class Handler(BaseHTTPRequestHandler):
             except ImportError:
                 self.send_json({'active': False, 'note': 'Telegram module not loaded'})
 
+        # ── AI Message Generator ──────────────────────────────────────────────
+        elif path == '/api/ai/generate-message':
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION'):
+                import urllib.parse as _urlp
+                _qs = dict(_urlp.parse_qsl(_urlp.urlparse(self.path).query))
+                self._handle_ai_generate_message(
+                    _qs.get('type', 'appointment'),
+                    _qs.get('patient_name', 'Patient'),
+                    _qs.get('doctor_name', ''),
+                    _qs.get('details', ''))
+
         # ── SRP MediFlow Phase-2 GET routes ───────────────────────────────────
         elif path == '/api/admin/extended-data':
             if self.require_role('ADMIN', 'RECEPTION'):
@@ -1941,6 +1952,14 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_save_notification_settings(data)
         elif path == '/api/settings/notifications/test':
             self._handle_test_notification(data)
+        elif path == '/api/ai/generate-message':
+            if self.require_role('ADMIN', 'DOCTOR', 'RECEPTION'):
+                self._handle_ai_generate_message(
+                    data.get('type','appointment'),
+                    data.get('patient_name','Patient'),
+                    data.get('doctor_name',''),
+                    data.get('details',''))
+
         elif path == '/api/doctor/lab/request':
             self.handle_lab_request(data)
         elif path == '/api/nurse/vitals/add':
@@ -2601,6 +2620,68 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'status': 'ok', 'result': result})
         except Exception as exc:
             self.send_json({'error': str(exc)}, 500)
+
+    def _handle_ai_generate_message(self, msg_type: str, patient: str, doctor: str, details: str):
+        """GET|POST /api/ai/generate-message — use GPT-4o-mini to draft a patient notification."""
+        import os as _os
+
+        TEMPLATES = {
+            'appointment': (
+                f"Dear {patient}, your appointment has been scheduled"
+                + (f" with {doctor}" if doctor else "")
+                + f". {details} Please arrive 10 minutes early. — SRP MediFlow"
+            ),
+            'prescription': (
+                f"Dear {patient}, your prescription is ready"
+                + (f" from {doctor}" if doctor else "")
+                + f". {details} Collect from the pharmacy counter. — SRP MediFlow"
+            ),
+            'lab': (
+                f"Dear {patient}, your lab results are ready. {details}"
+                " Please collect the report from the lab counter or ask your doctor. — SRP MediFlow"
+            ),
+            'discharge': (
+                f"Dear {patient}, you have been discharged. {details}"
+                " Follow the prescribed medication and attend the follow-up as advised. — SRP MediFlow"
+            ),
+            'alert': (
+                f"Dear {patient}, {details} Please contact the hospital for further details. — SRP MediFlow"
+            ),
+        }
+
+        api_key = _os.getenv('OPENAI_API_KEY', '')
+        if not api_key:
+            # Fallback to template
+            msg = TEMPLATES.get(msg_type, TEMPLATES['alert'])
+            self.send_json({'message': msg, 'source': 'template'})
+            return
+
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            prompt_map = {
+                'appointment': f"Write a short, warm SMS notification (max 2 sentences, under 160 characters) to a patient named {patient} confirming their hospital appointment{' with ' + doctor if doctor else ''}. Extra info: {details or 'none'}. End with '— SRP MediFlow'. Be professional and friendly.",
+                'prescription': f"Write a short SMS (max 160 chars) to patient {patient} that their prescription is ready{' from Dr ' + doctor if doctor else ''}. {details or ''}. End with '— SRP MediFlow'.",
+                'lab': f"Write a short SMS (max 160 chars) to patient {patient} that their lab results are ready. {details or ''}. End with '— SRP MediFlow'.",
+                'discharge': f"Write a warm discharge SMS (max 2 sentences, under 160 chars) to patient {patient}. {details or 'Wishing them a speedy recovery'}. End with '— SRP MediFlow'.",
+                'alert': f"Write a professional hospital SMS alert (max 160 chars) to patient {patient}. Context: {details or 'hospital update'}. End with '— SRP MediFlow'.",
+            }
+            prompt = prompt_map.get(msg_type, prompt_map['alert'])
+            resp = client.chat.completions.create(
+                model='gpt-4o-mini',
+                messages=[
+                    {'role': 'system', 'content': 'You are a hospital communication assistant. Generate concise, professional patient SMS notifications. Never include placeholders like [hospital name]. Always end with the provided signature.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_tokens=120,
+                temperature=0.7,
+            )
+            generated = resp.choices[0].message.content.strip()
+            self.send_json({'message': generated, 'source': 'openai'})
+        except Exception as exc:
+            # Fallback gracefully
+            msg = TEMPLATES.get(msg_type, TEMPLATES['alert'])
+            self.send_json({'message': msg, 'source': 'template', 'note': str(exc)})
 
     def serve_file(self, filename, content_type):
         try:
