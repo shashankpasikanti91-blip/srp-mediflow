@@ -141,6 +141,27 @@ DOCTORS = {
 }
 
 
+def _get_doc(key):
+    """Get doctor info by key.
+    Supports hardcoded DOCTORS dict (star_hospital) and tenant '__t__NAME' prefix
+    used when doctors are loaded from a tenant's own database.
+    """
+    if key and key.startswith('__t__'):
+        name = key[5:]
+        return {
+            'name': name,
+            'specialty': '',
+            'qualifications': '',
+            'timings': 'By appointment — please call the hospital for timings',
+            'timings_te': 'అపాయింట్‌మెంట్ ద్వారా — సమయం కోసం హాస్పిటల్‌కు కాల్ చేయండి',
+            'timings_hi': 'अपॉइंटमेंट द्वारा — समय के लिए अस्पताल को कॉल करें',
+            'hours': [(8, 20)],
+            'days': list(range(7)),
+            'keywords': [],
+        }
+    return DOCTORS.get(key) if key else None
+
+
 # Telugu translations
 TELUGU_RESPONSES = {
     'welcome': 'నమస్కారం! నేను స్టార్ హాస్పిటల్ AI సహాయకుడు. మీకు ఎలా సహాయపడగలను?',
@@ -483,7 +504,10 @@ def is_time_available(time_str, doctor_id):
     """Check if time is within doctor's available hours"""
     if not time_str or not doctor_id:
         return False
-    
+    # Tenant DB doctors accept any time in 8am-8pm range
+    if doctor_id.startswith('__t__'):
+        t24 = time_to_24h(time_str)
+        return t24 is not None and 8 <= t24 <= 20
     doctor = DOCTORS.get(doctor_id)
     if not doctor:
         return False
@@ -571,6 +595,9 @@ def extract_appointment_date(text):
 def is_day_available_for_doctor(date_str, doctor_id):
     """Return True if the doctor works on the weekday of the given date."""
     try:
+        # Tenant DB doctors are available all days
+        if doctor_id and doctor_id.startswith('__t__'):
+            return True
         d = datetime.strptime(date_str, '%Y-%m-%d')
         weekday = d.weekday()  # 0=Monday, 6=Sunday
         doctor = DOCTORS.get(doctor_id)
@@ -705,8 +732,11 @@ def get_response_by_key(key, lang='english'):
     else:  # english
         return 'Tell me your symptom or what you need help with. I can help you book appointments with our doctors.'
 
-def respond(user_input, lang='english'):
-    """Main chatbot logic with language support"""
+def respond(user_input, lang='english', tenant_doctors=None):
+    """Main chatbot logic with language support.
+    tenant_doctors: list of dicts from DB for non-star-hospital tenants.
+    Each dict has at minimum 'name' and optionally 'specialty'.
+    """
     # Persist language: if user sends non-numeric content, update stored lang
     # (numbers/phone/aadhar keep the previous language)
     detected = detect_language(user_input)
@@ -798,12 +828,61 @@ def respond(user_input, lang='english'):
     
     # If not in booking mode
     if not state['booking_active']:
-        
+
+        # ── Tenant doctor list mode ──────────────────────────────────────────
+        # For non-star-hospital tenants, show their doctors from DB instead of
+        # the hardcoded DOCTORS dict.
+        if tenant_doctors:
+            # User is picking a doctor by number from a previously shown list
+            if state.get('awaiting_doctor_choice'):
+                num_m = re.search(r'\b([1-9])\b', user_input)
+                if num_m:
+                    idx = int(num_m.group(1)) - 1
+                    if 0 <= idx < len(tenant_doctors):
+                        d = tenant_doctors[idx]
+                        state['doctor_selected'] = '__t__' + d['name']
+                        state['booking_active'] = True
+                        state['awaiting_doctor_choice'] = False
+                        spec = d.get('specialty', '')
+                        if lang == 'telugu':
+                            return f"{d['name']} ({spec}) తో బుక్ చేద్దాం.\n\nఏ తేదీ మరియు సమయం? (ఉదా: రేపు 12:00 PM, సోమవారం 6:00 PM)"
+                        elif lang == 'hindi':
+                            return f"{d['name']} ({spec}) के साथ बुक करते हैं।\n\nकौन सी तारीख और समय? (उदा: कल 12:00 PM, सोमवार 6:00 PM)"
+                        else:
+                            return f"Let's book with {d['name']} ({spec}).\n\nWhat date and time works for you? (e.g., Tomorrow 12:00 PM, Monday 6:00 PM)"
+                    else:
+                        if lang == 'telugu':
+                            return f"దయచేసి 1 నుండి {len(tenant_doctors[:8])} మధ్య నంబర్ చెప్పండి:"
+                        elif lang == 'hindi':
+                            return f"कृपया 1 से {len(tenant_doctors[:8])} के बीच नंबर बताएं:"
+                        else:
+                            return f"Please choose a number between 1 and {len(tenant_doctors[:8])}:"
+
+            # Show doctor list when user mentions booking/symptom/health keyword
+            booking_kw = ['doctor', 'appointment', 'book', 'fever', 'pain', 'consult',
+                          'symptom', 'problem', 'sick', 'ill', 'health', 'medicine',
+                          'chest', 'headache', 'stomach', 'cold', 'cough', 'injury']
+            if is_booking or doctor or any(kw in text_low for kw in booking_kw):
+                state['awaiting_doctor_choice'] = True
+                lines = []
+                for i, d in enumerate(tenant_doctors[:8]):
+                    spec = d.get('specialty', 'General')
+                    lines.append(f"  {i+1}. {d['name']} — {spec}")
+                doc_list = '\n'.join(lines)
+                n = len(tenant_doctors[:8])
+                if lang == 'telugu':
+                    return f"మా అందుబాటులో ఉన్న వైద్యులు:\n{doc_list}\n\nఏ డాక్టర్‌తో అపాయింట్‌మెంట్ కావాలి? (1-{n} నంబర్ చెప్పండి)"
+                elif lang == 'hindi':
+                    return f"हमारे उपलब्ध डॉक्टर:\n{doc_list}\n\nकिस डॉक्टर से अपॉइंटमेंट चाहिए? (1-{n} नंबर बताएं)"
+                else:
+                    return f"Our available doctors:\n{doc_list}\n\nWhich doctor would you like to see? Reply with a number (1-{n})."
+        # ── End tenant doctor list mode ──────────────────────────────────────
+
         # Special case: Just "book" or "appointment" when doctor already selected
         if (is_booking or text_low == 'book') and state['doctor_selected'] and not state['name']:
             # User wants to proceed with already-selected doctor
             state['booking_active'] = True
-            doc = DOCTORS[state['doctor_selected']]
+            doc = _get_doc(state['doctor_selected']) or {}
             timings = doc['timings_te'] if lang == 'telugu' else (
                 doc['timings_hi'] if lang == 'hindi' else doc['timings'])
             # Also try to capture time/date from this same message
@@ -853,7 +932,7 @@ def respond(user_input, lang='english'):
             # User is continuing the booking conversation with a time
             state['booking_active'] = True
             if not is_time_available(time_slot, state['doctor_selected']):
-                doc = DOCTORS[state['doctor_selected']]
+                doc = _get_doc(state['doctor_selected']) or {}
                 timings = doc['timings_te'] if lang == 'telugu' else doc['timings']
                 return f"Sorry, {time_slot} is not available.\n\nAvailable: {timings}\n\nWhat time works for you?"
             state['appointment_time'] = time_slot
@@ -861,12 +940,12 @@ def respond(user_input, lang='english'):
             _ds, _dn, _dd = extract_appointment_date(user_input)
             if _ds:
                 if not is_day_available_for_doctor(_ds, state['doctor_selected']):
-                    doc_inner = DOCTORS[state['doctor_selected']]
+                    doc_inner = _get_doc(state['doctor_selected']) or {}
                     timings_inner = doc_inner['timings_te'] if lang == 'telugu' else doc_inner['timings']
                     return f"Time {state['appointment_time']} noted. However, {doc_inner['name']} is not available on {_dn}.\n\nAvailable: {timings_inner}\n\nPlease choose a different day:"
                 state['appointment_date'] = _ds
                 state['appointment_day'] = _dn
-            doc = DOCTORS[state['doctor_selected']]
+            doc = _get_doc(state['doctor_selected']) or {}
             if state['appointment_date']:
                 disp = format_date_display(state['appointment_date'])
                 return f"Perfect! {disp} at {state['appointment_time']} confirmed.\n\nPlease tell me your full name:"
@@ -877,7 +956,7 @@ def respond(user_input, lang='english'):
         if doctor and is_booking and time_slot:
             # VALIDATE TIME
             if not is_time_available(time_slot, doctor):
-                doc = DOCTORS[doctor]
+                doc = _get_doc(doctor) or {}
                 timings = doc['timings_te'] if lang == 'telugu' else doc['timings']
                 return f"Sorry, {time_slot} is not available.\n\nAvailable: {timings}\n\nWhat time works for you?"
             
@@ -888,15 +967,15 @@ def respond(user_input, lang='english'):
             _ds, _dn, _dd = extract_appointment_date(user_input)
             if _ds:
                 if not is_day_available_for_doctor(_ds, doctor):
-                    doc = DOCTORS[doctor]
-                    timings_inner = doc['timings_te'] if lang == 'telugu' else doc['timings']
-                    return f"Time {time_slot} noted. However, {doc['name']} is not available on {_dn}.\n\nAvailable: {timings_inner}\n\nWhat date works for you? (e.g., Tomorrow, Monday)"
+                    doc = _get_doc(doctor) or {}
+                    timings_inner = doc.get('timings_te', doc.get('timings', 'by appointment')) if lang == 'telugu' else doc.get('timings', 'by appointment')
+                    return f"Time {time_slot} noted. However, {doc.get('name', 'the doctor')} is not available on {_dn}.\n\nAvailable: {timings_inner}\n\nWhat date works for you? (e.g., Tomorrow, Monday)"
                 state['appointment_date'] = _ds
                 state['appointment_day'] = _dn
-            doc = DOCTORS[doctor]
+            doc = _get_doc(doctor) or {}
             if state['appointment_date']:
                 disp = format_date_display(state['appointment_date'])
-                return f"Great! Booking {doc['name']} ({doc['specialty']}) on {disp} at {time_slot}.\n\nPlease tell me your full name:"
+                return f"Great! Booking {doc.get('name', 'Doctor')} ({doc.get('specialty', '')}) on {disp} at {time_slot}.\n\nPlease tell me your full name:"
             else:
                 return f"Great! Let's book with {doc['name']} ({doc['specialty']}) at {state['appointment_time']}.\n\nWhat date? (e.g., Today, Tomorrow, Monday)"
         
@@ -904,8 +983,8 @@ def respond(user_input, lang='english'):
         elif doctor and is_booking and not time_slot:
             state['booking_active'] = True
             state['doctor_selected'] = doctor
-            doc = DOCTORS[doctor]
-            timings = doc['timings_te'] if lang == 'telugu' else doc['timings']
+            doc = _get_doc(doctor) or {}
+            timings = doc.get('timings_te', doc.get('timings', 'by appointment')) if lang == 'telugu' else doc.get('timings', 'by appointment')
             if lang == 'telugu':
                 return f"మీకు {doc['name']} ({doc['specialty']}) తో అపాయింట్‌మెంట్ బుక్ చేస్తాను.\n\nఉపలబ్ధ: {timings}\n\nఏ తేదీ మరియు సమయం? (ఉదా: రేపు 12:00 PM, సోమవారం 6:00 PM)"
             elif lang == 'hindi':
@@ -916,7 +995,7 @@ def respond(user_input, lang='english'):
         # Case 3: User asks about doctor/symptom (no booking intent - but remember the doctor)
         elif doctor and not is_booking:
             state['doctor_selected'] = doctor  # Remember the doctor for next message
-            doc = DOCTORS[doctor]
+            doc = _get_doc(doctor) or {}
             if lang == 'telugu':
                 timings = doc.get('timings_te', doc['timings'])
                 return f"నేను {doc['name']} ({doc['specialty']})ని సిఫారసు చేస్తున్నాను.\n\nఉపలబ్ధ: {timings}\n\n'బుక్' చెప్పండి లేదా మీకు సరిపడిన సమయం చెప్పండి."
@@ -957,7 +1036,7 @@ def respond(user_input, lang='english'):
     
     # If in booking mode - collect details step by step
     if state['booking_active']:
-        doc = DOCTORS[state['doctor_selected']]
+        doc = _get_doc(state['doctor_selected']) or {}
         
         # Inside booking mode - show language-appropriate timings
         if not state['appointment_time'] or not state['appointment_date']:
@@ -1185,7 +1264,7 @@ def respond(user_input, lang='english'):
 
 def confirm_booking(lang='english'):
     """Confirm and save booking"""
-    doc = DOCTORS[state['doctor_selected']]
+    doc = _get_doc(state['doctor_selected']) or {}
     appt_date = state.get('appointment_date') or datetime.now().strftime('%Y-%m-%d')
     appt_day  = state.get('appointment_day')  or datetime.strptime(appt_date, '%Y-%m-%d').strftime('%A')
     date_display = format_date_display(appt_date)  # e.g. 'Monday, 09 March 2026'
@@ -1267,11 +1346,13 @@ Your appointment is confirmed! Please arrive 10 minutes before your scheduled ti
     reset_state()
     return msg
 
-def generate_chatbot_response(user_input):
-    """Main function called by server"""
+def generate_chatbot_response(user_input, tenant_doctors=None):
+    """Main function called by server.
+    tenant_doctors: optional list of doctor dicts from DB for non-star-hospital tenants.
+    """
     # Detect from input; respond() will reconcile with persisted state['lang']
     language = detect_language(user_input)
-    response = respond(user_input, language)
+    response = respond(user_input, language, tenant_doctors=tenant_doctors)
     
     # Ensure response is never None
     if response is None:

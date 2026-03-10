@@ -844,26 +844,25 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_founder_system_status()
 
         elif path == '/api/doctors/directory':
-            # Returns full doctor directory — reads from staff_users where role=DOCTOR
-            # (A separate 'doctors' table may not exist on all tenant DBs)
+            # Returns full doctor directory — tenant-aware via session slug
             if _DB_AVAILABLE:
                 try:
                     import psycopg2.extras as _px
-                    with hospital_db.get_conn() as _conn:
+                    _tdb = self._get_tenant_db() or hospital_db
+                    with _tdb.get_conn() as _conn:
                         _cur = _conn.cursor(cursor_factory=_px.RealDictCursor)
                         # Try dedicated doctors table first, fall back to staff_users
                         try:
                             _cur.execute(
                                 "SELECT id, name, department, specialization, "
-                                "qualifications, registration_no, status, on_duty "
+                                "phone, status, on_duty "
                                 "FROM doctors ORDER BY department, name"
                             )
                         except Exception:
                             _conn.rollback()
                             _cur.execute(
                                 "SELECT id, username AS name, department, "
-                                "'' AS specialization, '' AS qualifications, "
-                                "'' AS registration_no, "
+                                "'' AS specialization, '' AS phone, "
                                 "CASE WHEN is_active THEN 'active' ELSE 'inactive' END AS status, "
                                 "TRUE AS on_duty "
                                 "FROM staff_users WHERE role='DOCTOR' "
@@ -871,7 +870,6 @@ class Handler(BaseHTTPRequestHandler):
                             )
                         _rows = [dict(r) for r in _cur.fetchall()]
                         _cur.close()
-                    # Prefer full_name if available
                     self.send_json({'doctors': _rows, 'count': len(_rows)})
                 except Exception as _e:
                     self.send_json({'error': str(_e)}, 500)
@@ -1049,22 +1047,38 @@ class Handler(BaseHTTPRequestHandler):
         elif path.startswith('/api/patients/search'):
             if self.require_role('ADMIN', 'RECEPTION', 'DOCTOR', 'NURSE'):
                 from urllib.parse import parse_qs, urlparse as _up
+                import psycopg2.extras as _px
                 qs    = parse_qs(_up(self.path).query)
                 phone = qs.get('phone', [''])[0].strip()
                 name  = qs.get('name',  [''])[0].strip()
-                if phone:
-                    results = _hms.search_patient_by_phone(phone)
-                elif name and _DB_AVAILABLE:
-                    import psycopg2.extras as _px
-                    with hospital_db.get_conn() as _c:
+                q     = qs.get('q',     [''])[0].strip()
+                _tdb  = self._get_tenant_db() or hospital_db
+                try:
+                    with _tdb.get_conn() as _c:
                         _cur = _c.cursor(cursor_factory=_px.RealDictCursor)
-                        _cur.execute(
-                            "SELECT id AS patient_id, full_name, phone, gender, "
-                            "blood_group, TO_CHAR(created_at,'YYYY-MM-DD') AS registered_on "
-                            "FROM patients WHERE full_name ILIKE %s ORDER BY full_name LIMIT 20",
-                            (f"%{name}%",))
+                        if phone or (q and q.replace(' ', '').isdigit()):
+                            _term = phone or q
+                            _cur.execute(
+                                "SELECT id AS patient_id, full_name, phone, gender, uhid, "
+                                "TO_CHAR(created_at,'YYYY-MM-DD') AS registered_on "
+                                "FROM patients WHERE phone=%s ORDER BY full_name LIMIT 50",
+                                (_term,))
+                        elif name or q:
+                            _term = name or q
+                            _cur.execute(
+                                "SELECT id AS patient_id, full_name, phone, gender, uhid, "
+                                "TO_CHAR(created_at,'YYYY-MM-DD') AS registered_on "
+                                "FROM patients WHERE full_name ILIKE %s OR uhid ILIKE %s "
+                                "ORDER BY full_name LIMIT 50",
+                                (f"%{_term}%", f"%{_term}%"))
+                        else:
+                            # No filter — return all (admin list)
+                            _cur.execute(
+                                "SELECT id AS patient_id, full_name, phone, gender, uhid, "
+                                "TO_CHAR(created_at,'YYYY-MM-DD') AS registered_on "
+                                "FROM patients ORDER BY full_name LIMIT 200")
                         results = [dict(r) for r in _cur.fetchall()]
-                else:
+                except Exception as _pe:
                     results = []
                 self.send_json({'patients': results, 'count': len(results)})
 
@@ -4499,10 +4513,22 @@ class Handler(BaseHTTPRequestHandler):
         try:
             message = data.get('message', '').strip()
             session_id = data.get('session_id', 'default')
-            
+            tenant_slug = (data.get('tenant_slug') or '').strip() or 'star_hospital'
+
             if not message:
                 self.send_json({'error': 'Empty message'}, 400)
                 return
+
+            # Load DB doctors for non-star-hospital tenants so chatbot
+            # can recommend their own doctors instead of hardcoded ones.
+            tenant_doctors = None
+            if tenant_slug and tenant_slug != 'star_hospital':
+                try:
+                    raw_doctors = self._get_public_doctors(tenant_slug)
+                    if raw_doctors:
+                        tenant_doctors = raw_doctors
+                except Exception:
+                    tenant_doctors = None
             
             # Load or create session state
             if session_id not in conversation_sessions:
@@ -4543,7 +4569,7 @@ class Handler(BaseHTTPRequestHandler):
             set_chatbot_state(chatbot_state)
             
             # Generate response
-            response_result = generate_chatbot_response(message)
+            response_result = generate_chatbot_response(message, tenant_doctors=tenant_doctors)
             
             # Handle response format
             if isinstance(response_result, tuple):

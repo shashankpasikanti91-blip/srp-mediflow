@@ -59,7 +59,8 @@ async function sendMessage(msg = null) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 message: message,
-                session_id: sessionId
+                session_id: sessionId,
+                tenant_slug: (typeof window !== 'undefined' && window.TENANT_SLUG) ? window.TENANT_SLUG : ''
             })
         });
         
