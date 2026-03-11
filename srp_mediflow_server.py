@@ -2885,7 +2885,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 cur.execute("""
                     SELECT COALESCE(name, ''), COALESCE(specialization, department, ''),
-                           COALESCE(qualification, qualifications, ''),
+                           COALESCE(qualification, ''),
                            COALESCE(registration_no, '')
                     FROM doctors
                     WHERE status IS DISTINCT FROM 'inactive'

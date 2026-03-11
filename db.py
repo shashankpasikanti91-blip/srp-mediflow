@@ -458,7 +458,7 @@ def get_all_doctors() -> list:
     """Return all doctors."""
     sql = """
         SELECT id, name, department, specialization,
-               COALESCE(qualification, qualifications, '') AS qualification,
+               COALESCE(qualification, '') AS qualification,
                COALESCE(registration_no, '') AS registration_no,
                status, on_duty,
                TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
