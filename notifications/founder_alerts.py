@@ -40,25 +40,34 @@ import urllib.parse
 import urllib.error
 from datetime import datetime, timezone
 
-# ── Credentials ───────────────────────────────────────────────────────────────
-FOUNDER_TELEGRAM_TOKEN = os.getenv(
-    "FOUNDER_TELEGRAM_TOKEN",
-    "8768907442:AAHzmIZiEFgr_i-9EUtNCwAf2VQkWzYE2y0",
-)
-FOUNDER_TELEGRAM_CHAT_ID = os.getenv(
-    "FOUNDER_TELEGRAM_CHAT_ID",
-    "7144152487",
-)
+# ── Bot routing ──────────────────────────────────────────────────────────
+# Bot 1 | FOUNDER_TELEGRAM_TOKEN  — SERVER_START, NEW_CLIENT, general info
+# Bot 2 | ALERT_BOT_TOKEN         — SERVER_CRASH, DB_ERROR, SECURITY, BACKUP_FAILED
+# Both bots send to the same FOUNDER_TELEGRAM_CHAT_ID (7144152487)
+# ──────────────────────────────────────────────────────────────────────
 
-# ── Valid event types (whitelist) ─────────────────────────────────────────────
-FOUNDER_ALERT_EVENTS = frozenset({
-    "SERVER_START",
+# Founder bot: general platform info (SERVER_START, NEW_CLIENT)
+FOUNDER_TELEGRAM_TOKEN = os.getenv("FOUNDER_TELEGRAM_TOKEN", "")
+FOUNDER_TELEGRAM_CHAT_ID = os.getenv("FOUNDER_TELEGRAM_CHAT_ID", "")
+
+# High-alerts bot: critical issues only (CRASH, DB_ERROR, SECURITY, BACKUP)
+ALERT_BOT_TOKEN   = os.getenv("ALERT_BOT_TOKEN", FOUNDER_TELEGRAM_TOKEN)
+ALERT_CHAT_ID     = os.getenv("ALERT_CHAT_ID",   FOUNDER_TELEGRAM_CHAT_ID)
+
+# Which events route to which bot
+_CRITICAL_EVENTS = frozenset({
     "SERVER_CRASH",
     "DATABASE_CONNECTION_ERROR",
-    "NEW_CLIENT_REGISTERED",
     "SECURITY_ALERT",
     "BACKUP_FAILED",
 })
+_INFO_EVENTS = frozenset({
+    "SERVER_START",
+    "NEW_CLIENT_REGISTERED",
+})
+
+# ── Valid event types (union of both sets, used for whitelist validation) ──────
+FOUNDER_ALERT_EVENTS = _CRITICAL_EVENTS | _INFO_EVENTS
 
 # ── Log file setup ────────────────────────────────────────────────────────────
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -124,19 +133,45 @@ def _send_telegram(token: str, chat_id: str, text: str) -> bool:
 def _dispatch(event_type: str, message: str) -> None:
     """
     Background worker: write to log file, then push to Telegram.
+    - Critical events   → ALERT_BOT  (8575178795, srpmediflow chat)
+    - Info events       → FOUNDER bot (8768907442, Hosagent chat)
+    - SERVER_START      → rate-limited to once per 90 seconds
     Called from a daemon thread — never raises.
     """
-    full_text = _build_message(event_type, message)
+    # ── Rate-limit SERVER_START ────────────────────────────────────────────
+    if event_type == "SERVER_START":
+        import time, os as _os
+        _stamp = "/tmp/srp_founder_start.txt"
+        _now   = time.time()
+        _last  = float(open(_stamp).read().strip()) if _os.path.exists(_stamp) else 0
+        if _now - _last < 90:  # fired within the last 90 seconds — skip
+            _logger.info("[SERVER_START] Rate-limited — skipping Telegram.")
+            return
+        try:
+            open(_stamp, 'w').write(str(_now))
+        except Exception:
+            pass
 
-    # 1. Write to log file
+    full_text = _build_message(event_type, message)
     _logger.info("[%s] %s", event_type, message)
 
-    # 2. Send to founder via Telegram
-    success = _send_telegram(FOUNDER_TELEGRAM_TOKEN, FOUNDER_TELEGRAM_CHAT_ID, full_text)
-    if success:
-        _logger.info("[%s] Founder Telegram alert delivered.", event_type)
+    # Route to the right bot
+    if event_type in _CRITICAL_EVENTS:
+        token   = ALERT_BOT_TOKEN
+        chat_id = ALERT_CHAT_ID
     else:
-        _logger.warning("[%s] Founder Telegram delivery FAILED — check token/chat_id.", event_type)
+        token   = FOUNDER_TELEGRAM_TOKEN
+        chat_id = FOUNDER_TELEGRAM_CHAT_ID
+
+    if not token or not chat_id:
+        _logger.warning("[%s] Bot token/chat_id not configured — skipping.", event_type)
+        return
+
+    success = _send_telegram(token, chat_id, full_text)
+    if success:
+        _logger.info("[%s] Telegram alert delivered.", event_type)
+    else:
+        _logger.warning("[%s] Telegram delivery FAILED — check token/chat_id.", event_type)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

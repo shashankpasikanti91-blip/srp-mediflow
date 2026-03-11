@@ -85,12 +85,14 @@ else:
     logger.warning("⚠️  Telegram bot not configured")
 
 # ── Founder / Platform-owner notification channel ─────────────────────────────
-# As platform founder you receive a copy of ALL hospital events across ALL clients.
-# Set FOUNDER_CHAT_ID to YOUR personal Telegram chat ID.
-# (Open https://t.me/userinfobot to get your ID, then start a chat with the bot.)
-# FOUNDER_BOT_TOKEN defaults to the same bot token — no extra bot needed.
-FOUNDER_CHAT_ID   = os.getenv("FOUNDER_CHAT_ID", "")
-FOUNDER_BOT_TOKEN = os.getenv("FOUNDER_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
+# FOUNDER_BOT_TOKEN uses the dedicated founder bot (8768907442).
+# Falls back to FOUNDER_TELEGRAM_TOKEN, then TELEGRAM_BOT_TOKEN as last resort.
+FOUNDER_CHAT_ID   = os.getenv("FOUNDER_CHAT_ID", os.getenv("FOUNDER_TELEGRAM_CHAT_ID", ""))
+FOUNDER_BOT_TOKEN = (
+    os.getenv("FOUNDER_BOT_TOKEN")
+    or os.getenv("FOUNDER_TELEGRAM_TOKEN")
+    or TELEGRAM_BOT_TOKEN
+)
 _FOUNDER_ACTIVE   = bool(FOUNDER_CHAT_ID and FOUNDER_BOT_TOKEN)
 
 if _FOUNDER_ACTIVE:
