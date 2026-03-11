@@ -25,12 +25,12 @@ except ImportError:
 _sessions: dict = {}
 SESSION_TTL = 8 * 3600  # 8 hours
 
-# ── PostgreSQL-backed session persistence (survives restarts) ──────────────────
+# ── PostgreSQL-backed session + lockout persistence (survives restarts) ────────
 try:
     import psycopg2 as _pg2
     _PG_SESSION = True
 except ImportError:
-    _PG2 = None
+    _pg2 = None
     _PG_SESSION = False
 
 def _pg_conn():
@@ -52,7 +52,7 @@ def _pg_conn():
         return None
 
 def _init_session_table():
-    """Create sessions table in platform DB if it doesn't exist."""
+    """Create sessions + lockout tables in platform DB if they don't exist."""
     conn = _pg_conn()
     if not conn:
         return
@@ -67,6 +67,16 @@ def _init_session_table():
                     )
                 """)
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON auth_sessions(expires_at)")
+                # Lockout table — brute-force protection survives restarts
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS auth_lockouts (
+                        username    TEXT NOT NULL,
+                        tenant_slug TEXT NOT NULL,
+                        attempts    INTEGER NOT NULL DEFAULT 0,
+                        locked_until DOUBLE PRECISION,
+                        PRIMARY KEY (username, tenant_slug)
+                    )
+                """)
     except Exception:
         pass
     finally:
@@ -284,6 +294,76 @@ def _lockout_key(username: str, tenant_slug: str) -> tuple:
     return (username.strip().lower(), (tenant_slug or 'star_hospital').strip().lower())
 
 
+def _save_lockout_db(username: str, tenant_slug: str, attempts: int, locked_until: float | None):
+    """Persist lockout record to DB (non-blocking)."""
+    conn = _pg_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO auth_lockouts (username, tenant_slug, attempts, locked_until)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (username, tenant_slug) DO UPDATE
+                        SET attempts = EXCLUDED.attempts,
+                            locked_until = EXCLUDED.locked_until
+                """, (username.lower(), (tenant_slug or '').lower(), attempts, locked_until))
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _load_lockout_db(username: str, tenant_slug: str) -> dict | None:
+    """Load lockout record from DB — used on in-memory cache miss."""
+    conn = _pg_conn()
+    if not conn:
+        return None
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT attempts, locked_until FROM auth_lockouts WHERE username=%s AND tenant_slug=%s",
+                    (username.lower(), (tenant_slug or '').lower())
+                )
+                row = cur.fetchone()
+                if row:
+                    return {'attempts': row[0], 'locked_until': row[1]}
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+    return None
+
+
+def _delete_lockout_db(username: str, tenant_slug: str):
+    """Remove lockout record from DB on successful login."""
+    conn = _pg_conn()
+    if not conn:
+        return
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM auth_lockouts WHERE username=%s AND tenant_slug=%s",
+                    (username.lower(), (tenant_slug or '').lower())
+                )
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
 def check_lockout(username: str, tenant_slug: str) -> dict:
     """
     Return {'locked': bool, 'seconds_remaining': int, 'attempts': int}.
@@ -291,6 +371,11 @@ def check_lockout(username: str, tenant_slug: str) -> dict:
     """
     key  = _lockout_key(username, tenant_slug)
     rec  = _lockout_store.get(key)
+    if not rec:
+        # Try DB (handles server restarts)
+        rec = _load_lockout_db(username, tenant_slug)
+        if rec:
+            _lockout_store[key] = rec
     if not rec:
         return {'locked': False, 'seconds_remaining': 0, 'attempts': 0}
 
@@ -301,6 +386,7 @@ def check_lockout(username: str, tenant_slug: str) -> dict:
     # Lock has expired — clear it
     if rec.get('locked_until') and rec['locked_until'] <= time.time():
         del _lockout_store[key]
+        _delete_lockout_db(username, tenant_slug)
     return {'locked': False, 'seconds_remaining': 0, 'attempts': rec.get('attempts', 0)}
 
 
@@ -313,8 +399,14 @@ def record_failed_attempt(username: str, tenant_slug: str) -> dict:
     rec = _lockout_store.setdefault(key, {'attempts': 0, 'locked_until': None})
     rec['attempts'] += 1
 
+    locked_until = None
     if rec['attempts'] >= MAX_ATTEMPTS:
-        rec['locked_until'] = time.time() + LOCKOUT_SECONDS
+        locked_until = time.time() + LOCKOUT_SECONDS
+        rec['locked_until'] = locked_until
+    # Persist to DB so restart doesn't clear the lockout
+    _save_lockout_db(username, tenant_slug, rec['attempts'], locked_until)
+
+    if rec['attempts'] >= MAX_ATTEMPTS:
         return {
             'locked': True,
             'seconds_remaining': LOCKOUT_SECONDS,
@@ -327,6 +419,7 @@ def reset_lockout(username: str, tenant_slug: str) -> None:
     """Clear failed attempts on successful login."""
     key = _lockout_key(username, tenant_slug)
     _lockout_store.pop(key, None)
+    _delete_lockout_db(username, tenant_slug)
 
 
 # ══════════════════════════════════════════════

@@ -43,7 +43,7 @@ logging.basicConfig(
 # ── Configuration (loaded from environment) ───────────────────────────────────
 WHATSAPP_API_KEY          = os.getenv("WHATSAPP_API_KEY", "")
 WHATSAPP_PHONE_NUMBER_ID  = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
-WHATSAPP_WEBHOOK_SECRET   = os.getenv("WHATSAPP_WEBHOOK_SECRET", "srp_mediflow_secret")
+WHATSAPP_WEBHOOK_SECRET   = os.getenv("WHATSAPP_WEBHOOK_SECRET", "")  # Set in .env — no default
 WHATSAPP_API_VERSION      = os.getenv("WHATSAPP_API_VERSION", "v18.0")
 WHATSAPP_BASE_URL         = (
     f"https://graph.facebook.com/{WHATSAPP_API_VERSION}"

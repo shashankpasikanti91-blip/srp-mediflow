@@ -138,13 +138,41 @@ Server starts at **http://localhost:7500**
 
 ## 🔒 Security
 
-- bcrypt password hashing (salt rounds = 12)
-- Session token authentication (UUID, per-request validation)
+- **All API keys in `.env` only** — never hardcoded in source code
+- bcrypt password hashing (rounds = 12)
+- Session token authentication (64-char hex, DB-persisted)
 - Mandatory password change on first login
 - Full audit log of all actions
 - Tenant DB isolation — queries never cross tenant boundaries
-- Rate limiting per IP
+- Rate limiting per IP on all auth endpoints
+- Brute-force lockout (3 failed attempts → 15 min, DB-persisted across restarts)
+- No internal error details leak to API clients — all exceptions sanitised
+- Security HTTP headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`, `CSP`
+- CORS locked-down — unknown origins return `null`, not `*`
+- Session cookies: `HttpOnly; SameSite=Lax; Path=/`
 - No cross-tenant data leakage (verified: 26/26 isolation tests)
+
+### API Keys & Secrets — Checklist
+
+| Secret | Where to configure | Risk if exposed |
+|--------|-------------------|-----------------|
+| `OPENAI_API_KEY` | `.env` | Billing charges on your OpenAI account |
+| `TELEGRAM_BOT_TOKEN` | `.env` | Anyone can send messages as your bot |
+| `TELEGRAM_CHAT_ID` | `.env` | Low risk alone, but protects privacy |
+| `FOUNDER_CHAT_ID` | `.env` | Your personal Telegram ID |
+| `WHATSAPP_API_KEY` | `.env` | SMS/WhatsApp charges on your Meta account |
+| `WHATSAPP_WEBHOOK_SECRET` | `.env` | Allows fake webhook payloads |
+| `NGROK_AUTH_TOKEN` | `.env` | Tunnel abuse on your ngrok account |
+| `PG_PASSWORD` | `.env` | Full database access |
+| `credentials.json` | gitignored | Full Google Cloud access |
+
+> **Never put any of the above in source code.** Use `.env.example` as a template — it has no real values.
+
+### Setup
+```bash
+cp .env.example .env
+# Edit .env with your real values
+```
 
 ---
 
@@ -164,12 +192,12 @@ Server starts at **http://localhost:7500**
 
 ### Manual tenant provisioning
 ```bash
-python _provision_all_tenants.py
+python saas_onboarding.py --provision-all
 ```
 
 ### Seed demo data
 ```bash
-python _seed_demo_records.py
+python saas_onboarding.py --seed-demo
 ```
 
 ---
@@ -249,18 +277,41 @@ python srp_mediflow_server.py &
 # Each hospital gets: hospitalname.mediflow.srpailabs.com
 ```
 
-### Environment variables (.env)
+### Environment variables (`.env`)
+```bash
+# Copy template and fill in real values
+cp .env.example .env
+```
+
+Key variables (see `.env.example` for full list):
 ```
 PG_HOST=localhost
 PG_PORT=5432
 PG_USER=ats_user
-PG_PASSWORD=ats_password
-PLATFORM_DB=srp_platform
+PG_PASSWORD=your_db_password
+PLATFORM_DB_NAME=srp_platform_db
+APP_URL=https://mediflow.srpailabs.com
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_staff_group_chat_id
+FOUNDER_CHAT_ID=your_personal_telegram_chat_id
+OPENAI_API_KEY=your_openai_key
+WHATSAPP_API_KEY=your_whatsapp_bearer_token
+WHATSAPP_WEBHOOK_SECRET=your_strong_random_secret
 ```
 
 ---
 
 ## 📝 Changelog
+
+### v5.0 (March 2026)
+- ✅ **Security hardening**: sanitised all 14 API error responses — no internal details leak to clients
+- ✅ **Security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`, `CSP`, `Referrer-Policy` on every response
+- ✅ **CORS locked down**: unknown origins blocked (`null`), never wildcard `*`
+- ✅ **All API keys in `.env`**: removed hardcoded Telegram token, ngrok token, WhatsApp secret
+- ✅ **Brute-force lockout DB-persisted**: survives server restarts (stored in `auth_lockouts` table)
+- ✅ **Session cookies**: `HttpOnly; SameSite=Lax` on all login responses
+- ✅ **Codebase cleanup**: removed all 38 debug `_*.py` scripts and 25 `srv*.txt` log files
+- ✅ **Founder dashboard**: DB isolation test, all-clients view, system-status health check fully working
 
 ### v4.0 (March 2026)
 - ✅ New comprehensive marketing landing page (`platform_landing.html`)

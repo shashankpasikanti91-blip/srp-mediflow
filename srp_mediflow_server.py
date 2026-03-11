@@ -541,7 +541,8 @@ class Handler(BaseHTTPRequestHandler):
                         cfg['doctors'] = []
                 self.send_json(cfg)
             except Exception as e:
-                self.send_json({'hospital_name': 'Hospital', 'error': str(e)})
+                _error_log.error(f'CONFIG_ERROR: {e}')
+                self.send_json({'hospital_name': 'Hospital', 'error': 'Configuration unavailable'})
         elif path == '/admin' or path == '/admin/':
             user = self.get_session_user()
             if user and roles.has_permission(user['role'], 'view_dashboard'):
@@ -2510,7 +2511,7 @@ class Handler(BaseHTTPRequestHandler):
             }, 201 if result.get('status') == 'success' else 400)
         except Exception as exc:
             _error_log.error(f"DEMO_HOSPITAL_ERROR: {exc}")
-            self.send_json({'error': str(exc)}, 500)
+            self.send_json({'error': 'Server error — please try again'}, 500)
 
     # ── HMS: Prescription handler (structured + legacy) ───────────────────────
     def _handle_hms_prescription(self, data: dict):
@@ -2669,7 +2670,8 @@ class Handler(BaseHTTPRequestHandler):
             )
             self.send_json({'status': 'ok', 'result': result})
         except Exception as exc:
-            self.send_json({'error': str(exc)}, 500)
+            _error_log.error(f'NOTIFICATION_TEST_ERROR: {exc}')
+            self.send_json({'error': 'Notification test failed'}, 500)
 
     def _handle_ai_generate_message(self, msg_type: str, patient: str, doctor: str, details: str):
         """GET|POST /api/ai/generate-message — use GPT-4o-mini to draft a patient notification."""
@@ -2729,9 +2731,10 @@ class Handler(BaseHTTPRequestHandler):
             generated = resp.choices[0].message.content.strip()
             self.send_json({'message': generated, 'source': 'openai'})
         except Exception as exc:
-            # Fallback gracefully
+            _error_log.error(f'AI_MESSAGE_ERROR: {exc}')
+            # Fallback gracefully — do NOT expose internal error to client
             msg = TEMPLATES.get(msg_type, TEMPLATES['alert'])
-            self.send_json({'message': msg, 'source': 'template', 'note': str(exc)})
+            self.send_json({'message': msg, 'source': 'template'})
 
     def serve_file(self, filename, content_type):
         try:
@@ -2741,7 +2744,12 @@ class Handler(BaseHTTPRequestHandler):
             
             self.send_response(200)
             self.send_header('Content-Type', content_type)
-            self.send_header('Access-Control-Allow-Origin', '*')
+            # Security headers on all file responses
+            self.send_header('X-Frame-Options', 'DENY')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('X-XSS-Protection', '1; mode=block')
+            self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+            self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
             self.end_headers()
             self.wfile.write(content)
         except FileNotFoundError:
@@ -4640,7 +4648,8 @@ class Handler(BaseHTTPRequestHandler):
             })
             
         except Exception as e:
-            self.send_json({'error': f'Chat error: {str(e)}'}, 500)
+            _error_log.error(f'CHAT_ERROR: {e}')
+            self.send_json({'error': 'Chat unavailable — please try again'}, 500)
     
     def handle_register(self, data):
         try:
@@ -4707,8 +4716,8 @@ class Handler(BaseHTTPRequestHandler):
             })
 
         except Exception as e:
-            print(f"Registration error: {e}")
-            self.send_json({'error': f'Registration error: {str(e)}'}, 500)
+            _error_log.error(f'REGISTRATION_ERROR: {e}')
+            self.send_json({'error': 'Registration failed — please retry'}, 500)
     
     def handle_transcribe(self, data):
         if not transcribe_audio:
@@ -4726,7 +4735,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({'transcription': transcription})
             
         except Exception as e:
-            self.send_json({'error': f'Transcription error: {str(e)}'}, 500)
+            _error_log.error(f'TRANSCRIPTION_ERROR: {e}')
+            self.send_json({'error': 'Transcription failed'}, 500)
     
     def send_admin_data(self):
         try:
@@ -4765,7 +4775,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(data)
 
         except Exception as e:
-            self.send_json({'error': f'Admin data error: {str(e)}'}, 500)
+            _error_log.error(f'ADMIN_DATA_ERROR: {e}')
+            self.send_json({'error': 'Data unavailable'}, 500)
     
     def handle_attendance(self, data):
         try:
@@ -4795,7 +4806,8 @@ class Handler(BaseHTTPRequestHandler):
             })
 
         except Exception as e:
-            self.send_json({'error': f'Attendance error: {str(e)}'}, 500)
+            _error_log.error(f'ATTENDANCE_ERROR: {e}')
+            self.send_json({'error': 'Attendance update failed'}, 500)
 
     def handle_doctor_checkin(self, data):
         """Check in a doctor — marks on_duty=True and logs attendance."""
@@ -4817,7 +4829,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'status': 'success',
                                 'message': f'{doctor_name} check-in recorded (file mode)'})
         except Exception as e:
-            self.send_json({'error': f'Doctor check-in error: {str(e)}'}, 500)
+            _error_log.error(f'DOCTOR_CHECKIN_ERROR: {e}')
+            self.send_json({'error': 'Check-in failed'}, 500)
 
     def handle_doctor_checkout(self, data):
         """Check out a doctor — marks on_duty=False and logs attendance."""
@@ -4839,7 +4852,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_json({'status': 'success',
                                 'message': f'{doctor_name} check-out recorded (file mode)'})
         except Exception as e:
-            self.send_json({'error': f'Doctor check-out error: {str(e)}'}, 500)
+            _error_log.error(f'DOCTOR_CHECKOUT_ERROR: {e}')
+            self.send_json({'error': 'Check-out failed'}, 500)
 
     def handle_add_round(self, data):
         """Add a doctor round schedule."""
@@ -4861,7 +4875,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_json({'status': 'success', 'message': 'Round recorded (file mode)'})
         except Exception as e:
-            self.send_json({'error': f'Add round error: {str(e)}'}, 500)
+            _error_log.error(f'ADD_ROUND_ERROR: {e}')
+            self.send_json({'error': 'Round update failed'}, 500)
 
     def handle_complete_round(self, data):
         """Mark a doctor round as completed."""
@@ -4877,7 +4892,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self.send_json({'status': 'success', 'message': 'Completed (file mode)'})
         except Exception as e:
-            self.send_json({'error': f'Complete round error: {str(e)}'}, 500)
+            _error_log.error(f'COMPLETE_ROUND_ERROR: {e}')
+            self.send_json({'error': 'Round completion failed'}, 500)
     
     def handle_admin_appointments(self, data):
         try:
@@ -4904,7 +4920,8 @@ class Handler(BaseHTTPRequestHandler):
                 })
             
         except Exception as e:
-            self.send_json({'error': f'Appointment update error: {str(e)}'}, 500)
+            _error_log.error(f'APPOINTMENT_UPDATE_ERROR: {e}')
+            self.send_json({'error': 'Appointment update failed'}, 500)
     
     def send_json(self, data, code=200):
         import decimal, datetime
@@ -4915,15 +4932,24 @@ class Handler(BaseHTTPRequestHandler):
                 return super().default(o)
         self.send_response(code)
         self.send_header('Content-Type', 'application/json; charset=utf-8')
-        # CORS — allow the configured APP_URL and localhost for dev
+        # Security headers
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-XSS-Protection', '1; mode=block')
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header('Content-Security-Policy',
+                         "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+                         "style-src 'self' 'unsafe-inline'")
+        # CORS — unknown origins are blocked (null), never wildcard
         _req_origin = self.headers.get('Origin', '')
         _allowed = {APP_URL, f'http://localhost:{PORT}', 'http://127.0.0.1:7500'}
-        _cors = _req_origin if _req_origin in _allowed else '*'
-        self.send_header('Access-Control-Allow-Origin', _cors)
+        if _req_origin in _allowed:
+            self.send_header('Access-Control-Allow-Origin', _req_origin)
+            self.send_header('Access-Control-Allow-Credentials', 'true')
+        else:
+            self.send_header('Access-Control-Allow-Origin', 'null')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Cookie')
-        if _cors != '*':
-            self.send_header('Access-Control-Allow-Credentials', 'true')
         self.end_headers()
         self.wfile.write(json.dumps(data, ensure_ascii=False, cls=_Enc).encode('utf-8'))
     
@@ -4935,8 +4961,10 @@ def start_ngrok_tunnel():
     """Start ngrok tunnel automatically"""
     try:
         print("🚀 Starting Ngrok tunnel...")
-        team_token = "37Rwq30wuAywubCrSJLEDEppC2T_edeYm2GjcqSt6DQnHWnC"
-        
+        team_token = os.getenv('NGROK_AUTH_TOKEN', '')
+        if not team_token:
+            print("⚠️  NGROK_AUTH_TOKEN not set in .env — tunnel skipped")
+            return None
         # Start ngrok process in background
         ngrok_cmd = f"ngrok http {PORT} --authtoken={team_token}"
         subprocess.Popen(

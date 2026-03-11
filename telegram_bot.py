@@ -1,18 +1,18 @@
 """
 ════════════════════════════════════════════════════════════════════════════════
   SRP MediFlow — Telegram Bot Integration
-  Hospital : Star Hospital, Kothagudem, Telangana
   Module   : telegram_bot.py
-  Version  : 1.0 — LIVE (credentials configured)
+  Version  : 1.0
 ════════════════════════════════════════════════════════════════════════════════
 
 PURPOSE:
   Give hospital admin/staff instant WhatsApp-like alerts on Telegram.
   Much faster to set up than WhatsApp Business API.
 
-CONFIGURED FOR:
-  Bot Token : 8535042281:AAG6koMQ17LVJPigw8TNzJq5fAGZNEYObkE
-  Chat ID   : 7144152487
+SETUP:
+  Set credentials in your .env file (never hardcode here):
+    TELEGRAM_BOT_TOKEN=<your_bot_token>
+    TELEGRAM_CHAT_ID=<your_chat_id>
 
 WHAT IT SENDS:
   ✅ New OPD patient registration
@@ -71,15 +71,9 @@ logging.basicConfig(
     format="%(asctime)s [Telegram] %(levelname)s %(message)s",
 )
 
-# ── Credentials (override via environment variables if needed) ────────────────
-TELEGRAM_BOT_TOKEN = os.getenv(
-    "TELEGRAM_BOT_TOKEN",
-    "8535042281:AAG6koMQ17LVJPigw8TNzJq5fAGZNEYObkE"
-)
-TELEGRAM_CHAT_ID = os.getenv(
-    "TELEGRAM_CHAT_ID",
-    "7144152487"
-)
+# ── Credentials — MUST be set in .env (never hardcode here) ──────────────────
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 TELEGRAM_API_BASE = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 

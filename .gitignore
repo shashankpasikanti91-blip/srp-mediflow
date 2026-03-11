@@ -1,7 +1,8 @@
-# Environment Variables
+# Environment Variables (NEVER commit)
 .env
 .env.local
 .env.*.local
+# .env.example IS committed (contains no real values)
 
 # Sensitive credentials and data files
 credentials.json
@@ -10,6 +11,8 @@ registrations.txt
 attendance.txt
 *.key
 *.pem
+*.p12
+*.pfx
 
 # Python
 __pycache__/
@@ -59,6 +62,8 @@ server.pid
 *.pid
 srvout*.txt
 srverr*.txt
+srv_out*.txt
+srv_err*.txt
 _login_results.txt
 
 # Logs directory
@@ -71,16 +76,9 @@ ADMIN_LOGIN_CREDENTIALS.md
 # Generated trial HTML files
 trials/
 
-# Internal test / fix / cleanup scripts (non-production)
-_check_schema*.py
-_cleanup_*.py
-_fix_*.py
-_reset_*.py
-_test_*.py
-_provision_*.py
-_e2e_test_*.py
-_seed_demo_records.py
+# Internal debug/test/fix/cleanup scripts (underscore prefix)
+_*.py
+apidata.json
 pre_deploy_test.py
 run_all_checks.py
 test_results*.txt
-apidata.json
