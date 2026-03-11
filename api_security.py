@@ -24,6 +24,7 @@ body = sanitize_dict(json.loads(request.body))
 """
 
 from __future__ import annotations
+import os
 import re
 import html
 import functools
@@ -201,7 +202,7 @@ import time as _time
 _rate_store: dict[str, list[float]] = {}
 
 RATE_LIMIT_WINDOW  = 60      # seconds
-RATE_LIMIT_MAX_REQ = 60      # max requests per window per IP
+RATE_LIMIT_MAX_REQ = int(os.environ.get('RATE_LIMIT_MAX_REQ', '300'))  # 300/min for multi-client platform
 
 
 def check_rate_limit(ip: str) -> bool:
