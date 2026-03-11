@@ -222,15 +222,20 @@ def _ts() -> str:
 
 def _forward_to_founder(text: str, hospital_name: str = "") -> None:
     """
-    Mirror any hospital notification to the platform founder's personal chat.
-    Prefixes the message with a [CLIENT] tag so the founder knows which hospital.
-    Silent fire-and-forget — never blocks the main notification.
-    Skipped automatically if FOUNDER_CHAT_ID == TELEGRAM_CHAT_ID (same person)
-    to avoid duplicate messages.
+    DISABLED — Hospital clinical events (OPD, IPD, appointments, stock, etc.)
+    must NOT flood the founder's personal Telegram.
+
+    The founder receives ONLY system-level alerts via notifications/founder_alerts.py:
+      SERVER_START, SERVER_CRASH, DATABASE_CONNECTION_ERROR,
+      NEW_CLIENT_REGISTERED, SECURITY_ALERT, BACKUP_FAILED
+
+    To re-enable mirroring in the future, set env var FOUNDER_MIRROR_CLINICAL=1.
     """
+    # Clinical events never forwarded to founder (stops multi-bot spam).
+    if os.getenv("FOUNDER_MIRROR_CLINICAL", "0") != "1":
+        return
     if not _FOUNDER_ACTIVE:
         return
-    # Don't double-send if founder IS the hospital admin
     if FOUNDER_CHAT_ID == TELEGRAM_CHAT_ID:
         return
     try:
@@ -239,7 +244,7 @@ def _forward_to_founder(text: str, hospital_name: str = "") -> None:
             "chat_id":              FOUNDER_CHAT_ID,
             "text":                 prefix + text,
             "parse_mode":           "HTML",
-            "disable_notification": True,   # silent for founder — no buzz
+            "disable_notification": True,
         }).encode("utf-8")
         api = f"https://api.telegram.org/bot{FOUNDER_BOT_TOKEN}/sendMessage"
         req = urllib.request.Request(api, data=payload,
@@ -386,10 +391,11 @@ def notify_ipd_discharge(name: str, phone: str, bill_amount: float = 0.0, tenant
     return result
 
 
-def notify_low_stock(items: list) -> dict:
+def notify_low_stock(items: list, tenant_slug: str = "") -> dict:
     """
     Alert stock manager about low stock items.
     items: list of dicts with 'medicine_name', 'quantity', 'min_quantity'
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     if not items:
         return {"status": "skipped", "reason": "no low stock items"}
@@ -410,14 +416,15 @@ def notify_low_stock(items: list) -> dict:
         f"📦 Please reorder from supplier\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
 
-def notify_expiry_alert(items: list) -> dict:
+def notify_expiry_alert(items: list, tenant_slug: str = "") -> dict:
     """
     Alert stock manager about medicines expiring within 90 days.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     if not items:
         return {"status": "skipped", "reason": "no expiry alerts"}
@@ -438,7 +445,7 @@ def notify_expiry_alert(items: list) -> dict:
         f"🗑️ Remove/return items before expiry\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
