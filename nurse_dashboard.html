@@ -101,6 +101,39 @@ textarea{resize:vertical;min-height:60px}
       </div>
     </div>
 
+    <!-- IPD Rounds -->
+    <div id="ipd-nurse" class="section">
+      <div class="card">
+        <h2>🏥 IPD Rounds – Record Vitals</h2>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin-bottom:16px;">
+          <h3 style="color:#166534;margin-bottom:10px;">Add Round Entry</h3>
+          <div class="form-grid">
+            <input id="nrAdmId"  type="number" placeholder="Admission ID *">
+            <input id="nrBP"     type="text"   placeholder="Blood Pressure">
+            <input id="nrTemp"   type="text"   placeholder="Temperature (°F)">
+            <input id="nrPulse"  type="text"   placeholder="Pulse (bpm)">
+            <input id="nrSpO2"   type="text"   placeholder="SpO₂ (%)">
+            <input id="nrWeight" type="text"   placeholder="Weight (kg)">
+          </div>
+          <textarea id="nrNotes" placeholder="Round notes…"></textarea>
+          <br><br>
+          <button class="btn btn-primary" onclick="saveIPDRound()">Save Round</button>
+          <div class="msg" id="nrMsg"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>View Rounds by Admission</h2>
+        <div style="display:flex;gap:10px;margin-bottom:12px;">
+          <input id="nrViewId" type="number" placeholder="Admission ID" style="width:180px;">
+          <button class="btn btn-primary" onclick="loadNurseRounds()">Load Rounds</button>
+        </div>
+        <table>
+          <thead><tr><th>Time</th><th>BP</th><th>Temp</th><th>Pulse</th><th>SpO₂</th><th>Weight</th><th>Notes</th></tr></thead>
+          <tbody id="nurseRoundsBody"><tr><td colspan="7" style="text-align:center;color:#888">Enter Admission ID above and click Load</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- Nurse Assignments -->
     <div id="assignments" class="section">
       <div class="card">

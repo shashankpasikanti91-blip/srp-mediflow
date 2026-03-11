@@ -100,7 +100,7 @@ ROLE_DASHBOARD: dict[str, str] = {
     LAB:        '/lab',
     XRAY:       '/lab',
     STOCK:      '/stock',
-    RECEPTION:  '/admin',
+    RECEPTION:  '/reception',
 }
 
 # Human-readable labels

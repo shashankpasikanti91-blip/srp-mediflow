@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reception Dashboard | SRP MediFlow</title>
+<link rel="stylesheet" href="/srp_mediflow_responsive.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#00b896;color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.topbar h1{font-size:1.2rem;font-weight:600}
+.logout-btn{background:#fff;color:#00b896;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-weight:600}
+.layout{display:flex;flex:1}
+.sidebar{width:210px;background:#fff;border-right:1px solid #ddd;padding:20px 0;flex-shrink:0}
+.nav-item{padding:12px 20px;cursor:pointer;font-size:.93rem;color:#444;transition:all .2s;display:flex;align-items:center;gap:8px}
+.nav-item:hover,.nav-item.active{background:#e6faf5;color:#00b896;font-weight:600;border-left:3px solid #00b896}
+.main{flex:1;padding:24px;overflow-y:auto;padding-bottom:48px}
+.section{display:none}.section.active{display:block}
+.card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+h2{font-size:1.25rem;margin-bottom:16px;color:#00b896}
+h3{font-size:1rem;color:#166534;margin-bottom:10px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;text-align:left;border-bottom:1px solid #eee;font-size:.88rem}
+th{background:#f8f9fa;font-weight:600;color:#555}
+.form-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+input,select,textarea{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:.9rem}
+textarea{resize:vertical;min-height:60px}
+.btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;font-weight:600}
+.btn-primary{background:#00b896;color:#fff}
+.btn-primary:hover{background:#009d7f}
+.btn-sm{padding:5px 12px;font-size:.82rem}
+.msg{margin-top:8px;font-size:.9rem;display:none}
+.badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:.78rem;font-weight:600}
+.badge-green{background:#dcfce7;color:#166534}
+.badge-yellow{background:#fef9c3;color:#854d0e}
+.badge-red{background:#fee2e2;color:#991b1b}
+.badge-blue{background:#dbeafe;color:#1e40af}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center;border-top:3px solid #00b896}
+.stat-val{font-size:2rem;font-weight:700;color:#00b896}
+.stat-lbl{font-size:.82rem;color:#666;margin-top:4px}
+/* Responsive */
+@media(max-width:900px){
+  .layout{flex-direction:column}.sidebar{width:100%;display:flex;flex-wrap:wrap;border-right:none;border-bottom:1px solid #ddd;padding:8px}
+  .nav-item{padding:8px 12px;font-size:.83rem;border-left:none!important;border-bottom:2px solid transparent}
+  .nav-item.active{border-bottom:2px solid #00b896;background:#e6faf5}
+  .main{padding:14px}.form-grid,.form-grid-2{grid-template-columns:1fr!important}.stats-row{grid-template-columns:1fr 1fr!important}
+  table{display:block;overflow-x:auto;white-space:nowrap}th,td{padding:7px 8px;font-size:.8rem}h2{font-size:1.1rem}
+}
+@media(max-width:600px){
+  .topbar{flex-direction:column;align-items:flex-start;padding:10px 14px}.topbar h1{font-size:1rem}
+  .logout-btn{align-self:flex-end}.sidebar{flex-wrap:nowrap;overflow-x:auto;padding:6px 4px;scrollbar-width:none}
+  .nav-item{white-space:nowrap;flex-shrink:0;font-size:.8rem;padding:7px 10px}.stats-row{grid-template-columns:1fr 1fr!important}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1 id="hospitalName">🏥 Reception Dashboard | SRP MediFlow</h1>
+    <small id="hospitalInfo" style="opacity:.8;font-size:.78rem;">Loading hospital info…</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span id="userName" style="font-size:.9rem;opacity:.85">Loading…</span>
+    <span id="clockDisplay" style="font-size:.85rem;opacity:.8;font-weight:500"></span>
+    <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="nav-item active" data-sec="opd-queue">📋 OPD Queue</div>
+    <div class="nav-item" data-sec="register-patient">➕ Register Patient</div>
+    <div class="nav-item" data-sec="book-appointment">📅 Book Appointment</div>
+    <div class="nav-item" data-sec="patient-search">🔍 Patient Search</div>
+    <div class="nav-item" data-sec="doctor-status">👨‍⚕️ Doctor Status</div>
+    <div class="nav-item" data-sec="ipd-list">🏥 IPD Admissions</div>
+    <div class="nav-item" data-sec="billing">💰 Billing</div>
+  </div>
+
+  <div class="main">
+
+    <!-- OPD QUEUE -->
+    <div id="opd-queue" class="section active">
+      <div class="stats-row" id="statsRow">
+        <div class="stat-card"><div class="stat-val" id="statTotal">–</div><div class="stat-lbl">Total Today</div></div>
+        <div class="stat-card"><div class="stat-val" id="statWaiting">–</div><div class="stat-lbl">Waiting</div></div>
+        <div class="stat-card"><div class="stat-val" id="statDoctors">–</div><div class="stat-lbl">Doctors On Duty</div></div>
+        <div class="stat-card"><div class="stat-val" id="statIPD">–</div><div class="stat-lbl">IPD Patients</div></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2>📋 Today's OPD Queue</h2>
+          <button class="btn btn-primary btn-sm" onclick="loadQueue()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Age</th><th>Doctor</th><th>Issue</th><th>Time</th><th>Token</th></tr></thead>
+          <tbody id="queueBody">
+            <tr><td colspan="8" style="text-align:center;color:#888">Loading queue…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REGISTER PATIENT -->
+    <div id="register-patient" class="section">
+      <div class="card">
+        <h2>➕ Register New Patient</h2>
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;">
+          <div class="form-grid">
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Patient Name *</label>
+              <input id="regName" type="text" placeholder="Full name" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Phone *</label>
+              <input id="regPhone" type="tel" placeholder="+91 XXXXX XXXXX" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Age</label>
+              <input id="regAge" type="number" placeholder="Age in years" style="margin-top:4px" min="0" max="150">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Aadhar Number</label>
+              <input id="regAadhar" type="text" placeholder="XXXX XXXX XXXX" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Preferred Doctor</label>
+              <select id="regDoctor" style="margin-top:4px">
+                <option value="">-- Select Doctor --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Appointment Time</label>
+              <input id="regTime" type="datetime-local" style="margin-top:4px">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.85rem;color:#555;font-weight:600">Health Issue / Chief Complaint *</label>
+            <textarea id="regIssue" placeholder="Describe the patient's main complaint…" style="margin-top:4px;"></textarea>
+          </div>
+          <br>
+          <button class="btn btn-primary" onclick="registerPatient()" id="regBtn">Register Patient</button>
+          <div class="msg" id="regMsg"></div>
+        </div>
+      </div>
+      <div class="card" id="recentRegCard" style="display:none">
+        <h2>✅ Recent Registrations</h2>
+        <table>
+          <thead><tr><th>#</th><th>Token</th><th>Name</th><th>Phone</th><th>Doctor</th><th>Issue</th><th>Time</th></tr></thead>
+          <tbody id="recentRegBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BOOK APPOINTMENT -->
+    <div id="book-appointment" class="section">
+      <div class="card">
+        <h2>📅 Book Appointment</h2>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:20px;">
+          <div class="form-grid">
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Patient Name *</label>
+              <input id="apptName" type="text" placeholder="Full name" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Phone *</label>
+              <input id="apptPhone" type="tel" placeholder="+91 XXXXX XXXXX" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Doctor *</label>
+              <select id="apptDoctor" style="margin-top:4px">
+                <option value="">-- Select Doctor --</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Appointment Date & Time *</label>
+              <input id="apptTime" type="datetime-local" style="margin-top:4px">
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Visit Type</label>
+              <select id="apptType" style="margin-top:4px">
+                <option value="OPD">OPD (Out-Patient)</option>
+                <option value="Follow-up">Follow-up</option>
+                <option value="Emergency">Emergency</option>
+                <option value="Consultation">Consultation</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.85rem;color:#555;font-weight:600">Age</label>
+              <input id="apptAge" type="number" placeholder="Patient age" style="margin-top:4px" min="0">
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.85rem;color:#555;font-weight:600">Reason / Symptoms</label>
+            <textarea id="apptIssue" placeholder="Reason for appointment…" style="margin-top:4px"></textarea>
+          </div>
+          <br>
+          <button class="btn btn-primary" onclick="bookAppointment()" id="apptBtn">Book Appointment</button>
+          <div class="msg" id="apptMsg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PATIENT SEARCH -->
+    <div id="patient-search" class="section">
+      <div class="card">
+        <h2>🔍 Patient Search</h2>
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+          <input id="searchQ" type="text" placeholder="Search by name or phone…" style="flex:1" onkeydown="if(event.key==='Enter')doSearch()">
+          <button class="btn btn-primary" onclick="doSearch()">Search</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Phone</th><th>Age</th><th>Doctor</th><th>Issue</th><th>Registered</th></tr></thead>
+          <tbody id="searchBody">
+            <tr><td colspan="7" style="text-align:center;color:#888">Enter name or phone to search</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DOCTOR STATUS -->
+    <div id="doctor-status" class="section">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2>👨‍⚕️ Doctor Status</h2>
+          <button class="btn btn-primary btn-sm" onclick="loadDoctors()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Doctor</th><th>Specialization</th><th>Department</th><th>Status</th><th>Phone</th></tr></thead>
+          <tbody id="doctorBody">
+            <tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h2>📊 Attendance Today</h2>
+        <button class="btn btn-sm" style="background:#eee;margin-bottom:12px" onclick="loadAttendance()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>#</th><th>Staff</th><th>Role</th><th>Check-In</th><th>Status</th></tr></thead>
+          <tbody id="attendBody">
+            <tr><td colspan="5" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- IPD ADMISSIONS -->
+    <div id="ipd-list" class="section">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2>🏥 IPD Admissions</h2>
+          <button class="btn btn-primary btn-sm" onclick="loadIPD()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Patient</th><th>Phone</th><th>Ward</th><th>Bed</th><th>Doctor</th><th>Admitted</th><th>Status</th></tr></thead>
+          <tbody id="ipdBody">
+            <tr><td colspan="8" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- BILLING -->
+    <div id="billing" class="section">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h2>💰 Billing Records</h2>
+          <button class="btn btn-primary btn-sm" onclick="loadBilling()">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>#</th><th>Patient</th><th>Amount (₹)</th><th>Type</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody id="billBody">
+            <tr><td colspan="6" style="text-align:center;color:#888">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ── Clock ─────────────────────────────────────────────────────────────────
+function updateClock(){
+  const n=new Date();
+  document.getElementById('clockDisplay').textContent =
+    n.toLocaleDateString('en-IN',{weekday:'short',day:'2-digit',month:'short'}) + ' ' +
+    n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+updateClock(); setInterval(updateClock,30000);
+
+// ── Session ───────────────────────────────────────────────────────────────
+async function checkSession(){
+  try {
+    const r = await fetch('/api/session/me');
+    if (!r.ok){window.location.href='/login';return;}
+    const d = await r.json();
+    if (!d.user || !['RECEPTION','ADMIN'].includes(d.user.role)){
+      window.location.href='/login'; return;
+    }
+    document.getElementById('userName').textContent = d.user.full_name || d.user.username;
+  } catch(e){ window.location.href='/login'; }
+}
+
+// ── Hospital branding ──────────────────────────────────────────────────── 
+async function loadBranding(){
+  try {
+    const r = await fetch('/api/config');
+    if (!r.ok) return;
+    const d = await r.json();
+    if(d.hospital_name){
+      document.getElementById('hospitalName').textContent = '🏥 '+d.hospital_name+' – Reception';
+      document.title = d.hospital_name+' Reception | SRP MediFlow';
+    }
+    if(d.address||d.phone)
+      document.getElementById('hospitalInfo').textContent = [d.address,d.phone].filter(Boolean).join(' | ');
+  } catch(e){}
+}
+
+// ── Logout ────────────────────────────────────────────────────────────────
+function doLogout(){
+  fetch('/api/logout',{method:'POST'}).finally(()=>{window.location.href='/login';});
+}
+
+// ── Helper ────────────────────────────────────────────────────────────────
+const today = () => new Date().toISOString().slice(0,10);
+function isToday(ts){ return (ts||'').startsWith(today()); }
+function fmtTime(ts){ return (ts||'').slice(0,16).replace('T',' '); }
+function tokenNum(i){ return 'T-'+String(i+1).padStart(3,'0'); }
+function showMsg(id, text, ok){
+  const el=document.getElementById(id);
+  el.style.display='block'; el.style.color=ok?'#166534':'#991b1b';
+  el.textContent=text;
+  setTimeout(()=>el.style.display='none',4000);
+}
+
+// ── Load doctor list into selects ────────────────────────────────────────
+async function loadDoctorSelects(){
+  try {
+    const r = await fetch('/api/admin/doctors');
+    if(!r.ok) return;
+    const d = await r.json();
+    const docs = d.doctors||[];
+    ['regDoctor','apptDoctor'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.innerHTML='<option value="">-- Select Doctor --</option>';
+      docs.forEach(doc=>{
+        const opt=document.createElement('option');
+        opt.value=doc.name||doc.full_name||'';
+        opt.textContent=(doc.name||doc.full_name||'Dr. Unknown')+
+          (doc.specialization?' ('+doc.specialization+')':'');
+        el.appendChild(opt);
+      });
+    });
+  } catch(e){}
+}
+
+// ── OPD Queue ─────────────────────────────────────────────────────────────
+async function loadQueue(){
+  try {
+    const [apptR, docR, ipdR] = await Promise.all([
+      fetch('/api/appointments'),
+      fetch('/api/admin/doctors'),
+      fetch('/api/ipd/admissions'),
+    ]);
+    const apptD = apptR.ok ? await apptR.json() : {appointments:[]};
+    const docD  = docR.ok  ? await docR.json()  : {doctors:[]};
+    const ipdD  = ipdR.ok  ? await ipdR.json()  : {admissions:[]};
+
+    const todayAppts = (apptD.appointments||[]).filter(a=>isToday(a.timestamp||a.appointment_time));
+    const onDutyDocs = (docD.doctors||[]).filter(d=>d.on_duty||d.status==='on_duty');
+    const activeIPD  = (ipdD.admissions||[]).filter(a=>a.status!=='discharged');
+
+    document.getElementById('statTotal').textContent   = todayAppts.length;
+    document.getElementById('statWaiting').textContent = todayAppts.filter(a=>!a.completed).length;
+    document.getElementById('statDoctors').textContent = onDutyDocs.length;
+    document.getElementById('statIPD').textContent     = activeIPD.length;
+
+    const tbody = document.getElementById('queueBody');
+    if(!todayAppts.length){
+      tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888">No OPD patients today</td></tr>';
+      return;
+    }
+    tbody.innerHTML = todayAppts.map((a,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${a.name||'-'}</strong></td>
+        <td>${a.phone||'-'}</td>
+        <td>${a.age||'-'}</td>
+        <td>${a.doctor||'-'}</td>
+        <td><small>${(a.issue||a.health_issue||'-').slice(0,40)}</small></td>
+        <td><small>${fmtTime(a.timestamp||a.appointment_time)}</small></td>
+        <td><span class="badge badge-green">${tokenNum(i)}</span></td>
+      </tr>`).join('');
+  } catch(e){
+    document.getElementById('queueBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:#c00">Error loading queue</td></tr>';
+  }
+}
+
+// ── Register Patient ──────────────────────────────────────────────────────
+async function registerPatient(){
+  const name   = document.getElementById('regName').value.trim();
+  const phone  = document.getElementById('regPhone').value.trim();
+  const issue  = document.getElementById('regIssue').value.trim();
+  if(!name||!phone||!issue){alert('Name, phone and health issue are required');return;}
+  const btn = document.getElementById('regBtn');
+  btn.disabled=true; btn.textContent='Registering…';
+
+  try {
+    const payload = {
+      name, phone, issue,
+      age:              document.getElementById('regAge').value.trim(),
+      aadhar:           document.getElementById('regAadhar').value.trim(),
+      preferred_doctor: document.getElementById('regDoctor').value,
+      preferred_time:   document.getElementById('regTime').value,
+      health_issue:     issue,
+    };
+    const r = await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    if(d.status==='ok'||d.success||r.ok){
+      showMsg('regMsg','✅ Patient '+name+' registered successfully!',true);
+      // Clear form
+      ['regName','regPhone','regAge','regAadhar','regIssue','regTime'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('regDoctor').selectedIndex=0;
+      // Show recent reg card & add row
+      const card = document.getElementById('recentRegCard');
+      card.style.display='';
+      const tbody = document.getElementById('recentRegBody');
+      const tknIdx = tbody.rows.length;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${tknIdx+1}</td><td><span class="badge badge-green">${tokenNum(tknIdx)}</span></td>
+        <td>${name}</td><td>${phone}</td><td>${payload.preferred_doctor||'-'}</td>
+        <td><small>${issue.slice(0,40)}</small></td>
+        <td><small>${new Date().toLocaleString()}</small></td>`;
+      tbody.insertBefore(tr,tbody.firstChild);
+    } else {
+      showMsg('regMsg','❌ '+(d.error||'Registration failed'),false);
+    }
+  } catch(e){ showMsg('regMsg','❌ Network error',false); }
+  finally { btn.disabled=false; btn.textContent='Register Patient'; }
+}
+
+// ── Book Appointment ──────────────────────────────────────────────────────
+async function bookAppointment(){
+  const name   = document.getElementById('apptName').value.trim();
+  const phone  = document.getElementById('apptPhone').value.trim();
+  const doctor = document.getElementById('apptDoctor').value;
+  const time   = document.getElementById('apptTime').value;
+  if(!name||!phone||!time){alert('Name, phone and appointment time are required');return;}
+  const btn=document.getElementById('apptBtn');
+  btn.disabled=true; btn.textContent='Booking…';
+
+  try {
+    const payload = {
+      patient_name: name, phone,
+      doctor_name:  doctor,
+      appointment_time: time,
+      visit_type:   document.getElementById('apptType').value,
+      age:          document.getElementById('apptAge').value.trim(),
+      notes:        document.getElementById('apptIssue').value.trim(),
+      // also populate register-compatible fields
+      name, issue: document.getElementById('apptIssue').value.trim(),
+    };
+    const r = await fetch('/api/appointments/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const d = await r.json();
+    if(r.ok&&!d.error){
+      showMsg('apptMsg','✅ Appointment booked for '+name,true);
+      ['apptName','apptPhone','apptAge','apptIssue','apptTime'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('apptDoctor').selectedIndex=0;
+      document.getElementById('apptType').selectedIndex=0;
+    } else {
+      // Fall back to /api/register
+      const r2 = await fetch('/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,health_issue:payload.notes,preferred_doctor:doctor,preferred_time:time})});
+      const d2 = await r2.json();
+      if(d2.status==='ok'||r2.ok){ showMsg('apptMsg','✅ Appointment registered for '+name,true); }
+      else { showMsg('apptMsg','❌ '+(d.error||d2.error||'Failed'),false); }
+    }
+  } catch(e){ showMsg('apptMsg','❌ Network error',false); }
+  finally { btn.disabled=false; btn.textContent='Book Appointment'; }
+}
+
+// ── Patient Search ────────────────────────────────────────────────────────
+async function doSearch(){
+  const q = document.getElementById('searchQ').value.trim();
+  if(!q){alert('Enter name or phone to search');return;}
+  const tbody=document.getElementById('searchBody');
+  tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888">Searching…</td></tr>';
+  try {
+    const r = await fetch('/api/patients/search?q='+encodeURIComponent(q));
+    if(!r.ok) throw new Error('API error');
+    const d = await r.json();
+    const list = d.patients||d.results||d.appointments||[];
+    if(!list.length){
+      tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#888">No patients found</td></tr>'; return;
+    }
+    tbody.innerHTML=list.map((p,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td><strong>${p.name||'-'}</strong></td>
+        <td>${p.phone||'-'}</td>
+        <td>${p.age||'-'}</td>
+        <td>${p.doctor||'-'}</td>
+        <td><small>${(p.issue||p.health_issue||'-').slice(0,40)}</small></td>
+        <td><small>${fmtTime(p.timestamp||p.appointment_time||p.created_at)}</small></td>
+      </tr>`).join('');
+  } catch(e){
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#c00">Search failed</td></tr>';
+  }
+}
+
+// ── Doctor Status ────────────────────────────────────────────────────────
+async function loadDoctors(){
+  try {
+    const r = await fetch('/api/admin/doctors');
+    if(!r.ok) return;
+    const d = await r.json();
+    const docs = d.doctors||[];
+    const tbody = document.getElementById('doctorBody');
+    if(!docs.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888">No doctors</td></tr>'; return; }
+    tbody.innerHTML=docs.map((doc,i)=>{
+      const onDuty=(doc.on_duty||doc.status==='on_duty');
+      return `<tr>
+        <td>${i+1}</td>
+        <td>👨‍⚕️ ${doc.name||doc.full_name||'-'}</td>
+        <td>${doc.specialization||'-'}</td>
+        <td>${doc.department||'-'}</td>
+        <td><span class="badge ${onDuty?'badge-green':'badge-yellow'}">${onDuty?'On Duty':'Off Duty'}</span></td>
+        <td>${doc.phone||'-'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e){}
+}
+
+async function loadAttendance(){
+  try {
+    const r = await fetch('/api/admin/attendance/today');
+    if(!r.ok) return;
+    const d = await r.json();
+    const list = d.attendance||[];
+    const tbody = document.getElementById('attendBody');
+    if(!list.length){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#888">No attendance records today</td></tr>'; return; }
+    tbody.innerHTML=list.map((a,i)=>`
+      <tr>
+        <td>${i+1}</td>
+        <td>${a.staff_name||a.name||'-'}</td>
+        <td><span class="badge badge-blue">${a.role||'-'}</span></td>
+        <td><small>${fmtTime(a.check_in||a.timestamp)}</small></td>
+        <td><span class="badge ${a.status==='present'?'badge-green':'badge-yellow'}">${a.status||'Present'}</span></td>
+      </tr>`).join('');
+  } catch(e){}
+}
+
+// ── IPD Admissions ────────────────────────────────────────────────────────
+async function loadIPD(){
+  try {
+    const r = await fetch('/api/ipd/admissions');
+    if(!r.ok) return;
+    const d = await r.json();
+    const list = d.admissions||[];
+    const tbody = document.getElementById('ipdBody');
+    if(!list.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#888">No IPD admissions</td></tr>'; return; }
+    tbody.innerHTML=list.map((a,i)=>{
+      const active=a.status!=='discharged';
+      return `<tr>
+        <td>${a.id||i+1}</td>
+        <td><strong>${a.patient_name||a.name||'-'}</strong></td>
+        <td>${a.phone||'-'}</td>
+        <td>${a.ward||'-'}</td>
+        <td>${a.bed_number||a.bed||'-'}</td>
+        <td>${a.doctor_name||a.doctor||'-'}</td>
+        <td><small>${fmtTime(a.admission_date||a.created_at)}</small></td>
+        <td><span class="badge ${active?'badge-blue':'badge-green'}">${active?'Admitted':'Discharged'}</span></td>
+      </tr>`;
+    }).join('');
+  } catch(e){}
+}
+
+// ── Billing ────────────────────────────────────────────────────────────────
+async function loadBilling(){
+  try {
+    const r = await fetch('/api/admin/billing/list');
+    if(!r.ok) return;
+    const d = await r.json();
+    const bills = d.bills||[];
+    const tbody = document.getElementById('billBody');
+    if(!bills.length){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#888">No billing records</td></tr>'; return; }
+    tbody.innerHTML=bills.map((b,i)=>{
+      const paid=b.status==='paid'||b.paid;
+      return `<tr>
+        <td>${i+1}</td>
+        <td>${b.patient_name||b.name||'-'}</td>
+        <td><strong>₹${(b.amount||0).toLocaleString('en-IN')}</strong></td>
+        <td>${b.bill_type||b.type||'OPD'}</td>
+        <td><span class="badge ${paid?'badge-green':'badge-yellow'}">${paid?'Paid':'Pending'}</span></td>
+        <td><small>${fmtTime(b.created_at||b.timestamp)}</small></td>
+      </tr>`;
+    }).join('');
+  } catch(e){}
+}
+
+// ── Sidebar navigation ────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+    item.classList.add('active');
+    const sec=item.dataset.sec;
+    document.getElementById(sec).classList.add('active');
+    if(sec==='opd-queue')      loadQueue();
+    if(sec==='doctor-status')  { loadDoctors(); loadAttendance(); }
+    if(sec==='ipd-list')       loadIPD();
+    if(sec==='billing')        loadBilling();
+    if(sec==='register-patient'||sec==='book-appointment') loadDoctorSelects();
+  });
+});
+
+// ── Initialise ────────────────────────────────────────────────────────────
+(async function init(){
+  await checkSession();
+  loadBranding();
+  loadDoctorSelects();
+  loadQueue();
+})();
+</script>
+
+<!-- SRP MediFlow product footer -->
+<footer style="background:#0f1117;color:#8892a4;text-align:center;padding:8px 16px;
+               font-size:11px;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+               border-top:1px solid #222;">
+    Powered by <strong style="color:#00b896;">SRP MediFlow</strong>
+    &nbsp;&bull;&nbsp; Hospital Management System
+    &nbsp;&bull;&nbsp; &copy; SRP AI Labs
+</footer>
+<div style="height:32px;"></div>
+</body>
+</html>

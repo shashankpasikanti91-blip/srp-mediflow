@@ -599,6 +599,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.serve_file('stock_dashboard.html', 'text/html')
             else:
                 self._redirect_to_login()
+        elif path == '/reception':
+            user = self.get_session_user()
+            if user and user['role'] in ('RECEPTION', 'ADMIN'):
+                self.serve_file('reception_dashboard.html', 'text/html')
+            else:
+                self._redirect_to_login()
         elif path == '/founder' or path == '/founder/':
             user = self.get_session_user()
             if user and user['role'] == 'FOUNDER':
