@@ -343,8 +343,10 @@ def _is_platform_root_request(host_header: str) -> bool:
       'localhost:7500'                → False  (local dev → skip, use tenant page)
     """
     hostname = host_header.split(':')[0].strip().lower()
-    if not hostname or hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
-        return False  # local dev: let dev see tenant pages directly
+    if not hostname:
+        return True  # no host = local, show landing
+    if hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
+        return True  # local dev: show platform landing at /
     root = ROOT_DOMAIN.split(':')[0].strip().lower()
     return hostname == root or hostname == f'www.{root}'
 
@@ -432,9 +434,12 @@ class Handler(BaseHTTPRequestHandler):
         host_header = self.headers.get("Host", "")
         if _is_platform_root_request(host_header):
             path_raw = self.path.split('?')[0]
+            _qs_raw  = self.path[len(path_raw):]  # everything after ?
+            _has_tenant = 'tenant=' in _qs_raw or 'slug=' in _qs_raw
             # Only the root path and platform-specific paths go to landing page.
             # Static assets and API calls still pass through.
-            if path_raw in ('/', '/index.html', '/platform', '/platform/'):
+            # If ?tenant= present, fall through to chatbot routing below.
+            if path_raw in ('/', '/index.html', '/platform', '/platform/') and not _has_tenant:
                 self.serve_file('platform_landing.html', 'text/html')
                 return
             # /api/platform/* routes handled below — don't redirect those.
@@ -467,8 +472,33 @@ class Handler(BaseHTTPRequestHandler):
         # Strip query string so route comparisons work with and without params
         path = self.path.split('?')[0]
 
-        if path == '/' or path == '/index.html' or path == '/chat':
+        if path == '/' or path == '/index.html':
+            # Check for ?tenant= param — serve tenant chatbot with injected slug
+            from urllib.parse import parse_qs, urlparse as _up
+            _qs = parse_qs(_up(self.path).query)
+            _t  = _qs.get('tenant', _qs.get('slug', [None]))[0]
+            if _t:
+                try:
+                    _slug = _t.strip()
+                    html_path = os.path.join(BASE_DIR, 'index.html')
+                    with open(html_path, 'r', encoding='utf-8') as _f:
+                        _html = _f.read()
+                    _inj  = f'<script>window.TENANT_SLUG = "{_slug}";</script>'
+                    _html = _html.replace('</head>', _inj + '\n</head>')
+                    _b    = _html.encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Length', str(len(_b)))
+                    self.end_headers()
+                    self.wfile.write(_b)
+                except Exception:
+                    self.serve_file('index.html', 'text/html')
+            else:
+                self.serve_file('platform_landing.html', 'text/html')
+        elif path == '/chat':
             self.serve_file('index.html', 'text/html')
+        elif path == '/ping' or path == '/health':
+            self.send_json({'status': 'ok', 'service': 'SRP MediFlow', 'version': '4.0'})
         elif path.startswith('/chat/'):
             # Per-client chatbot URL: /chat/{tenant_slug}
             # Serve index.html with injected TENANT_SLUG so /api/config loads correct branding
