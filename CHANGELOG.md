@@ -5,6 +5,56 @@ All notable changes to Hospital AI Assistant will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
+## [6.1.0] — 2026-03-11 — Phase 6.1: Mobile Doctor Prescription Assist
+
+### Added
+- 🎤 **Voice-to-text assist** for all major prescription input fields:
+  - Chief Complaint, Diagnosis, Symptoms, Clinical Notes
+  - Diet Advice and Special Instructions
+  - Uses browser Web Speech API (en-IN / hi-IN / te-IN)
+  - Graceful fallback when speech recognition unsupported
+  - States: idle / listening / processing / failed / unsupported
+- 📋 **Save Draft** — saves prescription locally (localStorage) so doctor can resume after switch
+- ✈️ **Manual Telegram Notify button** on prescription action bar
+- 💬 **WhatsApp Coming Soon button** (disabled, shows badge — no API required now)
+- 🕐 **Self Check-In / Check-Out** for any authenticated staff (doctors, nurses, reception):
+  - New nav section "My Attendance" in doctor dashboard
+  - Live clock display
+  - Status badge: checked-in / checked-out / not tracked
+  - No admin login required — uses own session
+  - Sends Telegram alert on check-in
+- 🔔 **Toast notifications** — success/error/info for all major actions
+- 📱 **Mobile sticky action bar** — prescription buttons stick to bottom on small screens
+- 🏗️ **Enhanced mobile styles** for medicine/lab rows (stacked on ≤768px)
+
+### API Changes
+- `POST /api/staff/self-checkin` — any authenticated staff can record own check-in
+- `POST /api/staff/self-checkout` — any authenticated staff can record own check-out
+- `GET /api/staff/self-status` — returns today's attendance records for current user
+- Telegram notification via `notify_prescription_saved()` auto-fires on `POST /api/doctor/prescription/create`
+- Telegram notification via `notify_staff_checkin()` auto-fires on staff self check-in
+
+### Telegram
+- Added `notify_prescription_saved(patient, phone, doctor, rx_id)` function
+- Added `notify_staff_checkin(staff_name, role, action)` function
+- Added `_send_message()` convenience alias
+
+### Migration
+- `migration_v5_phase61_attendance.sql` — adds `username` + `role` columns to `attendance` table; safe to re-run
+
+### Security
+- Self check-in/out endpoints require valid session (any role) — no admin escalation
+- WhatsApp button is disabled/non-functional until API provider configured — no backend dependency
+
+### Known Limitations
+- Voice input uses browser Web Speech API — Safari/iOS may have limited support; manual typing always fallback
+- WhatsApp sending not implemented — prepared structure only
+- Draft saved in localStorage — not server-side; clears on browser data clear
+
+---
+
 ## [1.0.0] - 2026-02-05
 
 ### Added

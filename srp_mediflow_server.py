@@ -640,6 +640,27 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_json({'attendance': hospital_db.get_attendance_today()})
                 else:
                     self.send_json({'attendance': []})
+        elif path == '/api/staff/self-status':
+            # Any authenticated staff can check their own attendance today
+            _selfuser = self.get_session_user()
+            if not _selfuser:
+                self.send_json({'error': 'Authentication required'}, 401)
+            else:
+                _uname = _selfuser.get('username', '')
+                _today_recs = []
+                _last_action = None
+                if _DB_AVAILABLE:
+                    try:
+                        _today_recs = [r for r in hospital_db.get_attendance_today()
+                                       if r.get('staff_name') == _uname]
+                        _last_action = _today_recs[0]['action'] if _today_recs else None
+                    except Exception:
+                        pass
+                self.send_json({
+                    'username':    _uname,
+                    'last_action': _last_action,
+                    'today':       _today_recs,
+                })
         elif path == '/api/admin/rounds':
             if self.require_role('ADMIN', 'DOCTOR', 'NURSE', 'RECEPTION'):
                 if _DB_AVAILABLE:
@@ -1988,6 +2009,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == '/api/admin/attendance':
             if self.require_role('ADMIN', 'RECEPTION'):
                 self.handle_attendance(data)
+        # ── Self check-in / check-out — any authenticated staff, no admin needed ──
+        elif path == '/api/staff/self-checkin':
+            user = self.get_session_user()
+            if not user:
+                self.send_json({'error': 'Authentication required'}, 401)
+            else:
+                self._handle_self_attendance(user, 'checkin', data)
+        elif path == '/api/staff/self-checkout':
+            user = self.get_session_user()
+            if not user:
+                self.send_json({'error': 'Authentication required'}, 401)
+            else:
+                self._handle_self_attendance(user, 'checkout', data)
         elif path == '/api/admin/appointments':
             if self.require_role('ADMIN', 'RECEPTION'):
                 self.handle_admin_appointments(data)
@@ -2617,6 +2651,22 @@ class Handler(BaseHTTPRequestHandler):
             f"patient={data.get('patient_name','')} "
             f"doctor={data.get('doctor_name','')}"
         )
+        # ── Telegram notification (fire-and-forget, never block response) ───────
+        try:
+            from telegram_bot import notify_prescription_saved, _BOT_ACTIVE
+            if _BOT_ACTIVE:
+                threading.Thread(
+                    target=notify_prescription_saved,
+                    args=(
+                        data.get('patient_name', 'Patient'),
+                        data.get('patient_phone', ''),
+                        data.get('doctor_name', ''),
+                        result.get('prescription_id', ''),
+                    ),
+                    daemon=True,
+                ).start()
+        except Exception:
+            pass
         self.send_json(result, code)
 
     # ── Digital prescription handler ────────────────────────────────────────
@@ -4918,8 +4968,52 @@ class Handler(BaseHTTPRequestHandler):
             _error_log.error(f'ATTENDANCE_ERROR: {e}')
             self.send_json({'error': 'Attendance update failed'}, 500)
 
+    def _handle_self_attendance(self, user: dict, action: str, data: dict):
+        """POST /api/staff/self-checkin|self-checkout — any auth staff records own attendance."""
+        try:
+            staff_name = (user.get('full_name') or user.get('username', 'Unknown')).strip()
+            username   = user.get('username', staff_name)
+            role       = user.get('role', '')
+            notes      = data.get('notes', f'{role} self {action}')
+            now_str    = time.strftime('%Y-%m-%d %H:%M:%S')
+
+            if _DB_AVAILABLE:
+                rec_id = hospital_db.save_attendance(staff_name, action, notes)
+                record = {'id': rec_id, 'staff_name': staff_name,
+                          'action': action, 'date': now_str}
+            else:
+                attendance_file = os.path.join(BASE_DIR, 'attendance.txt')
+                record = {'staff_name': staff_name, 'action': action,
+                          'username': username, 'timestamp': time.time(), 'date': now_str}
+                with open(attendance_file, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(record) + '\n')
+
+            emoji = '🟢' if action == 'checkin' else '🔴'
+            _sys_log.info(f"SELF_ATTENDANCE: {emoji} {action} → {staff_name} ({role})")
+
+            # Telegram alert — fire-and-forget, never blocks response
+            try:
+                from telegram_bot import notify_staff_checkin, _BOT_ACTIVE
+                if _BOT_ACTIVE:
+                    threading.Thread(
+                        target=notify_staff_checkin,
+                        args=(staff_name, role, action),
+                        daemon=True,
+                    ).start()
+            except Exception:
+                pass  # non-critical
+
+            self.send_json({
+                'status':  'success',
+                'action':  action,
+                'message': f'{action.capitalize()} recorded — {now_str}',
+                'record':  record,
+            })
+        except Exception as e:
+            _error_log.error(f'SELF_ATTENDANCE_ERROR: {e}')
+            self.send_json({'error': 'Attendance update failed'}, 500)
+
     def handle_doctor_checkin(self, data):
-        """Check in a doctor — marks on_duty=True and logs attendance."""
         try:
             doctor_name = data.get('doctor_name', '').strip()
             if not doctor_name:

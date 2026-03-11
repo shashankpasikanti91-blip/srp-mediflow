@@ -2,12 +2,47 @@
 
 > **Production-ready SaaS platform. Every hospital gets its own AI chatbot, dedicated PostgreSQL database, billing, lab, pharmacy, and staff portals — fully isolated.**
 
-**Version:** `4.0` | **Updated:** March 2026
+**Version:** `6.1` | **Updated:** March 2026
 **Port:** `7500` | **Stack:** Python 3.14 · PostgreSQL · Vanilla JS · HTML5
 
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen)]()
 [![Tenants](https://img.shields.io/badge/live%20hospitals-5-blue)]()
-[![Isolation](https://img.shields.io/badge/DB%20isolation-100%25-success)]()
+[![Phase](https://img.shields.io/badge/phase-6.1%20Mobile%20Rx%20Assist-purple)]()
+
+---
+
+## ✨ Phase 6.1 Highlights (March 2026)
+
+| Feature | Status |
+|---------|--------|
+| 🎤 Voice-to-text on prescription fields (en-IN / hi-IN / te-IN) | ✅ Live |
+| 📋 Save Draft (localStorage, resume anytime) | ✅ Live |
+| 🕐 Staff self check-in / check-out (no admin needed) | ✅ Live |
+| ✈️ Telegram notification on prescription save | ✅ Live |
+| 📱 Mobile sticky prescription action bar | ✅ Live |
+| 🔔 Toast-based feedback for all key actions | ✅ Live |
+| 💬 WhatsApp prescription send | ⏳ Coming Soon |
+
+### Staff Attendance — No Admin Required
+
+Any logged-in staff (doctors, nurses, reception) can check in/out from their own dashboard:
+- Doctor Dashboard → **🕐 My Attendance**
+- Sends Telegram alert on check-in
+- APIs: `POST /api/staff/self-checkin`, `POST /api/staff/self-checkout`, `GET /api/staff/self-status`
+
+### Voice Prescription Assist
+
+Tap the 🎤 mic button next to any prescription field to dictate.  
+Doctor can always edit the transcript before saving. Falls back silently to manual typing.
+
+> Voice uses browser Web Speech API — works best in Chrome / Edge.
+
+### WhatsApp Future Activation
+
+To activate WhatsApp prescription sending later:
+1. Configure `WHATSAPP_API_BASE_URL`, `WHATSAPP_API_KEY`, `WHATSAPP_SENDER_NUMBER` in `.env`
+2. Enable in Admin → Notification Settings → Active Channel = WhatsApp
+3. The "Coming Soon" button on doctor dashboard will auto-enable
 
 ---
 

@@ -34,13 +34,69 @@ textarea{resize:vertical;min-height:70px}
 .btn{padding:8px 18px;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;font-weight:600}
 .btn-primary{background:#1a73e8;color:#fff}
 .btn-primary:hover{background:#1557b0}
-.msg{margin-top:8px;font-size:.9rem;display:none}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-success{background:#16a34a;color:#fff}
+/* ── VOICE BUTTON ── */
+.mic-btn{display:inline-flex;align-items:center;justify-content:center;background:#ede9fe;color:#7c3aed;
+  border:none;border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:.9rem;
+  margin-left:6px;transition:all .2s;flex-shrink:0;vertical-align:middle;}
+.mic-btn:hover{background:#ddd6fe;transform:scale(1.1)}
+.mic-btn.listening{background:#fee2e2;color:#dc2626;animation:pulse-mic 1s infinite}
+.mic-btn.unsupported{opacity:.35;cursor:not-allowed}
+@keyframes pulse-mic{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+/* ── TOAST NOTIFICATIONS ── */
+#toastContainer{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:#1a1a2e;color:#fff;padding:10px 18px;border-radius:10px;font-size:.88rem;
+  max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:auto;opacity:0;
+  transform:translateX(50px);transition:all .3s;display:flex;align-items:center;gap:10px}
+.toast.show{opacity:1;transform:translateX(0)}
+.toast.success{border-left:4px solid #16a34a}
+.toast.error{border-left:4px solid #dc2626}
+.toast.info{border-left:4px solid #1a73e8}
+/* ── MOBILE STICKY ACTION BAR ── */
+.rx-action-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0}
+@media(max-width:700px){
+  .rx-action-bar-sticky{
+    position:fixed;bottom:32px;left:0;right:0;z-index:800;
+    background:#fff;border-top:2px solid #e8eaed;
+    padding:10px 14px;display:flex;gap:8px;overflow-x:auto;
+    box-shadow:0 -4px 16px rgba(0,0,0,.1)
+  }
+  .rx-action-bar-sticky .btn{white-space:nowrap;flex-shrink:0;font-size:.83rem;padding:8px 14px}
+  .main{padding-bottom:100px!important}
+}
+/* ── MED/LAB ROW MOBILE ── */
+.med-row{display:grid;grid-template-columns:2fr 80px 100px 100px 80px 80px 28px;gap:5px;
+  margin-bottom:5px;align-items:center}
+@media(max-width:768px){
+  .med-row{grid-template-columns:1fr 1fr;gap:6px;
+    background:#fafafa;border-radius:8px;padding:8px;margin-bottom:8px}
+  .med-row input,.med-row select{font-size:.83rem}
+  .med-row-del{grid-column:2;justify-self:end}
+  .med-row-name{grid-column:1/-1}
+  .lab-row{grid-template-columns:1fr 1fr!important}
+  .lab-row-name{grid-column:1/-1}
+}
+/* ── ATTENDANCE PANEL ── */
+.att-card{background:linear-gradient(135deg,#e0f2f1 0%,#f0f4f8 100%);border-radius:12px;padding:24px;
+  text-align:center;max-width:420px;margin:0 auto 20px}
+.att-clock{font-size:2.5rem;font-weight:700;color:#1a73e8;letter-spacing:2px;margin:12px 0}
+.att-status{display:inline-block;padding:5px 18px;border-radius:20px;font-size:.85rem;font-weight:700}
+.att-in{background:#d1fae5;color:#065f46}
+.att-out{background:#fee2e2;color:#991b1b}
+.att-none{background:#e5e7eb;color:#374151}
+/* ── INPUT LABEL ROW ── */
+.field-label-row{display:flex;align-items:center;gap:4px;margin-bottom:3px}
+.field-label-row label{font-size:.78rem;color:#555;flex:1}
 /* ── RESPONSIVE ── */
 @media(max-width:900px){.layout{flex-direction:column}.sidebar{width:100%;display:flex;flex-wrap:wrap;border-right:none;border-bottom:1px solid #ddd;padding:8px}.nav-item{padding:8px 12px;font-size:.85rem;border-left:none!important;border-bottom:2px solid transparent}.nav-item.active{border-bottom:2px solid #1a73e8;background:#e8f0fe}.main{padding:14px}table{display:block;overflow-x:auto;white-space:nowrap}.form-grid{grid-template-columns:1fr!important}.card{padding:14px}th,td{padding:7px 8px;font-size:.8rem}h2{font-size:1.1rem}}
 @media(max-width:600px){.topbar{flex-direction:column;align-items:flex-start;gap:6px;padding:10px 14px}.topbar h1{font-size:1rem}.logout-btn{align-self:flex-end}.sidebar{flex-wrap:nowrap;overflow-x:auto;padding:6px 4px;scrollbar-width:none}.nav-item{white-space:nowrap;flex-shrink:0;font-size:.8rem;padding:7px 10px}}
 </style>
 </head>
 <body>
+
+<!-- Toast notification container -->
+<div id="toastContainer"></div>
 
 <div class="topbar">
   <div>
@@ -64,6 +120,7 @@ textarea{resize:vertical;min-height:70px}
     <div class="nav-item" data-sec="ipd-rounds">🏥 IPD Rounds</div>
     <div class="nav-item" data-sec="doc-surgery">⚕️ Surgery</div>
     <div class="nav-item" data-sec="notif-settings">🔔 Notifications</div>
+    <div class="nav-item" data-sec="my-attendance">🕐 My Attendance</div>
   </div>
 
   <div class="main">
@@ -148,21 +205,33 @@ textarea{resize:vertical;min-height:70px}
         <h3 style="margin-bottom:12px;">🩺 Clinical Details</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Chief Complaint *</label>
+            <div class="field-label-row">
+              <label>Chief Complaint *</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxComplaint',this)">🎤</button>
+            </div>
             <input id="rxComplaint" type="text" placeholder="e.g. Fever & chills > 2 days">
           </div>
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Diagnosis *</label>
+            <div class="field-label-row">
+              <label>Diagnosis *</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxDiag',this)">🎤</button>
+            </div>
             <input id="rxDiag" type="text" placeholder="e.g. Viral fever with body ache">
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Symptoms</label>
+            <div class="field-label-row">
+              <label>Symptoms</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxSymptoms',this)">🎤</button>
+            </div>
             <textarea id="rxSymptoms" placeholder="Body pains, cold, cough & sputum, chills…" style="min-height:64px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
           </div>
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Clinical Notes / Examination</label>
+            <div class="field-label-row">
+              <label>Clinical Notes / Examination</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxNotes',this)">🎤</button>
+            </div>
             <textarea id="rxNotes" placeholder="Throat congested, TN 100/70, bilateral rales…" style="min-height:64px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
           </div>
         </div>
@@ -228,11 +297,17 @@ textarea{resize:vertical;min-height:70px}
         <h3 style="margin-bottom:12px;">📋 Advice & Follow-Up</h3>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Diet Advice</label>
+            <div class="field-label-row">
+              <label>Diet Advice</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxDiet',this)">🎤</button>
+            </div>
             <textarea id="rxDiet" placeholder="ORS, light food, plenty of fluids, avoid spicy…" style="min-height:60px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
           </div>
           <div>
-            <label style="font-size:.78rem;color:#555;display:block;margin-bottom:3px;">Special Instructions</label>
+            <div class="field-label-row">
+              <label>Special Instructions</label>
+              <button class="mic-btn" title="Voice input" onclick="voiceInput('rxInstructions',this)">🎤</button>
+            </div>
             <textarea id="rxInstructions" placeholder="Bed rest for 3 days, avoid cold water, SOS review if fever persists…" style="min-height:60px;resize:vertical;width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:.88rem;"></textarea>
           </div>
         </div>
@@ -252,17 +327,33 @@ textarea{resize:vertical;min-height:70px}
         </div>
       </div>
 
-      <!-- ── ACTION BUTTONS ─────────────────────────────────────────────── -->
-      <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <button class="btn btn-primary" onclick="rxSaveDigital()" style="padding:10px 28px;font-size:.95rem;">
-          💾 Save Prescription
-        </button>
-        <button id="rxPrintBtn" class="btn" onclick="rxOpenPDF()"
-                style="background:#7c3aed;color:#fff;padding:10px 24px;font-size:.95rem;display:none;">
-          🖨️ Print / Download PDF
-        </button>
-        <span id="rxSaveStatus" style="font-size:.88rem;"></span>
+      <!-- ── ACTION BUTTONS (mobile sticky on small screens) ──────────── -->
+      <div class="card rx-action-bar-sticky">
+        <div class="rx-action-bar">
+          <button class="btn" onclick="rxSaveDraft()"
+                  style="background:#f0f4f8;color:#333;border:1px solid #ddd;padding:10px 20px;font-size:.9rem;">
+            📋 Save Draft
+          </button>
+          <button class="btn btn-primary" onclick="rxSaveDigital()" style="padding:10px 28px;font-size:.95rem;">
+            💾 Save Final
+          </button>
+          <button id="rxPrintBtn" class="btn" onclick="rxOpenPDF()"
+                  style="background:#7c3aed;color:#fff;padding:10px 24px;font-size:.95rem;display:none;">
+            🖨️ PDF
+          </button>
+          <button id="rxTgNotifyBtn" class="btn" onclick="rxTelegramNotify()"
+                  style="background:#0088cc;color:#fff;padding:10px 18px;font-size:.9rem;display:none;">
+            ✈️ Notify Telegram
+          </button>
+          <button class="btn" disabled title="WhatsApp API not configured yet"
+                  style="background:#f0fdf4;color:#aaa;border:1px dashed #bbb;padding:10px 18px;font-size:.85rem;cursor:not-allowed;">
+            💬 WhatsApp <span style="font-size:.72rem;background:#fef3c7;color:#92400e;border-radius:8px;padding:1px 6px;margin-left:4px;">Coming Soon</span>
+          </button>
+          <span id="rxSaveStatus" style="font-size:.88rem;"></span>
+        </div>
       </div>
+      <!-- Voice status bar -->
+      <div id="voiceStatusBar" style="display:none;text-align:center;padding:6px;background:#f0f4f8;border-radius:8px;margin-bottom:12px;font-size:.85rem;color:#555;"></div>
 
     </div><!-- /prescription -->
 
@@ -560,6 +651,41 @@ textarea{resize:vertical;min-height:70px}
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         MY ATTENDANCE — Self Check-In / Check-Out (no admin needed)
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div id="my-attendance" class="section">
+      <div class="att-card">
+        <h2 style="text-align:center;margin-bottom:4px;">🕐 My Attendance</h2>
+        <p style="color:#666;font-size:.85rem;text-align:center;margin-bottom:16px;">Check in and out without needing admin login</p>
+        <div class="att-clock" id="attLiveClock">--:--:--</div>
+        <div style="margin-bottom:16px;">
+          <span id="attStatusBadge" class="att-status att-none">Not checked in today</span>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn btn-success" style="padding:12px 28px;font-size:1rem;" onclick="attSelfAction('checkin')">
+            🟢 Check In
+          </button>
+          <button class="btn btn-danger" style="padding:12px 28px;font-size:1rem;" onclick="attSelfAction('checkout')">
+            🔴 Check Out
+          </button>
+        </div>
+        <div id="attMsg" style="margin-top:14px;font-size:.88rem;text-align:center;min-height:20px;"></div>
+      </div>
+
+      <div class="card" style="margin-top:0;">
+        <h3 style="margin-bottom:12px;">Today's Records</h3>
+        <button class="btn" style="background:#eee;margin-bottom:10px;font-size:.82rem;" onclick="attLoadToday()">↻ Refresh</button>
+        <table>
+          <thead><tr><th>Action</th><th>Time</th><th>Notes</th></tr></thead>
+          <tbody id="attTodayBody">
+            <tr><td colspan="3" style="text-align:center;color:#aaa">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- /my-attendance -->
 
 </div>
 
@@ -1061,11 +1187,11 @@ function rxCollectLabTests() {
   return tests;
 }
 
-async function rxSaveDigital() {
+async function _rxSaveDigitalCore() {
   const diagnosis = document.getElementById('rxDiag').value.trim();
   const complaint = document.getElementById('rxComplaint').value.trim();
   if (!diagnosis || !complaint) {
-    alert('Chief Complaint and Diagnosis are required.'); return;
+    showToast('Chief Complaint and Diagnosis are required.', 'error'); return;
   }
 
   const medicines = rxCollectMedicines();
@@ -1107,19 +1233,27 @@ async function rxSaveDigital() {
       _rxSavedId = d.prescription_id;
       statusEl.textContent = `✅ Saved as Rx #${d.prescription_id} — ${d.medicines_count||medicines.length} medicine(s), ${(d.lab_tests_count||labTests.length)} test(s).`;
       statusEl.style.color = '#16a34a';
-      document.getElementById('rxPrintBtn').style.display = 'inline-block';
+      showToast(`💊 Prescription saved! Rx #${d.prescription_id}`, 'success');
+      const printBtn = document.getElementById('rxPrintBtn');
+      if (printBtn) { printBtn.style.display='inline-block'; printBtn.dataset.rxId = d.prescription_id; }
+      const tgBtn = document.getElementById('rxTgNotifyBtn');
+      if (tgBtn) { tgBtn.style.display='inline-block'; tgBtn.dataset.rxId = d.prescription_id; }
+      localStorage.removeItem('srp_rx_draft');
     } else {
       statusEl.textContent = '❌ ' + (d.error || 'Could not save prescription');
       statusEl.style.color = '#dc2626';
+      showToast('❌ ' + (d.error || 'Save failed'), 'error');
     }
   } catch(e) {
     statusEl.textContent = '❌ Network error — please try again.';
     statusEl.style.color = '#dc2626';
+    showToast('❌ Network error', 'error');
   }
 }
 
-function rxOpenPDF() {
-  if (!_rxSavedId) { alert('Please save prescription first.'); return; }
+// rxOpenPDF_legacy — will be overridden by Phase 6.1 rxOpenPDF below
+function rxOpenPDF_legacy() {
+  if (!_rxSavedId) { showToast('Please save prescription first.', 'info'); return; }
   window.open(`/api/pdf/rx/${_rxSavedId}`, '_blank');
 }
 
@@ -1147,6 +1281,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (sec === 'doc-surgery')       loadDocSurgeries();
     if (sec === 'prescription')      rxInitRows();
     if (sec === 'notif-settings')    nsLoadSettings();
+    if (sec === 'my-attendance')     { attLoadToday(); attStartClock(); }
   });
 });
 
@@ -1318,6 +1453,278 @@ async function nsTestChannel(channel) {
   } catch(e) {
     msg.textContent = '❌ Error.'; msg.style.color='#dc2626';
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — TOAST NOTIFICATIONS
+// ══════════════════════════════════════════════════════════════
+function showToast(msg, type='info', duration=3500) {
+  const container = document.getElementById('toastContainer');
+  if (!container) { console.log(msg); return; }
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span style="font-size:1.1rem">${type==='success'?'✅':type==='error'?'❌':'ℹ️'}</span><span>${msg}</span>`;
+  container.appendChild(el);
+  requestAnimationFrame(() => { el.classList.add('show'); });
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 400);
+  }, duration);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — VOICE INPUT (Web Speech API)
+// Supported languages: en-IN, hi-IN, te-IN
+// Falls back gracefully if unsupported
+// ══════════════════════════════════════════════════════════════
+const _speech = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const _voiceLang = ['en-IN','hi-IN','te-IN'];
+let _voiceActive = null; // current mic button
+
+function voiceInput(targetId, btn) {
+  if (!_speech) {
+    btn.classList.add('unsupported');
+    btn.title = 'Speech recognition not supported in this browser';
+    showToast('Voice input not supported in this browser. Please type manually.', 'info');
+    return;
+  }
+  // If already listening, stop
+  if (_voiceActive) {
+    try { _voiceActive._recognition.stop(); } catch(e) {}
+    return;
+  }
+
+  const el = document.getElementById(targetId);
+  if (!el) return;
+
+  const rec = new _speech();
+  rec.lang = _voiceLang[0];
+  rec.continuous = false;
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+
+  _voiceActive = { _recognition: rec, _btn: btn };
+  btn.classList.add('listening');
+  btn.title = 'Tap again to stop';
+  _setVoiceStatus('🎤 Listening… speak now', '#dc2626');
+
+  const originalVal = el.value || el.textContent || '';
+
+  rec.onresult = (evt) => {
+    let transcript = '';
+    for (let i = evt.resultIndex; i < evt.results.length; i++) {
+      transcript += evt.results[i][0].transcript;
+    }
+    if (el.tagName === 'TEXTAREA') {
+      el.value = originalVal + (originalVal ? '\n' : '') + transcript;
+    } else {
+      el.value = transcript;
+    }
+    _setVoiceStatus(`📝 "${transcript.slice(0,60)}…"`, '#1a73e8');
+  };
+
+  rec.onend = () => {
+    btn.classList.remove('listening');
+    btn.title = 'Voice input';
+    _setVoiceStatus('✅ Voice done — edit if needed', '#16a34a');
+    setTimeout(() => _setVoiceStatus('', ''), 3000);
+    _voiceActive = null;
+  };
+
+  rec.onerror = (evt) => {
+    btn.classList.remove('listening');
+    _voiceActive = null;
+    const friendly = {
+      'no-speech':          'No speech detected. Please try again.',
+      'audio-capture':      'Microphone not found or not permitted.',
+      'not-allowed':        'Microphone permission denied. Please allow access.',
+      'network':            'Network error. Check connection.',
+    };
+    const msg = friendly[evt.error] || `Voice error: ${evt.error}`;
+    _setVoiceStatus('⚠️ ' + msg, '#dc2626');
+    showToast(msg, 'error');
+    setTimeout(() => _setVoiceStatus('', ''), 4000);
+  };
+
+  rec.start();
+}
+
+function _setVoiceStatus(text, color) {
+  const bar = document.getElementById('voiceStatusBar');
+  if (!bar) return;
+  if (!text) { bar.style.display = 'none'; return; }
+  bar.textContent = text;
+  bar.style.color = color;
+  bar.style.display = 'block';
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — SAVE DRAFT
+// ══════════════════════════════════════════════════════════════
+function rxSaveDraft() {
+  const draft = {
+    patient:    document.getElementById('rxPatient').value,
+    visitId:    document.getElementById('rxVisitIdHidden').value,
+    complaint:  document.getElementById('rxComplaint').value,
+    diag:       document.getElementById('rxDiag').value,
+    symptoms:   document.getElementById('rxSymptoms').value,
+    notes:      document.getElementById('rxNotes').value,
+    diet:       document.getElementById('rxDiet').value,
+    instructions: document.getElementById('rxInstructions').value,
+    followDays: document.getElementById('rxFollowDays').value,
+    savedAt:    new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem('srp_rx_draft', JSON.stringify(draft));
+    showToast('📋 Draft saved locally — you can resume later', 'success');
+  } catch(e) {
+    showToast('Could not save draft: ' + e.message, 'error');
+  }
+}
+
+function rxRestoreDraft() {
+  try {
+    const d = JSON.parse(localStorage.getItem('srp_rx_draft') || 'null');
+    if (!d) return false;
+    if (d.complaint) document.getElementById('rxComplaint').value = d.complaint;
+    if (d.diag)      document.getElementById('rxDiag').value      = d.diag;
+    if (d.symptoms)  document.getElementById('rxSymptoms').value  = d.symptoms;
+    if (d.notes)     document.getElementById('rxNotes').value     = d.notes;
+    if (d.diet)      document.getElementById('rxDiet').value      = d.diet;
+    if (d.instructions) document.getElementById('rxInstructions').value = d.instructions;
+    if (d.followDays) document.getElementById('rxFollowDays').value = d.followDays;
+    showToast(`📋 Draft restored from ${new Date(d.savedAt).toLocaleTimeString()}`, 'info');
+    return true;
+  } catch(e) { return false; }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — TELEGRAM NOTIFY (manual trigger)
+// ══════════════════════════════════════════════════════════════
+async function rxTelegramNotify() {
+  const btn = document.getElementById('rxTgNotifyBtn');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⏳ Sending…';
+  try {
+    const rxId = btn.dataset.rxId || '';
+    const pName = document.getElementById('rxBarName')?.textContent || document.getElementById('rxPatient').value || 'Patient';
+    const pPhone = document.getElementById('rxBarPhone')?.textContent || document.getElementById('rxPhone2').value || '';
+    const r = await fetch('/api/telegram/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `💊 Prescription saved\n👤 ${pName} | 📞 ${pPhone}\nRx ID: ${rxId}`
+      })
+    });
+    const d = await r.json();
+    if (d.status === 'ok' || d.status === 'queued') {
+      showToast('✈️ Telegram notification sent!', 'success');
+    } else {
+      showToast('⚠️ Telegram: ' + (d.error || 'check settings'), 'error');
+    }
+  } catch(e) {
+    showToast('⚠️ Could not send Telegram notification', 'error');
+  }
+  btn.disabled = false;
+  btn.textContent = '✈️ Notify Telegram';
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — SELF ATTENDANCE (Check In / Check Out)
+// Any staff can use this without admin login
+// ══════════════════════════════════════════════════════════════
+let _attClockTimer = null;
+
+function attStartClock() {
+  if (_attClockTimer) return;
+  const el = document.getElementById('attLiveClock');
+  function tick() {
+    if (el) el.textContent = new Date().toLocaleTimeString('en-IN', { hour12: true });
+  }
+  tick();
+  _attClockTimer = setInterval(tick, 1000);
+}
+
+async function attLoadToday() {
+  const tbody = document.getElementById('attTodayBody');
+  const badge = document.getElementById('attStatusBadge');
+  try {
+    const r = await fetch('/api/staff/self-status');
+    if (!r.ok) throw new Error('Not authenticated');
+    const d = await r.json();
+    const recs = d.today || [];
+
+    // Update status badge
+    const last = d.last_action;
+    if (badge) {
+      if (last === 'checkin') {
+        badge.className = 'att-status att-in';
+        badge.textContent = '🟢 Checked In';
+      } else if (last === 'checkout') {
+        badge.className = 'att-status att-out';
+        badge.textContent = '🔴 Checked Out';
+      } else {
+        badge.className = 'att-status att-none';
+        badge.textContent = 'Not checked in today';
+      }
+    }
+
+    if (!recs.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa">No records today</td></tr>';
+      return;
+    }
+    tbody.innerHTML = recs.map(r => `
+      <tr>
+        <td><span class="badge ${r.action==='checkin'?'done':'pending'}">${r.action}</span></td>
+        <td><small>${r.date || '—'}</small></td>
+        <td><small>${r.notes || '—'}</small></td>
+      </tr>`).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#e74c3c">${e.message}</td></tr>`;
+  }
+}
+
+async function attSelfAction(action) {
+  const msg = document.getElementById('attMsg');
+  msg.textContent = `⏳ Recording ${action}…`;
+  msg.style.color = '#888';
+  try {
+    const r = await fetch(`/api/staff/self-${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: `Self ${action} from dashboard` })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      msg.textContent = `✅ ${d.message}`;
+      msg.style.color = '#16a34a';
+      showToast(d.message, 'success');
+      await attLoadToday();
+    } else {
+      msg.textContent = '❌ ' + (d.error || 'Failed');
+      msg.style.color = '#dc2626';
+      showToast(d.error || 'Attendance failed', 'error');
+    }
+  } catch(e) {
+    msg.textContent = '❌ Network error';
+    msg.style.color = '#dc2626';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// PHASE 6.1 — rxSaveDigital (delegates to _rxSaveDigitalCore + toasts)
+// ══════════════════════════════════════════════════════════════
+async function rxSaveDigital() {
+  await _rxSaveDigitalCore();
+}
+
+// rxOpenPDF — Phase 6.1 unified version
+function rxOpenPDF() {
+  const btn = document.getElementById('rxPrintBtn');
+  const rxId = btn?.dataset?.rxId || window._rxSavedId;
+  if (rxId) window.open(`/api/pdf/rx/${rxId}`, '_blank');
+  else showToast('Please save prescription first.', 'info');
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

@@ -431,6 +431,60 @@ def notify_admin(message: str) -> dict:
     return result
 
 
+# ── Phase 6.1 additions ────────────────────────────────────────────────────
+
+def notify_prescription_saved(
+    patient_name: str,
+    patient_phone: str,
+    doctor_name: str,
+    rx_id = "",
+) -> dict:
+    """Notify staff when a doctor saves a digital prescription (Phase 6.1)."""
+    h = _hospital()
+    rx_line = f"\n🆔 <b>Rx ID:</b> {rx_id}" if rx_id else ""
+    text = (
+        f"🏥 <b>{h['hospital_name'].upper()}</b>\n"
+        f"💊 <b>PRESCRIPTION SAVED</b>\n"
+        f"──────────────────────\n"
+        f"👤 <b>Patient:</b> {patient_name}\n"
+        f"📞 <b>Phone:</b> {patient_phone or '—'}\n"
+        f"👨‍⚕️ <b>Doctor:</b> {doctor_name}{rx_line}\n"
+        f"──────────────────────\n"
+        f"⏰ {_ts()}\n"
+        f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
+        f"<i>Powered by SRP MediFlow</i>"
+    )
+    result = send_telegram_message(text)
+    _forward_to_founder(text, h['hospital_name'])
+    return result
+
+
+def notify_staff_checkin(staff_name: str, role: str = "", action: str = "checkin") -> dict:
+    """Notify admin when a staff member self-checks in or out (Phase 6.1)."""
+    h = _hospital()
+    emoji  = "🟢" if action == "checkin" else "🔴"
+    label  = "CHECK-IN" if action == "checkin" else "CHECK-OUT"
+    r_line = f"\n👔 <b>Role:</b> {role.capitalize()}" if role else ""
+    text = (
+        f"🏥 <b>{h['hospital_name'].upper()}</b>\n"
+        f"{emoji} <b>STAFF {label}</b>\n"
+        f"──────────────────────\n"
+        f"👤 <b>Staff:</b> {staff_name}{r_line}\n"
+        f"──────────────────────\n"
+        f"⏰ {_ts()}\n"
+        f"<i>Powered by SRP MediFlow</i>"
+    )
+    result = send_telegram_message(text)
+    _forward_to_founder(text, h['hospital_name'])
+    return result
+
+
+# Convenience alias used by server.py's fire-and-forget lambda
+def _send_message(text: str, parse_mode: str = "Markdown") -> dict:
+    """Low-level alias for send_telegram_message (used by quick callers)."""
+    return send_telegram_message(text, parse_mode=parse_mode)
+
+
 def notify_founder_platform(message: str) -> dict:
     """
     Send PLATFORM-LEVEL event directly to the founder only.
