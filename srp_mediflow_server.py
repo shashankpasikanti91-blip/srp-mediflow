@@ -862,8 +862,11 @@ class Handler(BaseHTTPRequestHandler):
                     _reg = _j.load(open(
                         _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json'),
                         encoding='utf-8'))
-                    _ti = _reg.get(active_slug, {})
+                    # Normalize slug: hyphens → underscores to match registry keys
+                    _slug_key = active_slug.replace('-', '_')
+                    _ti = _reg.get(_slug_key) or _reg.get(active_slug) or {}
                     if _ti:
+                        active_slug = _slug_key  # keep normalized form going forward
                         cfg = dict(cfg)
                         cfg['hospital_name']  = _ti.get('display_name', cfg.get('hospital_name', 'Hospital'))
                         cfg['hospital_phone'] = _ti.get('phone', cfg.get('hospital_phone', ''))
@@ -2867,7 +2870,9 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 with open(reg_path, encoding='utf-8') as _f:
                     reg = _j.load(_f)
-                db_name = reg.get(tenant_slug or '', {}).get('db_name', db_name)
+                # Normalize slug: registry keys use underscores, URL may use hyphens
+                _slug_norm = (tenant_slug or '').replace('-', '_')
+                db_name = (reg.get(_slug_norm) or reg.get(tenant_slug or '') or {}).get('db_name', db_name)
             except Exception:
                 pass
 
