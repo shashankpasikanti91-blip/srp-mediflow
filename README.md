@@ -2,88 +2,135 @@
 
 > **Production-ready SaaS platform. Every hospital gets its own AI chatbot, dedicated PostgreSQL database, billing, lab, pharmacy, and staff portals — fully isolated.**
 
-**Version:** `6.1` | **Updated:** March 2026
+**Version:** `7.0` | **Updated:** March 11, 2026
 **Port:** `7500` | **Stack:** Python 3.14 · PostgreSQL · Vanilla JS · HTML5
+**Live Server:** `http://5.223.67.236:7500`
 
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen)]()
 [![Tenants](https://img.shields.io/badge/live%20hospitals-5-blue)]()
-[![Phase](https://img.shields.io/badge/phase-6.1%20Mobile%20Rx%20Assist-purple)]()
+[![E2E Tests](https://img.shields.io/badge/E2E-233%2F233%20100%25-brightgreen)]()
+[![Telegram](https://img.shields.io/badge/telegram-spam%20free-blue)]()
 
 ---
 
-## ✨ Phase 6.1 Highlights (March 2026)
+## ✅ Version 7.0 Status (March 11, 2026)
 
-| Feature | Status |
-|---------|--------|
-| 🎤 Voice-to-text on prescription fields (en-IN / hi-IN / te-IN) | ✅ Live |
-| 📋 Save Draft (localStorage, resume anytime) | ✅ Live |
-| 🕐 Staff self check-in / check-out (no admin needed) | ✅ Live |
-| ✈️ Telegram notification on prescription save | ✅ Live |
-| 📱 Mobile sticky prescription action bar | ✅ Live |
-| 🔔 Toast-based feedback for all key actions | ✅ Live |
-| 💬 WhatsApp prescription send | ⏳ Coming Soon |
-
-### Staff Attendance — No Admin Required
-
-Any logged-in staff (doctors, nurses, reception) can check in/out from their own dashboard:
-- Doctor Dashboard → **🕐 My Attendance**
-- Sends Telegram alert on check-in
-- APIs: `POST /api/staff/self-checkin`, `POST /api/staff/self-checkout`, `GET /api/staff/self-status`
-
-### Voice Prescription Assist
-
-Tap the 🎤 mic button next to any prescription field to dictate.  
-Doctor can always edit the transcript before saving. Falls back silently to manual typing.
-
-> Voice uses browser Web Speech API — works best in Chrome / Edge.
-
-### WhatsApp Future Activation
-
-To activate WhatsApp prescription sending later:
-1. Configure `WHATSAPP_API_BASE_URL`, `WHATSAPP_API_KEY`, `WHATSAPP_SENDER_NUMBER` in `.env`
-2. Enable in Admin → Notification Settings → Active Channel = WhatsApp
-3. The "Coming Soon" button on doctor dashboard will auto-enable
+| Check | Result |
+|-------|--------|
+| 🔐 All 31 logins (5 hospitals × 6 roles + founder) | ✅ 100% |
+| 🌐 All 85 dashboard API endpoints | ✅ 100% |
+| 👤 Patient registration (all 5 hospitals) | ✅ 15/15 |
+| 💊 Digital prescriptions (all 5 hospitals) | ✅ 15/15 |
+| 🩺 Nurse vitals recording | ✅ 10/10 |
+| 🔬 Lab orders + results | ✅ 10/10 |
+| 🛏️ IPD admit + daily rounds | ✅ 5/5 |
+| 🧾 Billing create + payment | ✅ 10/10 |
+| 💊 Pharmacy sales | ✅ 5/5 |
+| 🕐 Staff self check-in/check-out | ✅ 18/18 |
+| 🤖 Chatbot appointment booking | ✅ 15/15 |
+| 📨 Telegram notifications | ✅ Working |
+| 📊 Founder dashboard | ✅ 3/3 |
+| 🚫 Server restart Telegram spam | ✅ Permanently silenced |
+| **TOTAL E2E** | **233/233 = 100%** |
 
 ---
 
-## 🚀 Quick Start (Local)
+## 🚀 Quick Start
 
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Start PostgreSQL (port 5432)
-
-# 3. Run the server
-python srp_mediflow_server.py
+### Production Server
+```
+URL:      http://5.223.67.236:7500
+Login:    http://5.223.67.236:7500/login
+Founder:  http://5.223.67.236:7500/founder
 ```
 
-Server starts at **http://localhost:7500**
+### Local Development
+```bash
+pip install -r requirements.txt
+python srp_mediflow_server.py
+# Server starts at http://localhost:7500
+```
 
 ---
 
-## 🌐 Platform URLs
+## 🌐 Live Hospital URLs (Production)
 
-| URL | Description |
-|-----|-------------|
-| `http://localhost:7500/` | Marketing landing page |
-| `http://localhost:7500/hospital_signup` | Register new hospital (creates isolated DB) |
-| `http://localhost:7500/login` | Staff login page |
-| `http://localhost:7500/ping` | Health check → `{"status":"ok"}` |
-| `http://localhost:7500/api/platform/stats` | Platform stats (active hospitals, version) |
-| `http://localhost:7500/founder` | Founder SaaS analytics dashboard |
+| Hospital | Patient Chatbot | Admin Login |
+|----------|----------------|-------------|
+| ⭐ Star Hospital | `http://5.223.67.236:7500/chat/star_hospital` | `star_hospital_admin` |
+| 🏥 Sai Care Hospital | `http://5.223.67.236:7500/chat/sai_care` | `sai_care_admin` |
+| 🏥 City Medical Centre | `http://5.223.67.236:7500/chat/city_medical` | `city_medical_admin` |
+| 🏥 Apollo Clinic Warangal | `http://5.223.67.236:7500/chat/apollo_warangal` | `apollo_warangal_admin` |
+| 🏥 Green Cross Hospital | `http://5.223.67.236:7500/chat/green_cross` | `green_cross_admin` |
 
-### Live Hospital Chatbots
+---
 
-| Hospital | Chatbot URL | Admin Login |
-|----------|-------------|-------------|
-| ⭐ Star Hospital | `/chat/star_hospital` | `star_hospital_admin` / `Star@Admin2026!` |
-| 🏥 Sai Care Hospital | `/chat/sai_care` | `sai_care_admin` / `SaiCare@Admin2026!` |
-| 🏥 City Medical Centre | `/chat/city_medical` | `city_medical_admin` / `CityMed@Admin2026!` |
-| 🏥 Apollo Clinic Warangal | `/chat/apollo_warangal` | `apollo_warangal_admin` / `Apollo@Admin2026!` |
-| 🏥 Green Cross Hospital | `/chat/green_cross` | `green_cross_admin` / `GreenCross@Admin2026!` |
+## 👥 All Staff Login Credentials
 
-> **Change all passwords on first login in production.**
+### Platform Founder
+| Username | Password | URL |
+|----------|----------|-----|
+| `founder` | `Srp@Founder2026!` | `/founder` |
+
+---
+
+### ⭐ Star Hospital
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `star_hospital_admin` | `Star@Admin2026!` |
+| Doctor | `star_hospital_doctor` | `Doctor@Star2026!` |
+| Nurse | `star_hospital_nurse` | `Nurse@Star2026!` |
+| Lab | `star_hospital_lab` | `Lab@Star2026!` |
+| Stock/Pharmacy | `star_hospital_stock` | `Stock@Star2026!` |
+| Reception | `star_hospital_reception` | `Recep@Star2026!` |
+
+---
+
+### 🏥 Sai Care Hospital
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `sai_care_admin` | `SaiCare@Admin2026!` |
+| Doctor | `sai_care_doctor` | `Doctor@SaiCare2026!` |
+| Nurse | `sai_care_nurse` | `Nurse@SaiCare2026!` |
+| Lab | `sai_care_lab` | `Lab@SaiCare2026!` |
+| Stock/Pharmacy | `sai_care_stock` | `Stock@SaiCare2026!` |
+| Reception | `sai_care_reception` | `Reception@SaiCare2026!` |
+
+---
+
+### 🏥 City Medical Centre
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `city_medical_admin` | `CityMed@Admin2026!` |
+| Doctor | `city_medical_doctor` | `Doctor@CityMed2026!` |
+| Nurse | `city_medical_nurse` | `Nurse@CityMed2026!` |
+| Lab | `city_medical_lab` | `Lab@CityMed2026!` |
+| Stock/Pharmacy | `city_medical_stock` | `Stock@CityMed2026!` |
+| Reception | `city_medical_reception` | `Reception@CityMed2026!` |
+
+---
+
+### 🏥 Apollo Clinic Warangal
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `apollo_warangal_admin` | `Apollo@Admin2026!` |
+| Doctor | `apollo_warangal_doctor` | `Doctor@Apollo2026!` |
+| Nurse | `apollo_warangal_nurse` | `Nurse@Apollo2026!` |
+| Lab | `apollo_warangal_lab` | `Lab@Apollo2026!` |
+| Stock/Pharmacy | `apollo_warangal_stock` | `Stock@Apollo2026!` |
+| Reception | `apollo_warangal_reception` | `Reception@Apollo2026!` |
+
+---
+
+### 🏥 Green Cross Hospital
+| Role | Username | Password |
+|------|----------|----------|
+| Admin | `green_cross_admin` | `GreenCross@Admin2026!` |
+| Doctor | `green_cross_doctor` | `Doctor@GrnCross2026!` |
+| Nurse | `green_cross_nurse` | `Nurse@GrnCross2026!` |
+| Lab | `green_cross_lab` | `Lab@GrnCross2026!` |
+| Stock/Pharmacy | `green_cross_stock` | `Stock@GrnCross2026!` |
+| Reception | `green_cross_reception` | `Reception@GrnCross2026!` |
 
 ---
 
@@ -110,12 +157,12 @@ Server starts at **http://localhost:7500**
 ```
 
 **Each tenant has:**
-- Separate PostgreSQL database
+- Separate PostgreSQL database (fully isolated)
 - Own branding (name, address, logo, phone)
-- Own doctor roster
+- Own doctor roster and staff accounts
 - Own patients, appointments, billing, lab records
 - Own Telegram bot configuration
-- Own staff accounts with role-based access
+- Role-based access control (Admin, Doctor, Nurse, Lab, Stock, Reception)
 
 ---
 
@@ -124,18 +171,20 @@ Server starts at **http://localhost:7500**
 | Module | Description |
 |--------|-------------|
 | **AI Chatbot** | Multi-language (English/Telugu/Hindi), books appointments, registers OPD patients |
-| **Patient Management** | UHID, OPD/IPD, visit history, discharge summaries |
-| **Digital Prescriptions** | Doctor writes e-Rx → PDF → pharmacy link · Draft auto-save |
-| **🎤 Voice Prescription Assist** | Dictate into any Rx field using mic button (en-IN/hi-IN/te-IN) · **NEW v6.1** |
-| **Lab Management** | Orders, results, Telegram notification to patient |
-| **Billing** | Itemised bills, payment tracking, PDF receipts |
-| **Pharmacy & Inventory** | Stock management, expiry alerts, dispensing |
-| **Per-Hospital Telegram Bot** | Each hospital uses its own bot — all events auto-routed, never mixed across hospitals |
-| **🕐 Staff Self Check-In/Out** | Any staff checks in from their own dashboard — no admin needed · **NEW v6.1** |
+| **Patient Management** | UHID, OPD/IPD registration, visit history, chief complaint |
+| **Digital Prescriptions** | Full e-Rx with medicines, lab orders, vitals, diagnosis, PDF generation |
+| **🎤 Voice Prescription Assist** | Dictate into any Rx field using mic button (en-IN/hi-IN/te-IN) |
+| **Lab Management** | Create orders, enter results, Telegram notification |
+| **Billing** | Itemised bills (OPD/IPD), payment tracking, PDF receipts |
+| **Pharmacy & Inventory** | Stock management, expiry alerts, dispensing with sale records |
+| **IPD Management** | Admissions, daily rounds, discharge summaries, bed management |
+| **Surgery Scheduling** | Schedule and track surgical procedures |
+| **Per-Hospital Telegram Bot** | Each hospital uses its own bot — events auto-routed, never mixed |
+| **🕐 Staff Self Check-In/Out** | Any staff checks in from their own dashboard — no admin needed |
 | **Doctor Rounds** | Ward notes, daily rounds, ICU tracking |
-| **Role-Based Access** | Admin, Doctor, Nurse, Lab, Pharmacist, Reception |
-| **Founder Dashboard** | SaaS analytics, client health, revenue, upgrades |
-| **PDF Reports** | OPD/IPD daily, financial, prescriptions |
+| **Role-Based Access** | Admin, Doctor, Nurse, Lab, Pharmacist/Stock, Reception |
+| **Founder Dashboard** | SaaS analytics, client health, revenue, hospital status |
+| **PDF Reports** | Prescriptions, bills, lab reports |
 
 ---
 
@@ -143,375 +192,190 @@ Server starts at **http://localhost:7500**
 
 | Role | Dashboard | Key Functions |
 |------|-----------|---------------|
-| **Admin** | `admin_dashboard.html` | Staff management, settings, billing, Telegram config |
-| **Doctor** | `doctor_dashboard.html` | Patients, prescriptions, rounds, lab orders |
-| **Nurse** | `nurse_dashboard.html` | Vitals, beds, patient monitoring |
+| **Admin** | `admin_dashboard.html` | Staff management, settings, billing, Telegram config, logs |
+| **Doctor** | `doctor_dashboard.html` | Patients, prescriptions (+ voice), rounds, lab orders |
+| **Nurse** | `nurse_dashboard.html` | Vitals, beds, patient monitoring, nurse assignments |
 | **Lab Tech** | `lab_dashboard.html` | Lab orders, test results, reports |
-| **Pharmacist** | *(inline)* | Medicine dispensing, stock |
-| **Reception** | *(inline)* | Registration, appointments, billing |
+| **Stock/Pharmacist** | `stock_dashboard.html` | Medicine dispensing, inventory, expiry alerts |
+| **Reception** | `reception_dashboard.html` | Patient registration, appointments, billing |
 
 ---
 
-## 📱 Telegram Notifications — Complete Guide
+## 📱 Telegram Notifications
 
-### How It Works (Multi-Tenant, Fully Automatic)
+### How It Works
 
-Every hospital in SRP MediFlow has **its own Telegram bot**. When any event happens (patient registers, prescription saved, staff checks in, IPD admission, low stock), the system automatically looks up **that hospital's Telegram credentials** and sends the alert to that hospital's own staff channel — never to another hospital's channel.
+Every hospital has **its own Telegram bot**. When any event happens, the system automatically looks up that hospital's credentials and sends alerts to that hospital's channel only — never mixed across hospitals.
 
-> **New hospitals added in the future are automatically supported** — they just need to add their Bot Token and Chat ID in Admin → Notifications.
+### Events That Trigger Notifications
 
----
+| Event | Receiver |
+|-------|----------|
+| New OPD patient registered | Hospital staff group |
+| Prescription saved by doctor | Hospital staff group |
+| IPD patient admitted/discharged | Hospital staff group |
+| Surgery scheduled | Hospital staff group |
+| Staff self check-in / check-out | Hospital staff group |
+| Low stock / expiry alert | Hospital admin |
+| New hospital registered (SaaS) | Platform founder only |
+| Server crash | Platform founder only |
 
-### What Telegram Is Used FOR in SRP MediFlow
+> ✅ **Server restart notifications are permanently disabled** — no more spam when the service restarts.
 
-| Event | Who Gets Notified | Channel |
-|-------|------------------|---------|
-| New OPD patient registered (chatbot or reception) | Hospital staff group | Hospital's own bot |
-| Appointment booked | Hospital staff group | Hospital's own bot |
-| Prescription saved by doctor | Hospital staff group | Hospital's own bot |
-| IPD patient admitted | Hospital staff group | Hospital's own bot |
-| IPD patient discharged | Hospital staff group | Hospital's own bot |
-| Surgery scheduled | Hospital staff group | Hospital's own bot |
-| Staff self check-in / check-out | Hospital admin + staff | Hospital's own bot |
-| Low stock alert | Hospital admin | Hospital's own bot |
-| Medicine expiry alert | Hospital admin | Hospital's own bot |
-| Daily summary | Hospital admin | Hospital's own bot |
-| New hospital registered | Platform founder only | Founder's private bot |
-| Server start / crash | Platform founder only | Founder's alert bot |
+### Admin Setup (One-Time Per Hospital)
 
----
-
-### What Telegram Is NOT Used For
-
-- ❌ Booking appointments (that is done via the AI chatbot at `/chat/{hospital_slug}`)
-- ❌ Patient login or registration
-- ❌ Viewing prescriptions or lab reports (those are on the staff dashboards)
-- ❌ Admin controls (use the Admin Dashboard at `/login`)
+1. Create a Telegram bot via `@BotFather` → Get token
+2. Add bot to your hospital's staff group → Get Chat ID
+3. Go to **Admin Dashboard → ⚙️ Settings → Notifications**
+4. Enter Bot Token + Chat ID → Save → Test
 
 ---
 
-### Setup for Each Hospital (Admin does this once)
+## 🔧 Database Schema
 
-**Step 1 — Create a Telegram bot for your hospital**
-```
-1. Open Telegram → search @BotFather
-2. Send /newbot
-3. Enter a name: "Star Hospital Alerts"
-4. Enter a username: starhospital_bot
-5. Copy the bot token:  7123456789:AABBccDDeeFF...
-```
+All 5 hospital databases share the same schema. Key tables:
 
-**Step 2 — Create a staff group and add the bot**
-```
-1. Create a Telegram group: "Star Hospital Staff"
-2. Add @starhospital_bot to the group
-3. Make the bot an Admin (so it can send messages)
-```
-
-**Step 3 — Get the Chat ID of the staff group**
-```
-Open this URL in browser (replace TOKEN with your bot token):
-https://api.telegram.org/botTOKEN/getUpdates
-
-Look for: "chat":{"id":-1001234567890}
-The negative number starting with -100 is your Chat ID.
-```
-
-**Step 4 — Save credentials in Admin Dashboard**
-```
-Login → Admin → Settings → Notifications
-Paste: Bot Token  → 7123456789:AABBccDDeeFF...
-Paste: Chat ID    → -1001234567890
-Click: Save All Settings
-```
-
-Done. All events for that hospital now automatically go to that hospital's own Telegram channel.
-
----
-
-### Doctor/Staff View on Telegram
-
-As a doctor (or any staff), you are a **member of the hospital's Telegram staff group**. You will see:
-
-```
-🏥 STAR HOSPITAL
-💊 PRESCRIPTION SAVED
-──────────────────────
-👤 Patient: Ravi Kumar
-📞 Phone: +91 9876543210
-👨‍⚕️ Doctor: Dr. Srujan
-🆔 Rx ID: RX-20260311-001
-──────────────────────
-⏰ 11 Mar 2026 10:45 AM
-📍 Kothagudem   📞 +91 7981971015
-
-🏥 STAR HOSPITAL
-🟢 STAFF CHECK-IN
-──────────────────────
-👤 Staff: Dr. Srujan
-👔 Role: Doctor
-──────────────────────
-⏰ 11 Mar 2026 09:01 AM
-```
-
-You do **not** need to interact with the bot — it only sends messages to the group, you just read them.
-
----
-
-### APIs for Telegram (Server Side)
-
-| Endpoint | Method | Auth | Purpose |
-|----------|--------|------|---------|
-| `/api/telegram/send` | POST | ADMIN | Send custom message via hospital bot |
-| `/api/settings/notifications` | POST | ADMIN | Save bot token + chat_id |
-| `/api/settings/notifications` | GET | ADMIN | Read current settings |
-
-```bash
-# Test your Telegram setup
-curl -X POST http://localhost:7500/api/telegram/send \
-  -H "Cookie: session_token=YOUR_SESSION" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Test from SRP MediFlow"}'
-```
-
----
-
-## 📱 Telegram Notifications Setup
-
-### Staff Group Alerts
-1. Create bot via **@BotFather** → save the **Bot Token**
-2. Create a staff Telegram group → add bot → make it admin
-3. Get **Chat ID** (negative number):
-   ```
-   https://api.telegram.org/bot{TOKEN}/getUpdates
-   Look for "chat":{"id":-1001234567890}
-   ```
-4. In Admin → Notifications → paste **Bot Token + Chat ID** → Save
-
-### Patient Notifications
-- Display your bot username (e.g. `@starhospital_bot`) at reception
-- Patient sends `/start` to the bot → system captures their Chat ID automatically
-- All future appointment, lab, and billing notifications go directly to them
-
-> **Both Bot Token AND Chat ID are required** for staff alerts to work.
-
----
-
-## 🔒 Security
-
-- **All API keys in `.env` only** — never hardcoded in source code
-- bcrypt password hashing (rounds = 12)
-- Session token authentication (64-char hex, DB-persisted)
-- Mandatory password change on first login
-- Full audit log of all actions
-- Tenant DB isolation — queries never cross tenant boundaries
-- Rate limiting per IP on all auth endpoints
-- Brute-force lockout (3 failed attempts → 15 min, DB-persisted across restarts)
-- No internal error details leak to API clients — all exceptions sanitised
-- Security HTTP headers on every response: `X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`, `Referrer-Policy`, `CSP`
-- CORS locked-down — unknown origins return `null`, not `*`
-- Session cookies: `HttpOnly; SameSite=Lax; Path=/`
-- No cross-tenant data leakage (verified: 26/26 isolation tests)
-
-### API Keys & Secrets — Checklist
-
-| Secret | Where to configure | Risk if exposed |
-|--------|-------------------|-----------------|
-| `OPENAI_API_KEY` | `.env` | Billing charges on your OpenAI account |
-| `TELEGRAM_BOT_TOKEN` | `.env` | Anyone can send messages as your bot |
-| `TELEGRAM_CHAT_ID` | `.env` | Low risk alone, but protects privacy |
-| `FOUNDER_CHAT_ID` | `.env` | Your personal Telegram ID |
-| `WHATSAPP_API_KEY` | `.env` | SMS/WhatsApp charges on your Meta account |
-| `WHATSAPP_WEBHOOK_SECRET` | `.env` | Allows fake webhook payloads |
-| `NGROK_AUTH_TOKEN` | `.env` | Tunnel abuse on your ngrok account |
-| `PG_PASSWORD` | `.env` | Full database access |
-| `credentials.json` | gitignored | Full Google Cloud access |
-
-> **Never put any of the above in source code.** Use `.env.example` as a template — it has no real values.
-
-### Setup
-```bash
-cp .env.example .env
-# Edit .env with your real values
-```
-
----
-
-## 🗄️ Database Setup
-
-### Platform DB
-```sql
--- Run once for the platform
-\i srp_platform_schema.sql
-```
-
-### Tenant DB (auto-created on signup)
-```sql
--- Each hospital gets its own DB via saas_onboarding.py
--- Schema: srp_mediflow_schema_hms.sql
-```
-
-### Manual tenant provisioning
-```bash
-python saas_onboarding.py --provision-all
-```
-
-### Seed demo data
-```bash
-python saas_onboarding.py --seed-demo
-```
-
----
-
-## ✅ E2E Test Results (March 2026)
-
-### Chatbot Load Test (all 5 hospitals)
-| Hospital | CSS Loaded | JS Loaded | TENANT_SLUG | Status |
-|----------|-----------|-----------|-------------|--------|
-| star_hospital | ✅ | ✅ | ✅ | PASS |
-| sai_care | ✅ | ✅ | ✅ | PASS |
-| city_medical | ✅ | ✅ | ✅ | PASS |
-| apollo_warangal | ✅ | ✅ | ✅ | PASS |
-| green_cross | ✅ | ✅ | ✅ | PASS |
-
-### Tenant Config & DB Isolation
-| Tenant | Hospital Name | City | Doctors | Status |
-|--------|--------------|------|---------|--------|
-| star_hospital | Star Hospital | Khammam | 3 | ✅ |
-| sai_care | Sai Care Hospital | Khammam | 4 | ✅ |
-| city_medical | City Medical Centre | Hyderabad | 4 | ✅ |
-| apollo_warangal | Apollo Clinic Warangal | Warangal | 4 | ✅ |
-| green_cross | Green Cross Hospital | Vijayawada | 4 | ✅ |
-
-### Login Test (all 5 admins)
-| Tenant | Role | Hospital Name | Status |
-|--------|------|--------------|--------|
-| star_hospital | ADMIN | Star Hospital | ✅ |
-| sai_care | ADMIN | Sai Care Hospital | ✅ |
-| city_medical | ADMIN | City Medical Centre | ✅ |
-| apollo_warangal | ADMIN | Apollo Clinic Warangal | ✅ |
-| green_cross | ADMIN | Green Cross Hospital | ✅ |
-
-### Chat + DB Isolation Test
-- **Star Hospital** chat → recommends Dr. K. Ramyanadh (its own DB) ✅
-- **Sai Care** chat → shows Dr. Kiran Babu, Dr. Radha Menon, Dr. Suresh Nair, Dr. Asha Kumari (different DB) ✅
-- **Zero cross-tenant data leakage confirmed** ✅
-
----
-
-## 📁 Key Files
-
-| File | Role |
-|------|------|
-| `srp_mediflow_server.py` | Main HTTP server, all routing and API handlers |
-| `hms_db.py` | Hospital database queries (tenant-aware) |
-| `platform_db.py` | Platform-level DB (client registry, billing) |
-| `auth.py` | Authentication, session management |
-| `chatbot.py` | AI chat logic, appointment booking |
-| `saas_onboarding.py` | Auto-provisions new hospital DB on signup |
-| `saas_billing.py` | Platform billing, plan management |
-| `saas_analytics.py` | Founder analytics and reporting |
-| `pdf_generator.py` | Prescriptions, bills, reports as PDF |
-| `index.html` | Patient-facing chatbot UI |
-| `platform_landing.html` | Public marketing landing page |
-| `hospital_signup.html` | Hospital registration form |
-| `admin_dashboard.html` | Admin portal |
-| `doctor_dashboard.html` | Doctor portal |
-| `srp_mediflow_schema_hms.sql` | Per-tenant database schema |
-| `srp_platform_schema.sql` | Platform database schema |
+| Table | Contents |
+|-------|----------|
+| `patients` | UHID, name, phone, visit info, doctor assigned |
+| `appointments` | All OPD bookings |
+| `prescriptions` | Full digital Rx with vitals, diagnosis, medicines |
+| `prescription_medicines` | Per-medicine rows (dose, frequency, route, duration) |
+| `prescription_items` | Legacy medicine data backward compat |
+| `lab_orders` | Lab test orders with results |
+| `patient_admissions` | IPD admissions / bed assignments |
+| `surgery_records` | Scheduled surgeries |
+| `billing` | Bills with itemised charges |
+| `pharmacy_sales` | Pharmacy dispensing records |
+| `attendance` | Staff check-in/check-out |
+| `staff_users` | All staff accounts with hashed passwords |
+| `notification_settings` | Per-hospital Telegram/WhatsApp config |
 
 ---
 
 ## 🚢 Deployment (Hetzner VPS)
 
-See [HETZNER_DEPLOY.md](HETZNER_DEPLOY.md) for full VPS deployment guide.
+**Server:** `5.223.67.236` | **Port:** `7500`
+**Service:** `systemd srp-mediflow` (auto-restart on crash, NOT on normal boots)
 
-### Quick deploy steps
 ```bash
-# On server:
+# Deploy from local (uses _quick_deploy.py)
+python _quick_deploy.py
+
+# Manual SSH deploy
+ssh root@5.223.67.236
+cd /opt/srp-mediflow/srp-mediflow
 git pull origin main
-pip install -r requirements.txt
-python srp_mediflow_server.py &
+systemctl restart srp-mediflow
 
-# Configure Nginx reverse proxy for port 7500
-# Set up Cloudflare wildcard DNS: *.mediflow.srpailabs.com → server IP
-# Each hospital gets: hospitalname.mediflow.srpailabs.com
+# Check logs
+journalctl -u srp-mediflow -n 50
+tail -f /opt/srp-mediflow/srp-mediflow/logs/server_errors.log
 ```
 
-### Environment variables (`.env`)
+---
+
+## 🧪 E2E Testing
+
+Run the full end-to-end test suite against the live Hetzner server:
+
 ```bash
-# Copy template and fill in real values
-cp .env.example .env
+python _e2e_mega.py
 ```
 
-Key variables (see `.env.example` for full list):
-```
-PG_HOST=localhost
-PG_PORT=5432
-PG_USER=ats_user
-PG_PASSWORD=your_db_password
-PLATFORM_DB_NAME=srp_platform_db
-APP_URL=https://mediflow.srpailabs.com
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_CHAT_ID=your_staff_group_chat_id
-FOUNDER_CHAT_ID=your_personal_telegram_chat_id
-OPENAI_API_KEY=your_openai_key
-WHATSAPP_API_KEY=your_whatsapp_bearer_token
-WHATSAPP_WEBHOOK_SECRET=your_strong_random_secret
+Tests cover all 15 sections:
+1. Server health check
+2. All 31 logins
+3. All 85 dashboard APIs
+4. Patient registration (5 hospitals × 3 patients)
+5. Digital prescriptions
+6. Nurse vitals
+7. Lab orders + results
+8. IPD admit + rounds
+9. Billing + payment
+10. Pharmacy sales
+11. Staff check-in/check-out
+12. Surgery scheduling
+13. Chatbot appointment booking
+14. Telegram notifications
+15. Database verification (row counts)
+
+**Latest result: 233/233 = 100% ✅**
+
+---
+
+## 📁 Key Files
+
+| File | Purpose |
+|------|---------|
+| `srp_mediflow_server.py` | Main server — all routes, middleware, HTML serving |
+| `hms_db.py` | All database operations (per-tenant) |
+| `platform_db.py` | Platform/SaaS database operations |
+| `tenant_router.py` | Per-request tenant isolation (thread-local DB connections) |
+| `auth.py` | Session management, role verification |
+| `chatbot.py` | AI chatbot logic (appointment booking) |
+| `notifications/` | Telegram + WhatsApp notification system |
+| `pdf_generator.py` | PDF generation for prescriptions and bills |
+| `_e2e_mega.py` | Full end-to-end test suite |
+| `_quick_deploy.py` | One-click deploy to Hetzner |
+| `_seed_all_hospitals.py` | Seed demo data across all hospitals |
+| `requirements.txt` | Python dependencies |
+
+---
+
+## ⚙️ Environment Variables (.env)
+
+```env
+# PostgreSQL
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=hospital_ai        # Star Hospital (default/platform)
+DB_USER=ats_user
+DB_PASSWORD=ats_password
+
+# Platform
+PLATFORM_DB_NAME=srp_platform
+PORT=7500
+
+# Founder Telegram bot (optional)
+FOUNDER_TG_TOKEN=...
+FOUNDER_TG_CHAT_ID=...
 ```
 
 ---
 
-## 📝 Changelog
+## 📜 Changelog
 
-### v6.1 (March 2026) — Phase 6.1: Mobile Rx Assist + Per-Tenant Telegram
-- ✅ **Per-tenant Telegram routing** — every hospital's events go to their own bot, never mixed. Auto-works for all current and future hospitals
-- ✅ **Voice-to-text on prescription** — 🎤 mic button on every field (complaint, diagnosis, symptoms, notes, diet, instructions). en-IN/hi-IN/te-IN
-- ✅ **Save Draft to localStorage** — auto-restore on page load, never lose partial Rx
-- ✅ **Mobile sticky action bar** — Save Draft · Save Final · PDF · Telegram Notify · WhatsApp (Coming Soon)
-- ✅ **Toast notification system** — instant feedback for all key actions
-- ✅ **Staff self check-in/out** — any logged-in staff from their own dashboard, no admin needed
-- ✅ **👨‍⚕️ My Attendance panel** — doctor dashboard section with live clock, check-in/out, today's table
-- ✅ **Telegram: prescription saved** — fires to hospital bot after every Rx save
-- ✅ **Telegram: staff check-in/out** — fires to hospital bot when any staff self-checks
-- ✅ **DB migration** — `username` and `role` columns added to `attendance` table, deployed to production
-- ✅ **Landing page updated** — v6.1 badge, 2 new feature cards, updated stats, updated marquee
+### v7.0 — March 11, 2026
+- ✅ **100% E2E test pass rate** (233/233) — up from 92%
+- 🚫 **Telegram spam permanently fixed** — no more server-restart messages
+- 🗄️ **Schema fully migrated** across all 5 hospital DBs:
+  - `prescriptions`: added `visit_id`, `uhid`, `created_by_doctor`, `clinical_notes`, `bp`, `temperature`, `pulse`, `spo2`, `weight`, `special_instructions`, `chief_complaint`, `symptoms`, `diet_advice`, `follow_up_days`
+  - `prescription_medicines` table created in all 5 DBs
+  - `prescription_items` table created/fixed (added `route` column) in all 5 DBs
+  - `lab_orders`: added `visit_id`, `prescription_id`, `lab_notes`
+- 🧹 Codebase cleaned up (removed 30+ debug/fix scripts)
 
-### v5.0 (March 2026)
-- ✅ **Security hardening**: sanitised all 14 API error responses — no internal details leak to clients
-- ✅ **Security headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `X-XSS-Protection`, `CSP`, `Referrer-Policy` on every response
-- ✅ **CORS locked down**: unknown origins blocked (`null`), never wildcard `*`
-- ✅ **All API keys in `.env`**: removed hardcoded Telegram token, ngrok token, WhatsApp secret
-- ✅ **Brute-force lockout DB-persisted**: survives server restarts (stored in `auth_lockouts` table)
-- ✅ **Session cookies**: `HttpOnly; SameSite=Lax` on all login responses
-- ✅ **Codebase cleanup**: removed all 38 debug `_*.py` scripts and 25 `srv*.txt` log files
-- ✅ **Founder dashboard**: DB isolation test, all-clients view, system-status health check fully working
+### v6.1 — March 2026
+- 🎤 Voice-to-text on prescription fields (en-IN / hi-IN / te-IN)
+- 📋 Draft auto-save (localStorage)
+- 🕐 Staff self check-in / check-out
+- ✈️ Telegram notification on prescription save
+- 📱 Mobile sticky prescription action bar
 
-### v4.0 (March 2026)
-- ✅ New comprehensive marketing landing page (`platform_landing.html`)
-- ✅ Fixed chatbot routing: `/chat/{slug}` properly serves tenant chatbot with CSS/JS
-- ✅ Fixed asset paths: `style.css` and `script.js` now use absolute paths — no more unstyled pages
-- ✅ Added `/ping` and `/health` JSON endpoints
-- ✅ Registration flow: signup buttons → `hospital_signup.html` → auto-provision DB → show credentials
-- ✅ Added 24/7 chatbot uptime to Professional plan
-- ✅ Platform root routing: `/` → landing, `/?tenant=slug` → chatbot, `/chat/slug` → chatbot
-- ✅ All 5 tenant admin logins verified
-- ✅ Full DB isolation confirmed across all tenants
-- ✅ 26/26 cross-tenant isolation tests passing
-
-### v3.x (February 2026)
-- Multi-tenant architecture implementation
-- Telegram notification system per hospital
-- Digital prescriptions module
-- Lab management module
-- PDF report generation
+### v6.0 — February 2026
+- Full multi-tenant SaaS architecture
+- Per-hospital isolated databases
+- IPD patient admissions and rounds
+- Surgery scheduling
+- Pharmacy inventory and dispensing
+- Telegram bot per hospital (fully isolated routing)
 
 ---
 
-## 📄 License
+## 📞 Support & Contact
 
-See [LICENSE](LICENSE) for details.
+**SRP MediFlow** — Enterprise Hospital Management Platform
+Built with ❤️ for Indian healthcare
 
----
-
-*Built with ❤️ in Telangana, India · SRP AI Labs · 2026*
+> **IMPORTANT:** Change all default passwords before going live with real patient data.

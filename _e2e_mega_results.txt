@@ -1,0 +1,236 @@
+SRP MediFlow MEGA E2E Test  — 2026-03-11T23:42:46.576767
+PASS: 233  FAIL: 0  TOTAL: 233  (100%)
+
+[PASS] Server /ping
+[PASS] Server /health
+[PASS] LOGIN star_hospital_admin → ADMIN@star_hospital
+[PASS] LOGIN star_hospital_doctor → DOCTOR@star_hospital
+[PASS] LOGIN star_hospital_nurse → NURSE@star_hospital
+[PASS] LOGIN star_hospital_lab → LAB@star_hospital
+[PASS] LOGIN star_hospital_stock → STOCK@star_hospital
+[PASS] LOGIN star_hospital_reception → RECEPTION@star_hospital
+[PASS] LOGIN sai_care_admin → ADMIN@sai_care
+[PASS] LOGIN sai_care_doctor → DOCTOR@sai_care
+[PASS] LOGIN sai_care_nurse → NURSE@sai_care
+[PASS] LOGIN sai_care_lab → LAB@sai_care
+[PASS] LOGIN sai_care_stock → STOCK@sai_care
+[PASS] LOGIN sai_care_reception → RECEPTION@sai_care
+[PASS] LOGIN city_medical_admin → ADMIN@city_medical
+[PASS] LOGIN city_medical_doctor → DOCTOR@city_medical
+[PASS] LOGIN city_medical_nurse → NURSE@city_medical
+[PASS] LOGIN city_medical_lab → LAB@city_medical
+[PASS] LOGIN city_medical_stock → STOCK@city_medical
+[PASS] LOGIN city_medical_reception → RECEPTION@city_medical
+[PASS] LOGIN apollo_warangal_admin → ADMIN@apollo_warangal
+[PASS] LOGIN apollo_warangal_doctor → DOCTOR@apollo_warangal
+[PASS] LOGIN apollo_warangal_nurse → NURSE@apollo_warangal
+[PASS] LOGIN apollo_warangal_lab → LAB@apollo_warangal
+[PASS] LOGIN apollo_warangal_stock → STOCK@apollo_warangal
+[PASS] LOGIN apollo_warangal_reception → RECEPTION@apollo_warangal
+[PASS] LOGIN green_cross_admin → ADMIN@green_cross
+[PASS] LOGIN green_cross_doctor → DOCTOR@green_cross
+[PASS] LOGIN green_cross_nurse → NURSE@green_cross
+[PASS] LOGIN green_cross_lab → LAB@green_cross
+[PASS] LOGIN green_cross_stock → STOCK@green_cross
+[PASS] LOGIN green_cross_reception → RECEPTION@green_cross
+[PASS] LOGIN founder → FOUNDER@platform
+[PASS] Star Hospital ADMIN /session/me
+[PASS] Star Hospital ADMIN /admin/data
+[PASS] Star Hospital ADMIN /admin/doctors
+[PASS] Star Hospital ADMIN /attendance/today
+[PASS] Star Hospital ADMIN /billing/list
+[PASS] Star Hospital ADMIN /admin/logs
+[PASS] Star Hospital ADMIN /staff/list
+[PASS] Star Hospital ADMIN /ipd/admissions
+[PASS] Star Hospital ADMIN /surgery/list
+[PASS] Star Hospital DOCTOR /appointments
+[PASS] Star Hospital DOCTOR /prescriptions
+[PASS] Star Hospital DOCTOR /visits
+[PASS] Star Hospital NURSE  /nurse/vitals
+[PASS] Star Hospital NURSE  /nurse/assignments
+[PASS] Star Hospital LAB    /lab/orders
+[PASS] Star Hospital STOCK  /stock/list
+[PASS] Star Hospital STOCK  /pharmacy/inventory
+[PASS] Sai Care Hospital ADMIN /session/me
+[PASS] Sai Care Hospital ADMIN /admin/data
+[PASS] Sai Care Hospital ADMIN /admin/doctors
+[PASS] Sai Care Hospital ADMIN /attendance/today
+[PASS] Sai Care Hospital ADMIN /billing/list
+[PASS] Sai Care Hospital ADMIN /admin/logs
+[PASS] Sai Care Hospital ADMIN /staff/list
+[PASS] Sai Care Hospital ADMIN /ipd/admissions
+[PASS] Sai Care Hospital ADMIN /surgery/list
+[PASS] Sai Care Hospital DOCTOR /appointments
+[PASS] Sai Care Hospital DOCTOR /prescriptions
+[PASS] Sai Care Hospital DOCTOR /visits
+[PASS] Sai Care Hospital NURSE  /nurse/vitals
+[PASS] Sai Care Hospital NURSE  /nurse/assignments
+[PASS] Sai Care Hospital LAB    /lab/orders
+[PASS] Sai Care Hospital STOCK  /stock/list
+[PASS] Sai Care Hospital STOCK  /pharmacy/inventory
+[PASS] City Medical Centre ADMIN /session/me
+[PASS] City Medical Centre ADMIN /admin/data
+[PASS] City Medical Centre ADMIN /admin/doctors
+[PASS] City Medical Centre ADMIN /attendance/today
+[PASS] City Medical Centre ADMIN /billing/list
+[PASS] City Medical Centre ADMIN /admin/logs
+[PASS] City Medical Centre ADMIN /staff/list
+[PASS] City Medical Centre ADMIN /ipd/admissions
+[PASS] City Medical Centre ADMIN /surgery/list
+[PASS] City Medical Centre DOCTOR /appointments
+[PASS] City Medical Centre DOCTOR /prescriptions
+[PASS] City Medical Centre DOCTOR /visits
+[PASS] City Medical Centre NURSE  /nurse/vitals
+[PASS] City Medical Centre NURSE  /nurse/assignments
+[PASS] City Medical Centre LAB    /lab/orders
+[PASS] City Medical Centre STOCK  /stock/list
+[PASS] City Medical Centre STOCK  /pharmacy/inventory
+[PASS] Apollo Clinic Warang ADMIN /session/me
+[PASS] Apollo Clinic Warang ADMIN /admin/data
+[PASS] Apollo Clinic Warang ADMIN /admin/doctors
+[PASS] Apollo Clinic Warang ADMIN /attendance/today
+[PASS] Apollo Clinic Warang ADMIN /billing/list
+[PASS] Apollo Clinic Warang ADMIN /admin/logs
+[PASS] Apollo Clinic Warang ADMIN /staff/list
+[PASS] Apollo Clinic Warang ADMIN /ipd/admissions
+[PASS] Apollo Clinic Warang ADMIN /surgery/list
+[PASS] Apollo Clinic Warang DOCTOR /appointments
+[PASS] Apollo Clinic Warang DOCTOR /prescriptions
+[PASS] Apollo Clinic Warang DOCTOR /visits
+[PASS] Apollo Clinic Warang NURSE  /nurse/vitals
+[PASS] Apollo Clinic Warang NURSE  /nurse/assignments
+[PASS] Apollo Clinic Warang LAB    /lab/orders
+[PASS] Apollo Clinic Warang STOCK  /stock/list
+[PASS] Apollo Clinic Warang STOCK  /pharmacy/inventory
+[PASS] Green Cross Hospital ADMIN /session/me
+[PASS] Green Cross Hospital ADMIN /admin/data
+[PASS] Green Cross Hospital ADMIN /admin/doctors
+[PASS] Green Cross Hospital ADMIN /attendance/today
+[PASS] Green Cross Hospital ADMIN /billing/list
+[PASS] Green Cross Hospital ADMIN /admin/logs
+[PASS] Green Cross Hospital ADMIN /staff/list
+[PASS] Green Cross Hospital ADMIN /ipd/admissions
+[PASS] Green Cross Hospital ADMIN /surgery/list
+[PASS] Green Cross Hospital DOCTOR /appointments
+[PASS] Green Cross Hospital DOCTOR /prescriptions
+[PASS] Green Cross Hospital DOCTOR /visits
+[PASS] Green Cross Hospital NURSE  /nurse/vitals
+[PASS] Green Cross Hospital NURSE  /nurse/assignments
+[PASS] Green Cross Hospital LAB    /lab/orders
+[PASS] Green Cross Hospital STOCK  /stock/list
+[PASS] Green Cross Hospital STOCK  /pharmacy/inventory
+[PASS] Star Hospital REG patient Rajesh Kumar
+[PASS] Star Hospital REG patient Priya Devi
+[PASS] Star Hospital REG patient Mohammed Saleem
+[PASS] Sai Care Hospital REG patient Rajesh Kumar
+[PASS] Sai Care Hospital REG patient Priya Devi
+[PASS] Sai Care Hospital REG patient Mohammed Saleem
+[PASS] City Medical Centr REG patient Rajesh Kumar
+[PASS] City Medical Centr REG patient Priya Devi
+[PASS] City Medical Centr REG patient Mohammed Saleem
+[PASS] Apollo Clinic Wara REG patient Rajesh Kumar
+[PASS] Apollo Clinic Wara REG patient Priya Devi
+[PASS] Apollo Clinic Wara REG patient Mohammed Saleem
+[PASS] Green Cross Hospit REG patient Rajesh Kumar
+[PASS] Green Cross Hospit REG patient Priya Devi
+[PASS] Green Cross Hospit REG patient Mohammed Saleem
+[PASS] Star Hospital PRESCRIPTION patient=Rajesh Kumar
+[PASS] Star Hospital PRESCRIPTION patient=Priya Devi
+[PASS] Star Hospital PRESCRIPTION patient=Mohammed Sal
+[PASS] Sai Care Hospital PRESCRIPTION patient=Rajesh Kumar
+[PASS] Sai Care Hospital PRESCRIPTION patient=Priya Devi
+[PASS] Sai Care Hospital PRESCRIPTION patient=Mohammed Sal
+[PASS] City Medical Centr PRESCRIPTION patient=Rajesh Kumar
+[PASS] City Medical Centr PRESCRIPTION patient=Priya Devi
+[PASS] City Medical Centr PRESCRIPTION patient=Mohammed Sal
+[PASS] Apollo Clinic Wara PRESCRIPTION patient=Rajesh Kumar
+[PASS] Apollo Clinic Wara PRESCRIPTION patient=Priya Devi
+[PASS] Apollo Clinic Wara PRESCRIPTION patient=Mohammed Sal
+[PASS] Green Cross Hospit PRESCRIPTION patient=Rajesh Kumar
+[PASS] Green Cross Hospit PRESCRIPTION patient=Priya Devi
+[PASS] Green Cross Hospit PRESCRIPTION patient=Mohammed Sal
+[PASS] Star Hospital VITALS patient=Rajesh Kumar
+[PASS] Star Hospital VITALS patient=Priya Devi
+[PASS] Sai Care Hospital VITALS patient=Rajesh Kumar
+[PASS] Sai Care Hospital VITALS patient=Priya Devi
+[PASS] City Medical Centr VITALS patient=Rajesh Kumar
+[PASS] City Medical Centr VITALS patient=Priya Devi
+[PASS] Apollo Clinic Wara VITALS patient=Rajesh Kumar
+[PASS] Apollo Clinic Wara VITALS patient=Priya Devi
+[PASS] Green Cross Hospit VITALS patient=Rajesh Kumar
+[PASS] Green Cross Hospit VITALS patient=Priya Devi
+[PASS] Star Hospital LAB ORDER patient=Rajesh Kumar
+[PASS] Star Hospital LAB RESULT order=14
+[PASS] Sai Care Hospital LAB ORDER patient=Rajesh Kumar
+[PASS] Sai Care Hospital LAB RESULT order=14
+[PASS] City Medical Centr LAB ORDER patient=Rajesh Kumar
+[PASS] City Medical Centr LAB RESULT order=14
+[PASS] Apollo Clinic Wara LAB ORDER patient=Rajesh Kumar
+[PASS] Apollo Clinic Wara LAB RESULT order=14
+[PASS] Green Cross Hospit LAB ORDER patient=Rajesh Kumar
+[PASS] Green Cross Hospit LAB RESULT order=14
+[PASS] Star Hospital IPD ADMIT Mohammed Sal
+[PASS] Sai Care Hospital IPD ADMIT Mohammed Sal
+[PASS] City Medical Centr IPD ADMIT Mohammed Sal
+[PASS] Apollo Clinic Wara IPD ADMIT Mohammed Sal
+[PASS] Green Cross Hospit IPD ADMIT Mohammed Sal
+[PASS] Star Hospital BILL CREATE patient=Rajesh Kumar
+[PASS] Star Hospital BILL PAYMENT bill=4
+[PASS] Sai Care Hospital BILL CREATE patient=Rajesh Kumar
+[PASS] Sai Care Hospital BILL PAYMENT bill=4
+[PASS] City Medical Centr BILL CREATE patient=Rajesh Kumar
+[PASS] City Medical Centr BILL PAYMENT bill=4
+[PASS] Apollo Clinic Wara BILL CREATE patient=Rajesh Kumar
+[PASS] Apollo Clinic Wara BILL PAYMENT bill=4
+[PASS] Green Cross Hospit BILL CREATE patient=Rajesh Kumar
+[PASS] Green Cross Hospit BILL PAYMENT bill=4
+[PASS] Star Hospital PHARMACY SALE
+[PASS] Sai Care Hospital PHARMACY SALE
+[PASS] City Medical Centr PHARMACY SALE
+[PASS] Apollo Clinic Wara PHARMACY SALE
+[PASS] Green Cross Hospit PHARMACY SALE
+[PASS] Star Hospital DOCTOR     CHECKIN
+[PASS] Star Hospital DOCTOR     CHECKOUT
+[PASS] Star Hospital NURSE      CHECKIN
+[PASS] Star Hospital NURSE      CHECKOUT
+[PASS] Star Hospital RECEPTION  CHECKIN
+[PASS] Star Hospital RECEPTION  CHECKOUT
+[PASS] Sai Care Hospital DOCTOR     CHECKIN
+[PASS] Sai Care Hospital DOCTOR     CHECKOUT
+[PASS] Sai Care Hospital NURSE      CHECKIN
+[PASS] Sai Care Hospital NURSE      CHECKOUT
+[PASS] Sai Care Hospital RECEPTION  CHECKIN
+[PASS] Sai Care Hospital RECEPTION  CHECKOUT
+[PASS] City Medical Centr DOCTOR     CHECKIN
+[PASS] City Medical Centr DOCTOR     CHECKOUT
+[PASS] City Medical Centr NURSE      CHECKIN
+[PASS] City Medical Centr NURSE      CHECKOUT
+[PASS] City Medical Centr RECEPTION  CHECKIN
+[PASS] City Medical Centr RECEPTION  CHECKOUT
+[PASS] Star Hospital SURGERY SCHEDULE
+[PASS] Sai Care Hospital SURGERY SCHEDULE
+[PASS] Star Hospital CHAT step 1: Hello, I want to book an 
+[PASS] Star Hospital CHAT step 2: I have fever and throat p
+[PASS] Star Hospital CHAT step 3: Book tomorrow 10am please
+[PASS] Sai Care Hospital CHAT step 1: Hello, I want to book an 
+[PASS] Sai Care Hospital CHAT step 2: I have fever and throat p
+[PASS] Sai Care Hospital CHAT step 3: Book tomorrow 10am please
+[PASS] City Medical Centr CHAT step 1: Hello, I want to book an 
+[PASS] City Medical Centr CHAT step 2: I have fever and throat p
+[PASS] City Medical Centr CHAT step 3: Book tomorrow 10am please
+[PASS] Apollo Clinic Wara CHAT step 1: Hello, I want to book an 
+[PASS] Apollo Clinic Wara CHAT step 2: I have fever and throat p
+[PASS] Apollo Clinic Wara CHAT step 3: Book tomorrow 10am please
+[PASS] Green Cross Hospit CHAT step 1: Hello, I want to book an 
+[PASS] Green Cross Hospit CHAT step 2: I have fever and throat p
+[PASS] Green Cross Hospit CHAT step 3: Book tomorrow 10am please
+[PASS] Star Hospital TELEGRAM Notification
+[PASS] Sai Care Hospital TELEGRAM Notification
+[PASS] FOUNDER /founder
+[PASS] FOUNDER /api/session/me
+[PASS] FOUNDER /api/tenants/list
+[PASS] Star Hospital DB rows patients=3
+[PASS] Sai Care Hospital DB rows patients=3
+[PASS] City Medical Centre DB rows patients=3
+[PASS] Apollo Clinic Warangal DB rows patients=3
+[PASS] Green Cross Hospital DB rows patients=3
