@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="pageTitle">Admin Dashboard | SRP MediFlow</title>
+    <link rel="stylesheet" href="/srp_mediflow_responsive.css">
     <style>
         * {
             margin: 0;
@@ -1320,6 +1321,10 @@
                             </tr>
                         `).join('');
                         document.getElementById('appointmentsBody').innerHTML = appointmentRows;
+                    } else {
+                        document.getElementById('appointmentsBody').innerHTML =
+                            '<tr><td colspan="7" style="text-align:center;padding:24px;color:#888;">' +
+                            'No appointments yet — patients can book via the chatbot</td></tr>';
                     }
                     
                     // Update attendance table (uses attendance_today from PostgreSQL)

@@ -499,6 +499,25 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.write(_b)
                 except Exception:
                     self.serve_file('index.html', 'text/html')
+            elif self.current_subdomain:
+                # Tenant subdomain root (e.g. star-hospital.mediflow.srpailabs.com)
+                # → normalise to snake_case slug and serve chatbot with TENANT_SLUG injected
+                import re as _re_sub
+                _sub_slug = _re_sub.sub(r'[^a-z0-9_]', '_', self.current_subdomain.lower())
+                try:
+                    html_path = os.path.join(BASE_DIR, 'index.html')
+                    with open(html_path, 'r', encoding='utf-8') as _f:
+                        _html = _f.read()
+                    _inj  = f'<script>window.TENANT_SLUG = "{_sub_slug}";</script>'
+                    _html = _html.replace('</head>', _inj + '\n</head>')
+                    _b    = _html.encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Length', str(len(_b)))
+                    self.end_headers()
+                    self.wfile.write(_b)
+                except Exception:
+                    self.serve_file('index.html', 'text/html')
             else:
                 self.serve_file('platform_landing.html', 'text/html')
         elif path == '/chat':
@@ -813,8 +832,10 @@ class Handler(BaseHTTPRequestHandler):
             # Public: returns hospital branding so the JS front-end can personalise pages
             host_hdr = self.headers.get('Host', '')
             cfg = _get_client_cfg(host_hdr)
-            # Enrich with resolved tenant slug (from subdomain detection)
-            resolved_slug = getattr(self, 'current_tenant_slug', 'star_hospital')
+            # Enrich with resolved tenant slug — normalise subdomain to snake_case
+            import re as _re_cfg
+            _raw_sub = getattr(self, 'current_subdomain', None) or 'star_hospital'
+            resolved_slug = _re_cfg.sub(r'[^a-z0-9_]', '_', _raw_sub.lower())
             # Try: ?tenant= query param → session tenant → subdomain-resolved slug
             from urllib.parse import parse_qs, urlparse as _uparse
             _qs_tenant = parse_qs(_uparse(self.path).query).get('tenant', [None])[0]
