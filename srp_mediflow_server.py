@@ -15,6 +15,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
         pass
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
 import json
 import os
@@ -23,6 +24,12 @@ import time
 from dotenv import load_dotenv
 import subprocess
 import threading
+
+# Threaded HTTPServer: handles concurrent requests — required for true multi-tenant isolation
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Serve each request in its own thread for true client isolation."""
+    allow_reuse_address = True   # prevents [Errno 98] Address already in use on restart
+    daemon_threads      = True   # worker threads die when main thread exits
 
 # RBAC modules
 import auth
@@ -5237,36 +5244,50 @@ if __name__ == '__main__':
         f"analytics={_SAAS_ANALYTICS} backup={_SAAS_BACKUP}"
     )
 
-    # Hospital-level Telegram startup notification (internal, not founder)
+    # Hospital-level Telegram startup notification — rate-limited to once per 90s
+    # (prevents flood when systemd restart-loops due to EADDRINUSE)
     if _TELEGRAM_AVAILABLE:
         try:
-            _cfg = _get_client_cfg()
-            _tg.notify_admin(
-                f"🚀 SRP MediFlow server started\n"
-                f"🌐 Port: {PORT}\n"
-                f"🏥 {_cfg.get('hospital_name', 'Star Hospital')}\n"
-                f"📍 {_cfg.get('city', 'Kothagudem')}"
-            )
+            import os as _os2
+            _stamp_file = '/tmp/srp_last_start.txt'
+            _now_ts     = time.time()
+            _last_ts    = float(open(_stamp_file).read().strip()) if _os2.path.exists(_stamp_file) else 0
+            if _now_ts - _last_ts > 90:
+                open(_stamp_file, 'w').write(str(_now_ts))
+                _cfg = _get_client_cfg()
+                _tg.notify_admin(
+                    f"🚀 SRP MediFlow server started\n"
+                    f"🌐 Port: {PORT}\n"
+                    f"🏥 {_cfg.get('hospital_name', 'Star Hospital')}\n"
+                    f"📍 {_cfg.get('city', 'Kothagudem')}"
+                )
         except Exception:
             pass
 
     try:
-        server = HTTPServer(('0.0.0.0', PORT), Handler)
-        print("🚀 SRP MediFlow SaaS Server starting...")
+        server = ThreadedHTTPServer(('0.0.0.0', PORT), Handler)
+        print("🚀 SRP MediFlow SaaS Server starting (threaded, reuse_addr=True)...")
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
         _sys_log.info("Server stopped by KeyboardInterrupt")
     except Exception as e:
         print(f"❌ Server error: {e}")
-        import traceback
+        import traceback, errno as _errno_mod
         traceback.print_exc()
         _sys_log.error(f"SERVER_CRASH: {type(e).__name__}: {e}")
         # ── Founder alert: SERVER_CRASH ──────────────────────────────────────
-        send_founder_alert(
-            "SERVER_CRASH",
-            f"Unhandled server exception: {type(e).__name__}: {e}"
+        # Skip Telegram for EADDRINUSE (port busy on restart) — not a real crash;
+        # systemd will retry automatically; alerting would just flood the channel.
+        _is_addr_in_use = (
+            isinstance(e, OSError)
+            and getattr(e, 'errno', 0) in (_errno_mod.EADDRINUSE, 10048)
         )
+        if not _is_addr_in_use:
+            send_founder_alert(
+                "SERVER_CRASH",
+                f"Unhandled server exception: {type(e).__name__}: {e}"
+            )
         import time as _time; _time.sleep(1)  # give daemon thread a moment to fire
     finally:
         _release_pid_lock()
