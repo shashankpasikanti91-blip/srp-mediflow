@@ -72,6 +72,7 @@ logs/
 # Sensitive tenant & credential files
 tenant_registry.json
 ADMIN_LOGIN_CREDENTIALS.md
+CLIENT_LOGINS.md
 
 # Generated trial HTML files
 trials/
