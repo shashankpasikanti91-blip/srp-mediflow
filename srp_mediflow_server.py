@@ -2012,6 +2012,31 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_create_staff(data)
         elif path == '/api/staff/delete':
             self.handle_delete_staff(data)
+        # ── Doctor management (ADMIN only) ────────────────────────────────────
+        elif path == '/api/admin/doctors/add':
+            if self.require_role('ADMIN'):
+                _name = (data.get('name') or '').strip()
+                _spec = (data.get('specialization') or '').strip()
+                _dept = (data.get('department') or _spec).strip()
+                if not _name:
+                    self.send_json({'error': 'Doctor name is required'}, 400)
+                else:
+                    try:
+                        _new_doc = hospital_db.add_doctor(_name, _spec, _dept)
+                        self.send_json({'status': 'added', 'doctor': _new_doc})
+                    except Exception as _de:
+                        self.send_json({'error': f'Failed to add doctor: {_de}'}, 500)
+        elif path == '/api/admin/doctors/delete':
+            if self.require_role('ADMIN'):
+                _doc_id = data.get('id') or data.get('doctor_id')
+                if not _doc_id:
+                    self.send_json({'error': 'Doctor id required'}, 400)
+                else:
+                    try:
+                        _ok = hospital_db.delete_doctor(int(_doc_id))
+                        self.send_json({'status': 'deleted' if _ok else 'not_found'})
+                    except Exception as _de:
+                        self.send_json({'error': f'Failed to delete doctor: {_de}'}, 500)
         elif path == '/api/stock/add':
             self.handle_stock_add(data)
         elif path == '/api/stock/update':
@@ -3524,13 +3549,24 @@ class Handler(BaseHTTPRequestHandler):
             token     = auth.create_session(user_rec)
             dashboard = roles.get_dashboard(user_rec['role'])
 
-            # Fetch display name for this tenant
+            # Fetch display name and subdomain for this tenant
             try:
                 import json as _j, os as _o
                 _reg = _j.load(open(
                     _o.path.join(_o.path.dirname(_o.path.abspath(__file__)), 'tenant_registry.json'),
                     encoding='utf-8'))
                 hospital_name = _reg.get(tenant_slug, {}).get('display_name', tenant_slug)
+                # If the login was submitted from the root/platform domain
+                # (mediflow.srpailabs.com), redirect to tenant's subdomain URL
+                # instead of a relative path. This sends the browser to
+                # e.g.  https://star-hospital.mediflow.srpailabs.com/admin
+                _login_host = self.headers.get('Host', '')
+                if _is_platform_root_request(_login_host):
+                    _sub = _reg.get(tenant_slug, {}).get('subdomain', '')
+                    if _sub:
+                        _proto = 'https' if self._is_https() else 'http'
+                        _root_d = ROOT_DOMAIN.split(':')[0]
+                        dashboard = f'{_proto}://{_sub}.{_root_d}{dashboard}'
             except Exception:
                 hospital_name = tenant_slug
 

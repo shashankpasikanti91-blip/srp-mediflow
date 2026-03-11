@@ -468,6 +468,32 @@ def get_all_doctors() -> list:
             return [dict(r) for r in cur.fetchall()]
 
 
+def add_doctor(name: str, specialization: str, department: str = '') -> dict:
+    """Insert a new doctor record. Returns the created record."""
+    dept = department or specialization
+    sql = """
+        INSERT INTO doctors (name, specialization, department, status, on_duty)
+        VALUES (%s, %s, %s, 'available', FALSE)
+        RETURNING id, name, specialization, department, status, on_duty
+    """
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(sql, (name.strip(), specialization.strip(), dept.strip()))
+            row = cur.fetchone()
+            conn.commit()
+            return dict(row) if row else {}
+
+
+def delete_doctor(doctor_id: int) -> bool:
+    """Delete a doctor by id. Returns True if a row was deleted."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM doctors WHERE id = %s", (doctor_id,))
+            deleted = cur.rowcount > 0
+            conn.commit()
+            return deleted
+
+
 def get_doctors_on_duty() -> list:
     """Return doctors currently on duty.
     Falls back to staff_users with role=DOCTOR if the legacy doctors table is missing.

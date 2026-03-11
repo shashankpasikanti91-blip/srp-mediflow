@@ -382,6 +382,18 @@
         
         <!-- Main Content -->
         <div class="main-content">
+            <!-- ⚠️ Server / DB alert banner (hidden by default) -->
+            <div id="serverAlertBanner" style="display:none;background:#fff3cd;border:1.5px solid #f59e0b;
+                 border-radius:8px;padding:12px 18px;margin:12px 16px 0;
+                 display:none;align-items:center;gap:12px;font-size:13px;color:#92400e;">
+                <span style="font-size:20px;">⚠️</span>
+                <div style="flex:1;">
+                    <strong>Server / Database Issue Detected</strong> —
+                    <span id="serverAlertMsg">Some data may not be loading correctly. Please contact support if this persists.</span>
+                </div>
+                <button onclick="document.getElementById('serverAlertBanner').style.display='none'"
+                    style="background:none;border:none;cursor:pointer;font-size:18px;color:#92400e;">✕</button>
+            </div>
             <div class="header">
                 <h1 id="mainHospitalName">🏥 Admin Panel</h1>
                 <small id="hospitalDetails" style="color:#888;font-size:12px;">SRP MediFlow Hospital Management System</small>
@@ -796,6 +808,26 @@
             <!-- Doctors Section -->
             <div id="doctors" class="section">
                 <h2>Doctors</h2>
+
+                <!-- Add Doctor Form -->
+                <div class="table-container" style="margin-bottom:16px;">
+                    <h3 style="margin-bottom:12px;">➕ Add New Doctor</h3>
+                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Doctor Name *</label>
+                            <input id="newDoctorName" type="text" placeholder="e.g. Dr. Ramesh Kumar"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Specialization</label>
+                            <input id="newDoctorSpec" type="text" placeholder="e.g. Orthopedic"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <button class="btn btn-success" style="padding:8px 18px;" onclick="addDoctor()">Add Doctor</button>
+                    </div>
+                    <div id="doctorAddMsg" style="margin-top:8px;font-size:13px;"></div>
+                </div>
+
                 <div class="table-container">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
                         <h3>All Doctors</h3>
@@ -1370,6 +1402,12 @@
                 })
                 .catch(e => {
                     console.error('Error loading admin data:', e);
+                    const banner = document.getElementById('serverAlertBanner');
+                    if (banner) {
+                        document.getElementById('serverAlertMsg').textContent =
+                            'Could not reach the server (' + (e.message || 'network error') + '). Data shown may be outdated.';
+                        banner.style.display = 'flex';
+                    }
                 });
         }
 
@@ -1594,6 +1632,34 @@
         
         // Refresh data every 30 seconds
         setInterval(loadAdminData, 30000);
+
+        // ── Health check — poll /health every 45 s, show banner on failure ──
+        (function startHealthCheck() {
+            function check() {
+                fetch('/health', { cache: 'no-store' })
+                    .then(r => r.json())
+                    .then(d => {
+                        const banner = document.getElementById('serverAlertBanner');
+                        if (!banner) return;
+                        if (!d.db) {
+                            document.getElementById('serverAlertMsg').textContent =
+                                'Database connection lost. New bookings and updates cannot be saved right now.';
+                            banner.style.display = 'flex';
+                        } else {
+                            banner.style.display = 'none';
+                        }
+                    })
+                    .catch(() => {
+                        const banner = document.getElementById('serverAlertBanner');
+                        if (banner) {
+                            document.getElementById('serverAlertMsg').textContent =
+                                'Server is not responding. Please reload or contact support.';
+                            banner.style.display = 'flex';
+                        }
+                    });
+            }
+            setInterval(check, 45000);
+        })();
 
         // ── Staff Users ──────────────────────────────────────────────────────
         async function loadStaffUsers() {
@@ -1833,12 +1899,19 @@
                 }
                 const d = await r.json();
                 renderDoctorsTable(d.doctors || []);
-            } catch(e) { console.error('loadDoctors:', e); }
+            } catch(e) {
+                console.error('loadDoctors:', e);
+                const banner = document.getElementById('serverAlertBanner');
+                if (banner) {
+                    document.getElementById('serverAlertMsg').textContent = 'Could not load doctors list — database may be unavailable.';
+                    banner.style.display = 'flex';
+                }
+            }
         }
         function renderDoctorsTable(docs) {
             const tbody = document.getElementById('doctorsBody');
             if (!docs.length) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No doctors found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No doctors found — use the form above to add your doctors</td></tr>';
                 return;
             }
             tbody.innerHTML = docs.map((doc,i) => `
@@ -1849,8 +1922,52 @@
                     <td>${doc.specialization||'-'}</td>
                     <td><span class="badge ${doc.status==='available'?'confirmed':'pending'}">${doc.status||'Unknown'}</span></td>
                     <td>${doc.on_duty ? '<span class="badge active">On Duty</span>' : '<span class="badge absent">Off Duty</span>'}</td>
-                    <td><button class="btn" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();viewDoctor(${JSON.stringify(doc).replace(/'/g,"&#39;")});'>👁 View</button></td>
+                    <td>
+                        <button class="btn" style="padding:3px 10px;font-size:11px;margin-right:4px;" onclick='event.stopPropagation();viewDoctor(${JSON.stringify(doc).replace(/'/g,"&#39;")});'>👁 View</button>
+                        <button class="btn btn-danger" style="padding:3px 10px;font-size:11px;" onclick='event.stopPropagation();deleteDoctor(${doc.id},this);'>🗑 Delete</button>
+                    </td>
                 </tr>`).join('');
+        }
+        async function addDoctor() {
+            const name = document.getElementById('newDoctorName').value.trim();
+            const spec = document.getElementById('newDoctorSpec').value.trim();
+            const msgEl = document.getElementById('doctorAddMsg');
+            if (!name) { msgEl.innerHTML = '<span style="color:#e74c3c;">Doctor name is required.</span>'; return; }
+            msgEl.innerHTML = '<span style="color:#888;">Adding…</span>';
+            try {
+                const r = await authFetch('/api/admin/doctors/add', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({name, specialization: spec})
+                });
+                const d = await r.json();
+                if (d.status === 'added') {
+                    msgEl.innerHTML = '<span style="color:green;">✅ ' + name + ' added successfully.</span>';
+                    document.getElementById('newDoctorName').value = '';
+                    document.getElementById('newDoctorSpec').value = '';
+                    loadDoctors();
+                } else {
+                    msgEl.innerHTML = '<span style="color:#e74c3c;">Error: ' + (d.error||'Unknown error') + '</span>';
+                }
+            } catch(e) {
+                msgEl.innerHTML = '<span style="color:#e74c3c;">Network error — please try again.</span>';
+            }
+        }
+        async function deleteDoctor(id, btn) {
+            if (!confirm('Delete this doctor? This cannot be undone.')) return;
+            btn.disabled = true; btn.textContent = '…';
+            try {
+                const r = await authFetch('/api/admin/doctors/delete', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({id})
+                });
+                const d = await r.json();
+                loadDoctors();
+            } catch(e) {
+                btn.disabled = false; btn.textContent = '🗑 Delete';
+                alert('Failed to delete — please try again.');
+            }
         }
 
         // ── Lab Reports ───────────────────────────────────────────────────────
