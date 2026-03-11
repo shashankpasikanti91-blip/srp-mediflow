@@ -4418,6 +4418,15 @@ class Handler(BaseHTTPRequestHandler):
             box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
         }
         .input-wrap input::placeholder { color: #9ca3af; }
+        .eye-btn {
+            position: absolute; right: 12px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none; cursor: pointer;
+            color: #9ca3af; font-size: 17px; padding: 2px 4px;
+            line-height: 1; transition: color 0.2s;
+        }
+        .eye-btn:hover { color: #667eea; }
+        .input-wrap input.has-eye { padding-right: 42px; }
         .btn-login {
             width: 100%;
             padding: 14px;
@@ -4508,7 +4517,11 @@ class Handler(BaseHTTPRequestHandler):
                         <input type="password" id="password" name="password"
                             required
                             placeholder="Enter your password"
-                            autocomplete="current-password">
+                            autocomplete="current-password"
+                            class="has-eye">
+                        <button type="button" class="eye-btn" id="eyeBtn"
+                            onclick="togglePwd()" title="Show/hide password"
+                            aria-label="Toggle password visibility">👁</button>
                     </div>
                 </div>
 
@@ -4602,6 +4615,20 @@ class Handler(BaseHTTPRequestHandler):
                 btn.disabled = false;
             }
         });
+
+        function togglePwd() {
+            const inp = document.getElementById('password');
+            const btn = document.getElementById('eyeBtn');
+            if (inp.type === 'password') {
+                inp.type = 'text';
+                btn.textContent = '🙈';
+                btn.title = 'Hide password';
+            } else {
+                inp.type = 'password';
+                btn.textContent = '👁';
+                btn.title = 'Show password';
+            }
+        }
 
         // Focus username on load
         window.addEventListener('DOMContentLoaded', () => {
