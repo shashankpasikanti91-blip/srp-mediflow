@@ -445,12 +445,18 @@ class Handler(BaseHTTPRequestHandler):
             # /api/platform/* routes handled below — don't redirect those.
             if path_raw.startswith('/api/platform/'):
                 pass  # fall through to API routing below
-            elif not path_raw.startswith('/api/') and not path_raw.startswith('/style') and \
-                 not path_raw.startswith('/script') and path_raw not in (
-                     '/login', '/health', '/founder', '/founder/',
-                     '/admin', '/admin/', '/hospital_signup', '/hospital-signup',
-                     '/change-password', '/forgot-password',
-                 ):
+            elif (not _has_tenant and
+                  not path_raw.startswith('/api/') and
+                  not path_raw.startswith('/style') and
+                  not path_raw.startswith('/script') and
+                  not path_raw.startswith('/chat/') and
+                  path_raw not in (
+                      '/', '/index.html',
+                      '/login', '/health', '/founder', '/founder/',
+                      '/admin', '/admin/', '/hospital_signup', '/hospital-signup',
+                      '/change-password', '/forgot-password', '/register',
+                      '/ping',
+                  )):
                 # Unknown non-API path on root domain → landing page
                 self.serve_file('platform_landing.html', 'text/html')
                 return
@@ -1276,7 +1282,7 @@ class Handler(BaseHTTPRequestHandler):
             self.serve_forgot_password_page()
 
         # ── Hospital self-signup page (public) ────────────────────────────────
-        elif path in ('/hospital_signup', '/hospital-signup', '/signup'):
+        elif path in ('/hospital_signup', '/hospital-signup', '/signup', '/register'):
             self.serve_file('hospital_signup.html', 'text/html')
 
         # ── Platform public API (used by landing page) ────────────────────────
