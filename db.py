@@ -457,28 +457,56 @@ def get_attendance_all(limit: int = 500) -> list:
 def get_all_doctors() -> list:
     """Return all doctors."""
     sql = """
-        SELECT id, name, department, specialization, status, on_duty,
+        SELECT id, name, department, specialization,
+               COALESCE(qualification, qualifications, '') AS qualification,
+               COALESCE(registration_no, '') AS registration_no,
+               status, on_duty,
                TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
         FROM doctors
         ORDER BY name
     """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql)
-            return [dict(r) for r in cur.fetchall()]
+            try:
+                cur.execute(sql)
+                return [dict(r) for r in cur.fetchall()]
+            except Exception:
+                # Fallback: columns don't exist yet
+                conn.rollback()
+                sql2 = """
+                    SELECT id, name, department, specialization,
+                           '' AS qualification, '' AS registration_no,
+                           status, on_duty,
+                           TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
+                    FROM doctors ORDER BY name
+                """
+                cur.execute(sql2)
+                return [dict(r) for r in cur.fetchall()]
 
 
-def add_doctor(name: str, specialization: str, department: str = '') -> dict:
+def add_doctor(name: str, specialization: str, department: str = '',
+               qualification: str = '', registration_no: str = '') -> dict:
     """Insert a new doctor record. Returns the created record."""
     dept = department or specialization
     sql = """
-        INSERT INTO doctors (name, specialization, department, status, on_duty)
-        VALUES (%s, %s, %s, 'available', FALSE)
-        RETURNING id, name, specialization, department, status, on_duty
+        INSERT INTO doctors (name, specialization, department, qualification, registration_no, status, on_duty)
+        VALUES (%s, %s, %s, %s, %s, 'available', FALSE)
+        RETURNING id, name, specialization, department, qualification, registration_no, status, on_duty
     """
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (name.strip(), specialization.strip(), dept.strip()))
+            try:
+                cur.execute(sql, (name.strip(), specialization.strip(), dept.strip(),
+                                  qualification.strip(), registration_no.strip()))
+            except Exception:
+                # Fallback: columns may not exist yet — insert without new columns
+                conn.rollback()
+                sql2 = """
+                    INSERT INTO doctors (name, specialization, department, status, on_duty)
+                    VALUES (%s, %s, %s, 'available', FALSE)
+                    RETURNING id, name, specialization, department, status, on_duty
+                """
+                cur.execute(sql2, (name.strip(), specialization.strip(), dept.strip()))
             row = cur.fetchone()
             conn.commit()
             return dict(row) if row else {}

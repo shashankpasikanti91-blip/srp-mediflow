@@ -812,7 +812,7 @@
                 <!-- Add Doctor Form -->
                 <div class="table-container" style="margin-bottom:16px;">
                     <h3 style="margin-bottom:12px;">➕ Add New Doctor</h3>
-                    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">
                         <div>
                             <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Doctor Name *</label>
                             <input id="newDoctorName" type="text" placeholder="e.g. Dr. Ramesh Kumar"
@@ -821,6 +821,16 @@
                         <div>
                             <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Specialization</label>
                             <input id="newDoctorSpec" type="text" placeholder="e.g. Orthopedic"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Qualification</label>
+                            <input id="newDoctorQual" type="text" placeholder="e.g. MBBS, MS Surgery"
+                                style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;display:block;margin-bottom:3px;">Reg. No.</label>
+                            <input id="newDoctorRegNo" type="text" placeholder="e.g. 87679"
                                 style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;">
                         </div>
                         <button class="btn btn-success" style="padding:8px 18px;" onclick="addDoctor()">Add Doctor</button>
@@ -834,8 +844,8 @@
                         <button class="btn" style="font-size:12px;padding:4px 10px;" onclick="loadDoctors()">&#8635; Refresh</button>
                     </div>
                     <table>
-                        <thead><tr><th>#</th><th>Name</th><th>Department</th><th>Specialization</th><th>Status</th><th>On Duty</th><th>Action</th></tr></thead>
-                        <tbody id="doctorsBody"><tr><td colspan="7" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
+                        <thead><tr><th>#</th><th>Name</th><th>Qualification</th><th>Reg. No.</th><th>Department</th><th>Specialization</th><th>Status</th><th>On Duty</th><th>Action</th></tr></thead>
+                        <tbody id="doctorsBody"><tr><td colspan="9" style="text-align:center;color:#888;">Loading&hellip;</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -1911,13 +1921,15 @@
         function renderDoctorsTable(docs) {
             const tbody = document.getElementById('doctorsBody');
             if (!docs.length) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;">No doctors found — use the form above to add your doctors</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#888;">No doctors found — use the form above to add your doctors</td></tr>';
                 return;
             }
             tbody.innerHTML = docs.map((doc,i) => `
                 <tr style="cursor:pointer;" onclick='viewDoctor(${JSON.stringify(doc).replace(/'/g,"&#39;")});'>
                     <td>${i+1}</td>
                     <td><strong>${doc.name||'-'}</strong></td>
+                    <td><small>${doc.qualification||doc.qualifications||'-'}</small></td>
+                    <td><small style="color:#1a56db;font-weight:600;">${doc.registration_no||'-'}</small></td>
                     <td>${doc.department||'-'}</td>
                     <td>${doc.specialization||'-'}</td>
                     <td><span class="badge ${doc.status==='available'?'confirmed':'pending'}">${doc.status||'Unknown'}</span></td>
@@ -1929,22 +1941,26 @@
                 </tr>`).join('');
         }
         async function addDoctor() {
-            const name = document.getElementById('newDoctorName').value.trim();
-            const spec = document.getElementById('newDoctorSpec').value.trim();
-            const msgEl = document.getElementById('doctorAddMsg');
+            const name   = document.getElementById('newDoctorName').value.trim();
+            const spec   = document.getElementById('newDoctorSpec').value.trim();
+            const qual   = document.getElementById('newDoctorQual').value.trim();
+            const reg_no = document.getElementById('newDoctorRegNo').value.trim();
+            const msgEl  = document.getElementById('doctorAddMsg');
             if (!name) { msgEl.innerHTML = '<span style="color:#e74c3c;">Doctor name is required.</span>'; return; }
             msgEl.innerHTML = '<span style="color:#888;">Adding…</span>';
             try {
                 const r = await authFetch('/api/admin/doctors/add', {
                     method: 'POST',
                     headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({name, specialization: spec})
+                    body: JSON.stringify({name, specialization: spec, qualification: qual, registration_no: reg_no})
                 });
                 const d = await r.json();
                 if (d.status === 'added') {
-                    msgEl.innerHTML = '<span style="color:green;">✅ ' + name + ' added successfully.</span>';
+                    msgEl.innerHTML = '<span style="color:green;">&#10003; ' + name + ' added successfully.</span>';
                     document.getElementById('newDoctorName').value = '';
                     document.getElementById('newDoctorSpec').value = '';
+                    document.getElementById('newDoctorQual').value = '';
+                    document.getElementById('newDoctorRegNo').value = '';
                     loadDoctors();
                 } else {
                     msgEl.innerHTML = '<span style="color:#e74c3c;">Error: ' + (d.error||'Unknown error') + '</span>';

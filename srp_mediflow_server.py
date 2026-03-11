@@ -2028,14 +2028,16 @@ class Handler(BaseHTTPRequestHandler):
         # ── Doctor management (ADMIN only) ────────────────────────────────────
         elif path == '/api/admin/doctors/add':
             if self.require_role('ADMIN'):
-                _name = (data.get('name') or '').strip()
-                _spec = (data.get('specialization') or '').strip()
-                _dept = (data.get('department') or _spec).strip()
+                _name  = (data.get('name') or '').strip()
+                _spec  = (data.get('specialization') or '').strip()
+                _dept  = (data.get('department') or _spec).strip()
+                _qual  = (data.get('qualification') or '').strip()
+                _regno = (data.get('registration_no') or '').strip()
                 if not _name:
                     self.send_json({'error': 'Doctor name is required'}, 400)
                 else:
                     try:
-                        _new_doc = hospital_db.add_doctor(_name, _spec, _dept)
+                        _new_doc = hospital_db.add_doctor(_name, _spec, _dept, _qual, _regno)
                         self.send_json({'status': 'added', 'doctor': _new_doc})
                     except Exception as _de:
                         self.send_json({'error': f'Failed to add doctor: {_de}'}, 500)
@@ -2877,11 +2879,16 @@ class Handler(BaseHTTPRequestHandler):
             # Try the dedicated doctors table first; fall back to staff_users
             try:
                 cur.execute("""
-                    SELECT COALESCE(name, ''), COALESCE(specialization, department, '')
+                    SELECT COALESCE(name, ''), COALESCE(specialization, department, ''),
+                           COALESCE(qualification, qualifications, ''),
+                           COALESCE(registration_no, '')
                     FROM doctors
                     WHERE status IS DISTINCT FROM 'inactive'
                     ORDER BY id LIMIT 20
                 """)
+                rows = cur.fetchall()
+                cur.close(); conn.close()
+                return [{'name': r[0], 'specialty': r[1], 'qualification': r[2], 'registration_no': r[3]} for r in rows if r[0]]
             except Exception:
                 conn.rollback()
                 cur.execute("""
@@ -2891,9 +2898,9 @@ class Handler(BaseHTTPRequestHandler):
                     WHERE role='DOCTOR' AND is_active IS NOT FALSE
                     ORDER BY id LIMIT 20
                 """)
-            rows = cur.fetchall()
-            cur.close(); conn.close()
-            return [{'name': r[0], 'specialty': r[1]} for r in rows if r[0]]
+                rows = cur.fetchall()
+                cur.close(); conn.close()
+                return [{'name': r[0], 'specialty': r[1], 'qualification': '', 'registration_no': ''} for r in rows if r[0]]
         except Exception:
             return []
 

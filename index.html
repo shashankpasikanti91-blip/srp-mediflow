@@ -38,8 +38,8 @@
                 
                 <div class="info-card">
                     <h3>Our Doctors</h3>
-                    <p><strong>Dr. Srujan</strong><br>Orthopedics (DNB Ortho FIJR)</p>
-                    <p><strong>Dr. K. Ramyanadh</strong><br>General Medicine &amp; Diabetology</p>
+                    <p><strong>Dr. Sujan</strong><br>Orthopaedic Specialist (DNB Orthopaedics, FIJR)</p>
+                    <p><strong>Dr. K. Ramnath</strong><br>General Medicine &amp; Diabetology</p>
                     <p><strong>Dr. B. Ramachandra Nayak</strong><br>General Surgery (M.B.B.S., M.S.)</p>
                     <p><strong>Dental &amp; ENT</strong><br>Visiting Consultants</p>
                 </div>
@@ -213,7 +213,10 @@
                         const p = document.createElement('p');
                         const name = d.name || d.doctor_name || d;
                         const spec = d.specialty || d.specialization || '';
-                        p.innerHTML = '<strong>' + name + '</strong>' + (spec ? '<br>' + spec : '');
+                        const qual = d.qualification || '';
+                        p.innerHTML = '<strong>' + name + '</strong>'
+                            + (spec ? '<br><em>' + spec + '</em>' : '')
+                            + (qual ? '<br><small style="color:#888;">' + qual + '</small>' : '');
                         docCard.appendChild(p);
                     });
                 }

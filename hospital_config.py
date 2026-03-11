@@ -136,15 +136,15 @@ DEPARTMENTS       = [
 # ------------------------------------------------------------------
 DOCTORS = [
     {
-        "name":            "Dr. Srujan",
-        "specialization":  "Orthopedics",
-        "qualifications":  "DNB Ortho FIJR",
+        "name":            "Dr. Sujan",
+        "specialization":  "Orthopaedic Specialist",
+        "qualifications":  "DNB Orthopaedics, FIJR",
         "registration_no": "87679",
-        "department":      "Orthopedics",
+        "department":      "Orthopaedics",
     },
     {
-        "name":            "Dr. K. Ramyanadh",
-        "specialization":  "General Medicine / Diabetology",
+        "name":            "Dr. K. Ramnath",
+        "specialization":  "General Physician / Diabetes Specialist",
         "qualifications":  "General Medicine (UK), Diabetology",
         "registration_no": "111431",
         "department":      "General Medicine",
