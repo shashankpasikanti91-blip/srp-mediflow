@@ -138,19 +138,10 @@ def _dispatch(event_type: str, message: str) -> None:
     - SERVER_START      → rate-limited to once per 90 seconds
     Called from a daemon thread — never raises.
     """
-    # ── Rate-limit SERVER_START ────────────────────────────────────────────
+    # ── SERVER_START is permanently silenced — no Telegram spam on restarts/deploys ──
     if event_type == "SERVER_START":
-        import time, os as _os
-        _stamp = "/tmp/srp_founder_start.txt"
-        _now   = time.time()
-        _last  = float(open(_stamp).read().strip()) if _os.path.exists(_stamp) else 0
-        if _now - _last < 90:  # fired within the last 90 seconds — skip
-            _logger.info("[SERVER_START] Rate-limited — skipping Telegram.")
-            return
-        try:
-            open(_stamp, 'w').write(str(_now))
-        except Exception:
-            pass
+        _logger.info("[SERVER_START] Suppressed — not sending Telegram notification.")
+        return
 
     full_text = _build_message(event_type, message)
     _logger.info("[%s] %s", event_type, message)

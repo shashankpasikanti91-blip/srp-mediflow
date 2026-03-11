@@ -5383,33 +5383,9 @@ if __name__ == '__main__':
     # Write system log entry
     _sys_log.info(f"SRP MediFlow SaaS server started on port {PORT}")
 
-    # ── Founder alert: SERVER_START ────────────────────────────────────────
-    send_founder_alert(
-        "SERVER_START",
-        f"SRP MediFlow SaaS server started successfully on port {PORT}\n"
-        f"Modules: billing={_SAAS_BILLING} export={_SAAS_EXPORT} "
-        f"analytics={_SAAS_ANALYTICS} backup={_SAAS_BACKUP}"
-    )
-
-    # Hospital-level Telegram startup notification — rate-limited to once per 90s
-    # (prevents flood when systemd restart-loops due to EADDRINUSE)
-    if _TELEGRAM_AVAILABLE:
-        try:
-            import os as _os2
-            _stamp_file = '/tmp/srp_last_start.txt'
-            _now_ts     = time.time()
-            _last_ts    = float(open(_stamp_file).read().strip()) if _os2.path.exists(_stamp_file) else 0
-            if _now_ts - _last_ts > 90:
-                open(_stamp_file, 'w').write(str(_now_ts))
-                _cfg = _get_client_cfg()
-                _tg.notify_admin(
-                    f"🚀 SRP MediFlow server started\n"
-                    f"🌐 Port: {PORT}\n"
-                    f"🏥 {_cfg.get('hospital_name', 'Star Hospital')}\n"
-                    f"📍 {_cfg.get('city', 'Kothagudem')}"
-                )
-        except Exception:
-            pass
+    # SERVER_START notifications intentionally disabled — avoids Telegram spam
+    # on every deploy/restart. Only crashes and security issues send alerts.
+    _sys_log.info("Server started on port %s — Telegram notifications suppressed for startup", PORT)
 
     try:
         server = ThreadedHTTPServer(('0.0.0.0', PORT), Handler)
