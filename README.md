@@ -125,11 +125,13 @@ Server starts at **http://localhost:7500**
 |--------|-------------|
 | **AI Chatbot** | Multi-language (English/Telugu/Hindi), books appointments, registers OPD patients |
 | **Patient Management** | UHID, OPD/IPD, visit history, discharge summaries |
-| **Digital Prescriptions** | Doctor writes e-Rx → PDF → pharmacy link |
+| **Digital Prescriptions** | Doctor writes e-Rx → PDF → pharmacy link · Draft auto-save |
+| **🎤 Voice Prescription Assist** | Dictate into any Rx field using mic button (en-IN/hi-IN/te-IN) · **NEW v6.1** |
 | **Lab Management** | Orders, results, Telegram notification to patient |
 | **Billing** | Itemised bills, payment tracking, PDF receipts |
 | **Pharmacy & Inventory** | Stock management, expiry alerts, dispensing |
-| **Telegram Notifications** | Per-hospital bot — staff group alerts + individual patient updates |
+| **Per-Hospital Telegram Bot** | Each hospital uses its own bot — all events auto-routed, never mixed across hospitals |
+| **🕐 Staff Self Check-In/Out** | Any staff checks in from their own dashboard — no admin needed · **NEW v6.1** |
 | **Doctor Rounds** | Ward notes, daily rounds, ICU tracking |
 | **Role-Based Access** | Admin, Doctor, Nurse, Lab, Pharmacist, Reception |
 | **Founder Dashboard** | SaaS analytics, client health, revenue, upgrades |
@@ -147,6 +149,130 @@ Server starts at **http://localhost:7500**
 | **Lab Tech** | `lab_dashboard.html` | Lab orders, test results, reports |
 | **Pharmacist** | *(inline)* | Medicine dispensing, stock |
 | **Reception** | *(inline)* | Registration, appointments, billing |
+
+---
+
+## 📱 Telegram Notifications — Complete Guide
+
+### How It Works (Multi-Tenant, Fully Automatic)
+
+Every hospital in SRP MediFlow has **its own Telegram bot**. When any event happens (patient registers, prescription saved, staff checks in, IPD admission, low stock), the system automatically looks up **that hospital's Telegram credentials** and sends the alert to that hospital's own staff channel — never to another hospital's channel.
+
+> **New hospitals added in the future are automatically supported** — they just need to add their Bot Token and Chat ID in Admin → Notifications.
+
+---
+
+### What Telegram Is Used FOR in SRP MediFlow
+
+| Event | Who Gets Notified | Channel |
+|-------|------------------|---------|
+| New OPD patient registered (chatbot or reception) | Hospital staff group | Hospital's own bot |
+| Appointment booked | Hospital staff group | Hospital's own bot |
+| Prescription saved by doctor | Hospital staff group | Hospital's own bot |
+| IPD patient admitted | Hospital staff group | Hospital's own bot |
+| IPD patient discharged | Hospital staff group | Hospital's own bot |
+| Surgery scheduled | Hospital staff group | Hospital's own bot |
+| Staff self check-in / check-out | Hospital admin + staff | Hospital's own bot |
+| Low stock alert | Hospital admin | Hospital's own bot |
+| Medicine expiry alert | Hospital admin | Hospital's own bot |
+| Daily summary | Hospital admin | Hospital's own bot |
+| New hospital registered | Platform founder only | Founder's private bot |
+| Server start / crash | Platform founder only | Founder's alert bot |
+
+---
+
+### What Telegram Is NOT Used For
+
+- ❌ Booking appointments (that is done via the AI chatbot at `/chat/{hospital_slug}`)
+- ❌ Patient login or registration
+- ❌ Viewing prescriptions or lab reports (those are on the staff dashboards)
+- ❌ Admin controls (use the Admin Dashboard at `/login`)
+
+---
+
+### Setup for Each Hospital (Admin does this once)
+
+**Step 1 — Create a Telegram bot for your hospital**
+```
+1. Open Telegram → search @BotFather
+2. Send /newbot
+3. Enter a name: "Star Hospital Alerts"
+4. Enter a username: starhospital_bot
+5. Copy the bot token:  7123456789:AABBccDDeeFF...
+```
+
+**Step 2 — Create a staff group and add the bot**
+```
+1. Create a Telegram group: "Star Hospital Staff"
+2. Add @starhospital_bot to the group
+3. Make the bot an Admin (so it can send messages)
+```
+
+**Step 3 — Get the Chat ID of the staff group**
+```
+Open this URL in browser (replace TOKEN with your bot token):
+https://api.telegram.org/botTOKEN/getUpdates
+
+Look for: "chat":{"id":-1001234567890}
+The negative number starting with -100 is your Chat ID.
+```
+
+**Step 4 — Save credentials in Admin Dashboard**
+```
+Login → Admin → Settings → Notifications
+Paste: Bot Token  → 7123456789:AABBccDDeeFF...
+Paste: Chat ID    → -1001234567890
+Click: Save All Settings
+```
+
+Done. All events for that hospital now automatically go to that hospital's own Telegram channel.
+
+---
+
+### Doctor/Staff View on Telegram
+
+As a doctor (or any staff), you are a **member of the hospital's Telegram staff group**. You will see:
+
+```
+🏥 STAR HOSPITAL
+💊 PRESCRIPTION SAVED
+──────────────────────
+👤 Patient: Ravi Kumar
+📞 Phone: +91 9876543210
+👨‍⚕️ Doctor: Dr. Srujan
+🆔 Rx ID: RX-20260311-001
+──────────────────────
+⏰ 11 Mar 2026 10:45 AM
+📍 Kothagudem   📞 +91 7981971015
+
+🏥 STAR HOSPITAL
+🟢 STAFF CHECK-IN
+──────────────────────
+👤 Staff: Dr. Srujan
+👔 Role: Doctor
+──────────────────────
+⏰ 11 Mar 2026 09:01 AM
+```
+
+You do **not** need to interact with the bot — it only sends messages to the group, you just read them.
+
+---
+
+### APIs for Telegram (Server Side)
+
+| Endpoint | Method | Auth | Purpose |
+|----------|--------|------|---------|
+| `/api/telegram/send` | POST | ADMIN | Send custom message via hospital bot |
+| `/api/settings/notifications` | POST | ADMIN | Save bot token + chat_id |
+| `/api/settings/notifications` | GET | ADMIN | Read current settings |
+
+```bash
+# Test your Telegram setup
+curl -X POST http://localhost:7500/api/telegram/send \
+  -H "Cookie: session_token=YOUR_SESSION" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Test from SRP MediFlow"}'
+```
 
 ---
 
@@ -337,6 +463,19 @@ WHATSAPP_WEBHOOK_SECRET=your_strong_random_secret
 ---
 
 ## 📝 Changelog
+
+### v6.1 (March 2026) — Phase 6.1: Mobile Rx Assist + Per-Tenant Telegram
+- ✅ **Per-tenant Telegram routing** — every hospital's events go to their own bot, never mixed. Auto-works for all current and future hospitals
+- ✅ **Voice-to-text on prescription** — 🎤 mic button on every field (complaint, diagnosis, symptoms, notes, diet, instructions). en-IN/hi-IN/te-IN
+- ✅ **Save Draft to localStorage** — auto-restore on page load, never lose partial Rx
+- ✅ **Mobile sticky action bar** — Save Draft · Save Final · PDF · Telegram Notify · WhatsApp (Coming Soon)
+- ✅ **Toast notification system** — instant feedback for all key actions
+- ✅ **Staff self check-in/out** — any logged-in staff from their own dashboard, no admin needed
+- ✅ **👨‍⚕️ My Attendance panel** — doctor dashboard section with live clock, check-in/out, today's table
+- ✅ **Telegram: prescription saved** — fires to hospital bot after every Rx save
+- ✅ **Telegram: staff check-in/out** — fires to hospital bot when any staff self-checks
+- ✅ **DB migration** — `username` and `role` columns added to `attendance` table, deployed to production
+- ✅ **Landing page updated** — v6.1 badge, 2 new feature cards, updated stats, updated marquee
 
 ### v5.0 (March 2026)
 - ✅ **Security hardening**: sanitised all 14 API error responses — no internal details leak to clients

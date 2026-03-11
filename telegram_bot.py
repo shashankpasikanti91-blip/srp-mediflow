@@ -77,6 +77,52 @@ TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID", "")
 
 TELEGRAM_API_BASE = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
+# ── Per-tenant credential cache (in-memory, refreshed every 5 min) ────────────
+_TENANT_CRED_CACHE: dict = {}   # {tenant_slug: (bot_token, chat_id, expire_ts)}
+_TENANT_CACHE_TTL  = 300        # seconds
+
+
+def get_tenant_tg_creds(tenant_slug: str) -> tuple:
+    """
+    Return (bot_token, chat_id) for the given tenant.
+    Reads from notification_settings DB; caches for 5 min.
+    Falls back to .env defaults when tenant has no Telegram configured.
+
+    Works for ALL clients — existing and future registrations — automatically.
+    """
+    if not tenant_slug:
+        return TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+    now = time.time()
+    cached = _TENANT_CRED_CACHE.get(tenant_slug)
+    if cached and now < cached[2]:
+        return cached[0], cached[1]
+
+    try:
+        # Lazy import to avoid circular dependency
+        import hms_db as _hdb
+        settings = _hdb.get_notification_settings(tenant_slug)
+        tok  = settings.get('telegram_token') or settings.get('telegram_bot_token') or TELEGRAM_BOT_TOKEN
+        cid  = settings.get('telegram_chat_id') or TELEGRAM_CHAT_ID
+        _TENANT_CRED_CACHE[tenant_slug] = (tok, cid, now + _TENANT_CACHE_TTL)
+        return tok, cid
+    except Exception as exc:
+        logger.debug("get_tenant_tg_creds(%s) fallback to env: %s", tenant_slug, exc)
+        return TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+
+
+def _tenant_send(text: str, tenant_slug: str = '', parse_mode: str = 'HTML') -> dict:
+    """
+    Send a Telegram message using *this tenant's own bot* credentials.
+    If the tenant has not configured Telegram, uses the .env defaults.
+    All hospital events automatically go to the correct hospital's channel.
+    """
+    tok, cid = get_tenant_tg_creds(tenant_slug)
+    if not tok or not cid:
+        logger.info("[%s] Telegram not configured — skipping.", tenant_slug or 'default')
+        return {"status": "skipped", "reason": "not_configured"}
+    return send_telegram_message(text, chat_id=cid, parse_mode=parse_mode, _override_token=tok)
+
 _BOT_ACTIVE = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID)
 
 if _BOT_ACTIVE:
@@ -110,6 +156,7 @@ def send_telegram_message(
     chat_id: str = TELEGRAM_CHAT_ID,
     parse_mode: str = "HTML",
     disable_notification: bool = False,
+    _override_token: str = "",
 ) -> dict:
     """
     Send a message to the configured Telegram chat.
@@ -118,27 +165,33 @@ def send_telegram_message(
     Args:
         text                 : Message text (supports HTML tags)
         chat_id              : Override chat ID (default: TELEGRAM_CHAT_ID)
+        _override_token      : Use this bot token instead of global (for multi-tenant)
         parse_mode           : 'HTML' or 'Markdown'
         disable_notification : Send silently (no sound)
 
     Returns:
         dict with 'status': 'queued' (always immediate; actual send is async)
     """
-    if not _BOT_ACTIVE:
+    # Use tenant-specific token if provided, else fall back to global or skip
+    effective_token = _override_token or TELEGRAM_BOT_TOKEN
+    effective_chat  = chat_id or TELEGRAM_CHAT_ID
+
+    if not effective_token or not effective_chat:
         logger.info("📤 [PLACEHOLDER] Would send: %s", text[:80])
         return {"status": "placeholder", "message": text}
 
     def _send():
         try:
             payload = json.dumps({
-                "chat_id":              chat_id,
+                "chat_id":              effective_chat,
                 "text":                 text,
                 "parse_mode":           parse_mode,
                 "disable_notification": disable_notification,
             }).encode("utf-8")
 
+            _api = f"https://api.telegram.org/bot{effective_token}/sendMessage"
             req = urllib.request.Request(
-                f"{TELEGRAM_API_BASE}/sendMessage",
+                _api,
                 data=payload,
                 method="POST",
                 headers={"Content-Type": "application/json"},
@@ -197,9 +250,10 @@ def _forward_to_founder(text: str, hospital_name: str = "") -> None:
         logger.debug("Founder forward skipped: %s", _exc)
 
 
-def notify_new_registration(name: str, phone: str, issue: str, doctor: str = "") -> dict:
+def notify_new_registration(name: str, phone: str, issue: str, doctor: str = "", tenant_slug: str = "") -> dict:
     """
     Alert staff when a new OPD patient registers (chatbot / walk-in).
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     doc_line = f"\n👨\u200d⚕️ <b>Doctor:</b> {doctor}" if doctor else ""
@@ -216,7 +270,7 @@ def notify_new_registration(name: str, phone: str, issue: str, doctor: str = "")
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
@@ -227,9 +281,11 @@ def notify_appointment_booked(
     doctor: str,
     slot: str,
     source: str = "chatbot",
+    tenant_slug: str = "",
 ) -> dict:
     """
     Alert staff when an appointment is booked.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     source_icon = {"chatbot": "🤖", "whatsapp": "📱", "walk-in": "🚶", "phone": "📞"}.get(source, "📋")
@@ -247,14 +303,15 @@ def notify_appointment_booked(
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
 
-def notify_whatsapp_inquiry(phone: str, message: str, bot_reply: str = "") -> dict:
+def notify_whatsapp_inquiry(phone: str, message: str, bot_reply: str = "", tenant_slug: str = "") -> dict:
     """
     Alert staff when a patient sends a WhatsApp message.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     reply_line = f"\n🤖 <b>Bot replied:</b> {bot_reply[:80]}..." if bot_reply else ""
@@ -269,7 +326,7 @@ def notify_whatsapp_inquiry(phone: str, message: str, bot_reply: str = "") -> di
         f"⏰ {_ts()}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
@@ -280,9 +337,11 @@ def notify_ipd_admission(
     ward: str,
     bed: str,
     doctor: str,
+    tenant_slug: str = "",
 ) -> dict:
     """
     Alert staff when a patient is admitted (IPD).
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     text = (
@@ -298,14 +357,15 @@ def notify_ipd_admission(
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
 
-def notify_ipd_discharge(name: str, phone: str, bill_amount: float = 0.0) -> dict:
+def notify_ipd_discharge(name: str, phone: str, bill_amount: float = 0.0, tenant_slug: str = "") -> dict:
     """
     Alert staff when a patient is discharged.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     bill_line = f"\n💰 <b>Bill:</b> ₹{bill_amount:,.2f}" if bill_amount else ""
@@ -321,7 +381,7 @@ def notify_ipd_discharge(name: str, phone: str, bill_amount: float = 0.0) -> dic
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
@@ -389,9 +449,11 @@ def notify_surgery_scheduled(
     surgeon: str,
     date: str,
     cost: float = 0.0,
+    tenant_slug: str = "",
 ) -> dict:
     """
     Alert admin when a surgery is scheduled.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
     """
     h = _hospital()
     cost_line = f"\n💰 <b>Estimated Cost:</b> ₹{cost:,.2f}" if cost else ""
@@ -409,13 +471,16 @@ def notify_surgery_scheduled(
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
 
-def notify_admin(message: str) -> dict:
-    """Send a custom admin notification."""
+def notify_admin(message: str, tenant_slug: str = "") -> dict:
+    """
+    Send a custom admin notification.
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
+    """
     h = _hospital()
     text = (
         f"📢 <b>ADMIN ALERT — {h['hospital_name']}</b>\n"
@@ -426,7 +491,7 @@ def notify_admin(message: str) -> dict:
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
@@ -438,8 +503,12 @@ def notify_prescription_saved(
     patient_phone: str,
     doctor_name: str,
     rx_id = "",
+    tenant_slug: str = "",
 ) -> dict:
-    """Notify staff when a doctor saves a digital prescription (Phase 6.1)."""
+    """
+    Notify staff when a doctor saves a digital prescription (Phase 6.1).
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
+    """
     h = _hospital()
     rx_line = f"\n🆔 <b>Rx ID:</b> {rx_id}" if rx_id else ""
     text = (
@@ -454,13 +523,16 @@ def notify_prescription_saved(
         f"📍 {h.get('city', '')}   📞 {h['hospital_phone']}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 
 
-def notify_staff_checkin(staff_name: str, role: str = "", action: str = "checkin") -> dict:
-    """Notify admin when a staff member self-checks in or out (Phase 6.1)."""
+def notify_staff_checkin(staff_name: str, role: str = "", action: str = "checkin", tenant_slug: str = "") -> dict:
+    """
+    Notify admin when a staff member self-checks in or out (Phase 6.1).
+    Works for ALL tenants — pass tenant_slug to route to the correct hospital bot.
+    """
     h = _hospital()
     emoji  = "🟢" if action == "checkin" else "🔴"
     label  = "CHECK-IN" if action == "checkin" else "CHECK-OUT"
@@ -474,7 +546,7 @@ def notify_staff_checkin(staff_name: str, role: str = "", action: str = "checkin
         f"⏰ {_ts()}\n"
         f"<i>Powered by SRP MediFlow</i>"
     )
-    result = send_telegram_message(text)
+    result = _tenant_send(text, tenant_slug)
     _forward_to_founder(text, h['hospital_name'])
     return result
 

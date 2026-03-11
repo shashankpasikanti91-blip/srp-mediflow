@@ -2363,11 +2363,13 @@ class Handler(BaseHTTPRequestHandler):
                     # Telegram alert for new OPD patient (reception registration)
                     try:
                         from telegram_bot import notify_new_registration
+                        _tslug = (user or {}).get('tenant_slug', '') or self._get_tenant_slug()
                         notify_new_registration(
                             name=result.get('full_name', data.get('full_name', '')),
                             phone=result.get('phone', data.get('phone', '')),
                             issue=data.get('chief_complaint', data.get('issue', '')),
                             doctor=data.get('doctor', data.get('doctor_assigned', '')),
+                            tenant_slug=_tslug,
                         )
                     except Exception:
                         pass
@@ -2653,18 +2655,19 @@ class Handler(BaseHTTPRequestHandler):
         )
         # ── Telegram notification (fire-and-forget, never block response) ───────
         try:
-            from telegram_bot import notify_prescription_saved, _BOT_ACTIVE
-            if _BOT_ACTIVE:
-                threading.Thread(
-                    target=notify_prescription_saved,
-                    args=(
-                        data.get('patient_name', 'Patient'),
-                        data.get('patient_phone', ''),
-                        data.get('doctor_name', ''),
-                        result.get('prescription_id', ''),
-                    ),
-                    daemon=True,
-                ).start()
+            from telegram_bot import notify_prescription_saved
+            _tslug = (self.get_session_user() or {}).get('tenant_slug', '') or self._get_tenant_slug()
+            threading.Thread(
+                target=notify_prescription_saved,
+                kwargs={
+                    'patient_name':  data.get('patient_name', 'Patient'),
+                    'patient_phone': data.get('patient_phone', ''),
+                    'doctor_name':   data.get('doctor_name', ''),
+                    'rx_id':         result.get('prescription_id', ''),
+                    'tenant_slug':   _tslug,
+                },
+                daemon=True,
+            ).start()
         except Exception:
             pass
         self.send_json(result, code)
@@ -4090,6 +4093,7 @@ class Handler(BaseHTTPRequestHandler):
                     ward=data.get('ward_name', ''),
                     bed=data.get('bed_number', ''),
                     doctor=data.get('admitting_doctor', user.get('full_name', '')),
+                    tenant_slug=user.get('tenant_slug', '') or self._get_tenant_slug(),
                 )
             except Exception:
                 pass
@@ -4154,6 +4158,7 @@ class Handler(BaseHTTPRequestHandler):
                 notify_ipd_discharge(
                     name=data.get('patient_name', f'Admission #{admission_id}'),
                     phone=data.get('patient_phone', ''),
+                    tenant_slug=user.get('tenant_slug', '') or self._get_tenant_slug(),
                 )
             except Exception:
                 pass
@@ -4199,6 +4204,7 @@ class Handler(BaseHTTPRequestHandler):
                     surgeon=data.get('surgeon_name', user.get('full_name', '')),
                     date=data.get('operation_date', 'TBD'),
                     cost=float(data.get('estimated_cost', 0)),
+                    tenant_slug=user.get('tenant_slug', '') or self._get_tenant_slug(),
                 )
             except Exception:
                 pass
@@ -4859,11 +4865,13 @@ class Handler(BaseHTTPRequestHandler):
             # Telegram alert for new OPD patient
             try:
                 from telegram_bot import notify_new_registration
+                _tslug = booking_record.get('tenant_slug', '') or self._get_tenant_slug()
                 notify_new_registration(
                     name=booking_record.get('name', ''),
                     phone=booking_record.get('phone', ''),
                     issue=booking_record.get('issue', ''),
                     doctor=booking_record.get('doctor', ''),
+                    tenant_slug=_tslug,
                 )
             except Exception:
                 pass
@@ -4993,13 +5001,13 @@ class Handler(BaseHTTPRequestHandler):
 
             # Telegram alert — fire-and-forget, never blocks response
             try:
-                from telegram_bot import notify_staff_checkin, _BOT_ACTIVE
-                if _BOT_ACTIVE:
-                    threading.Thread(
-                        target=notify_staff_checkin,
-                        args=(staff_name, role, action),
-                        daemon=True,
-                    ).start()
+                from telegram_bot import notify_staff_checkin
+                _tslug = (user or {}).get('tenant_slug', '') or self._get_tenant_slug()
+                threading.Thread(
+                    target=notify_staff_checkin,
+                    kwargs={'staff_name': staff_name, 'role': role, 'action': action, 'tenant_slug': _tslug},
+                    daemon=True,
+                ).start()
             except Exception:
                 pass  # non-critical
 
