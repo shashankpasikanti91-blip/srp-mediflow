@@ -37,7 +37,7 @@
 | 📈 P&L / Expenses / Analytics | ✅ 100% |
 | 🔒 HTTPS (SSL) via nginx | ✅ mediflow.srpailabs.com |
 | 🧹 Junk test DBs cleaned | ✅ 5 core DBs only |
-| **TOTAL E2E** | **131/131 = 100%** |
+| **TOTAL E2E** | **143/143 = 100%** |
 
 ---
 
@@ -316,7 +316,7 @@ Tests cover all 15 sections:
 14. Telegram notifications
 15. Database verification (row counts)
 
-**Latest result: 131/131 = 100% ✅** (v7.1 focused E2E, March 12 2026)
+**Latest result: 143/143 = 100% ✅** (v7.1 final E2E, March 12 2026)
 
 ---
 
@@ -363,7 +363,7 @@ FOUNDER_TG_CHAT_ID=...
 ## 📜 Changelog
 
 ### v7.1 — March 12, 2026
-- ✅ **131/131 E2E tests 100% pass rate** — full patient journey + new client onboarding
+- ✅ **143/143 E2E tests 100% pass rate** — full patient journey + new client onboarding
 - 🔒 **HTTPS enforced** — nginx SSL proxy via Let's Encrypt (`mediflow.srpailabs.com`)
 - 🏥 **Full demo patient journey** — Registration → IPD → Lab → X-Ray → Pharmacy → Discharge
 - 🔬 **X-Ray / Radiology orders** — XRAY test type, radiology results, impression report

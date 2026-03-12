@@ -1,0 +1,149 @@
+SRP MediFlow v7.1 Final E2E  [SERVER (HTTP)]
+Date: 2026-03-12 14:52:46.872130
+Total: 143  Passed: 143  Failed: 0  (100.0%)
+
+[PASS] GET /ping
+[PASS] GET /health
+[PASS] LOGIN star_hospital_admin
+[PASS] LOGIN star_hospital_doctor
+[PASS] LOGIN star_hospital_nurse
+[PASS] LOGIN star_hospital_lab
+[PASS] LOGIN star_hospital_stock
+[PASS] LOGIN star_hospital_reception
+[PASS] LOGIN sai_care_admin
+[PASS] LOGIN sai_care_doctor
+[PASS] LOGIN sai_care_nurse
+[PASS] LOGIN sai_care_lab
+[PASS] LOGIN sai_care_stock
+[PASS] LOGIN sai_care_reception
+[PASS] LOGIN city_medical_admin
+[PASS] LOGIN city_medical_doctor
+[PASS] LOGIN city_medical_nurse
+[PASS] LOGIN city_medical_lab
+[PASS] LOGIN city_medical_stock
+[PASS] LOGIN city_medical_reception
+[PASS] LOGIN apollo_warangal_admin
+[PASS] LOGIN apollo_warangal_doctor
+[PASS] LOGIN apollo_warangal_nurse
+[PASS] LOGIN apollo_warangal_lab
+[PASS] LOGIN apollo_warangal_stock
+[PASS] LOGIN apollo_warangal_reception
+[PASS] LOGIN green_cross_admin
+[PASS] LOGIN green_cross_doctor
+[PASS] LOGIN green_cross_nurse
+[PASS] LOGIN green_cross_lab
+[PASS] LOGIN green_cross_stock
+[PASS] LOGIN green_cross_reception
+[PASS] LOGIN founder
+[PASS] Star Hospital session/me
+[PASS] Star Hospital admin/data
+[PASS] Star Hospital admin/doctors
+[PASS] Star Hospital attendance/today
+[PASS] Star Hospital billing/list
+[PASS] Star Hospital admin/logs
+[PASS] Star Hospital staff/list
+[PASS] Star Hospital ipd/admissions
+[PASS] Star Hospital surgery/list
+[PASS] Sai Care Hospital session/me
+[PASS] Sai Care Hospital admin/data
+[PASS] Sai Care Hospital admin/doctors
+[PASS] Sai Care Hospital attendance/today
+[PASS] Sai Care Hospital billing/list
+[PASS] Sai Care Hospital admin/logs
+[PASS] Sai Care Hospital staff/list
+[PASS] Sai Care Hospital ipd/admissions
+[PASS] Sai Care Hospital surgery/list
+[PASS] City Medical Centr session/me
+[PASS] City Medical Centr admin/data
+[PASS] City Medical Centr admin/doctors
+[PASS] City Medical Centr attendance/today
+[PASS] City Medical Centr billing/list
+[PASS] City Medical Centr admin/logs
+[PASS] City Medical Centr staff/list
+[PASS] City Medical Centr ipd/admissions
+[PASS] City Medical Centr surgery/list
+[PASS] Apollo Clinic Wara session/me
+[PASS] Apollo Clinic Wara admin/data
+[PASS] Apollo Clinic Wara admin/doctors
+[PASS] Apollo Clinic Wara attendance/today
+[PASS] Apollo Clinic Wara billing/list
+[PASS] Apollo Clinic Wara admin/logs
+[PASS] Apollo Clinic Wara staff/list
+[PASS] Apollo Clinic Wara ipd/admissions
+[PASS] Apollo Clinic Wara surgery/list
+[PASS] Green Cross Hospit session/me
+[PASS] Green Cross Hospit admin/data
+[PASS] Green Cross Hospit admin/doctors
+[PASS] Green Cross Hospit attendance/today
+[PASS] Green Cross Hospit billing/list
+[PASS] Green Cross Hospit admin/logs
+[PASS] Green Cross Hospit staff/list
+[PASS] Green Cross Hospit ipd/admissions
+[PASS] Green Cross Hospit surgery/list
+[PASS] Star Hospital P&L monthly
+[PASS] Star Hospital expenses monthly
+[PASS] Star Hospital analytics/revenue
+[PASS] Star Hospital analytics/doctors
+[PASS] Sai Care Hospital P&L monthly
+[PASS] Sai Care Hospital expenses monthly
+[PASS] Sai Care Hospital analytics/revenue
+[PASS] Sai Care Hospital analytics/doctors
+[PASS] City Medical Centre P&L monthly
+[PASS] City Medical Centre expenses monthly
+[PASS] City Medical Centre analytics/revenue
+[PASS] City Medical Centre analytics/doctors
+[PASS] Apollo Clinic Warangal P&L monthly
+[PASS] Apollo Clinic Warang expenses monthly
+[PASS] Apollo Clinic Warang analytics/revenue
+[PASS] Apollo Clinic Warang analytics/doctors
+[PASS] Green Cross Hospital P&L monthly
+[PASS] Green Cross Hospital expenses monthly
+[PASS] Green Cross Hospital analytics/revenue
+[PASS] Green Cross Hospital analytics/doctors
+[PASS] Star Hospital OPD register
+[PASS] Star Hospital billing create
+[PASS] Star Hospital IPD admit
+[PASS] Star Hospital lab order
+[PASS] Star Hospital expense add
+[PASS] Sai Care Hospital OPD register
+[PASS] Sai Care Hospital billing create
+[PASS] Sai Care Hospital IPD admit
+[PASS] Sai Care Hospital lab order
+[PASS] Sai Care Hospital expense add
+[PASS] Star Hospital CHAT step-1
+[PASS] Star Hospital CHAT step-2
+[PASS] Star Hospital CHAT step-3
+[PASS] Sai Care Hospital CHAT step-1
+[PASS] Sai Care Hospital CHAT step-2
+[PASS] Sai Care Hospital CHAT step-3
+[PASS] City Medical Centre CHAT step-1
+[PASS] City Medical Centre CHAT step-2
+[PASS] City Medical Centre CHAT step-3
+[PASS] Apollo Clinic Warangal CHAT step-1
+[PASS] Apollo Clinic Warangal CHAT step-2
+[PASS] Apollo Clinic Warangal CHAT step-3
+[PASS] Green Cross Hospital CHAT step-1
+[PASS] Green Cross Hospital CHAT step-2
+[PASS] Green Cross Hospital CHAT step-3
+[PASS] FOUNDER session/me
+[PASS] FOUNDER founder/clients
+[PASS] FOUNDER platform/stats
+[PASS] FOUNDER platform/tenants
+[PASS] NEW hospital /api/hospital/signup
+[PASS] LOGIN tv71admin962737
+[PASS] NEW hospital admin login
+[PASS] NEW hospital /session/me
+[PASS] NEW hospital /admin/data
+[PASS] NEW hospital patient register
+[PASS] NEW hospital billing
+[PASS] NEW hospital chatbot
+[PASS] NEW hospital P&L API
+[PASS] Founder sees new client
+[PASS] Star Hospital DB staff_users ok
+[PASS] Sai Care Hospital DB staff_users ok
+[PASS] City Medical Centre DB staff_users ok
+[PASS] Apollo Clinic Warangal DB staff_users ok
+[PASS] Green Cross Hospital DB staff_users ok
+[PASS] NEW hospital DB staff_users
+
+🟢 OVERALL: GREEN — 100% PASS
