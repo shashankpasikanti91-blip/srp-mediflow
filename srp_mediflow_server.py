@@ -430,11 +430,21 @@ class Handler(BaseHTTPRequestHandler):
             self._do_GET_inner()
         except Exception as _exc:
             import traceback as _tb
+            _tb_str = _tb.format_exc()
             _error_log.error(
                 f"UNHANDLED_GET: {self.path} — {type(_exc).__name__}: {_exc}\n"
-                + _tb.format_exc()
+                + _tb_str
             )
-            self._serve_maintenance_page()
+            # For API paths return JSON; for pages serve maintenance page
+            if self.path.startswith('/api/'):
+                _tenant = getattr(self, '_current_tenant_slug', None) or '?'
+                self._alert_founder_on_error('GET', self.path, _exc, _tb_str, _tenant)
+                try:
+                    self.send_json({'error': 'Internal server error', 'path': self.path}, 500)
+                except Exception:
+                    pass
+            else:
+                self._serve_maintenance_page()
 
     def _do_GET_inner(self):
         # ── Platform root-domain check: serve landing page for apex domain ────
@@ -475,6 +485,7 @@ class Handler(BaseHTTPRequestHandler):
             _req_user = self.get_session_user()
             if _req_user and _req_user.get('tenant_slug'):
                 hospital_db.set_request_tenant(_req_user['tenant_slug'])
+                self._current_tenant_slug = _req_user['tenant_slug']
         except Exception:
             pass
         # Rate limiting
@@ -2037,11 +2048,18 @@ class Handler(BaseHTTPRequestHandler):
             self._do_POST_inner()
         except Exception as _exc:
             import traceback as _tb
+            _tb_str = _tb.format_exc()
             _error_log.error(
                 f"UNHANDLED_POST: {self.path} — {type(_exc).__name__}: {_exc}\n"
-                + _tb.format_exc()
+                + _tb_str
             )
-            self._serve_maintenance_page()
+            # Always return JSON for POST (all POST paths are API paths)
+            _tenant = getattr(self, '_current_tenant_slug', None) or '?'
+            self._alert_founder_on_error('POST', self.path, _exc, _tb_str, _tenant)
+            try:
+                self.send_json({'error': 'Internal server error', 'path': self.path}, 500)
+            except Exception:
+                self._serve_maintenance_page()
 
     def _do_POST_inner(self):
         # Subdomain / tenant detection
@@ -2051,6 +2069,7 @@ class Handler(BaseHTTPRequestHandler):
             _req_user = self.get_session_user()
             if _req_user and _req_user.get('tenant_slug'):
                 hospital_db.set_request_tenant(_req_user['tenant_slug'])
+                self._current_tenant_slug = _req_user['tenant_slug']
         except Exception:
             pass
         # Rate limiting
@@ -2646,7 +2665,7 @@ class Handler(BaseHTTPRequestHandler):
                     f"ip={self.client_address[0]}"
                 )
                 send_founder_alert(
-                    "NEW_HOSPITAL_SIGNUP",
+                    "NEW_CLIENT_REGISTERED",
                     f"New hospital registered via signup page!\n"
                     f"Name: {data.get('hospital_name','')}\n"
                     f"City: {data.get('city','')}\n"
@@ -3119,6 +3138,44 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(html)
         except Exception:
             pass  # Connection already broken — ignore
+
+    # ── Tenant-isolated error alerting ────────────────────────────────────────
+    # Rate-limit: at most 1 alert per path per 60 s to avoid spam
+    _alert_cache: dict = {}
+    _alert_lock = __import__('threading').Lock()
+
+    def _alert_founder_on_error(self, method: str, path: str, exc: Exception,
+                                 tb_str: str, tenant: str) -> None:
+        """Send founder Telegram alert on unhandled 500 errors (rate-limited)."""
+        import time as _t
+        cache_key = f"{tenant}:{path}"
+        now = _t.time()
+        with self.__class__._alert_lock:
+            if now - self.__class__._alert_cache.get(cache_key, 0) < 60:
+                return  # suppress duplicate within 60 s
+            self.__class__._alert_cache[cache_key] = now
+        try:
+            from notifications.founder_alerts import send_founder_alert
+            send_founder_alert(
+                "TENANT_ERROR",
+                f"⚠️ Server error on tenant *{tenant}*\n"
+                f"Route: `{method} {path}`\n"
+                f"Error: `{type(exc).__name__}: {exc}`\n"
+                f"```\n{tb_str[-600:]}\n```"
+            )
+        except Exception:
+            pass
+        # Also alert the tenant admin via platform_db flag (non-blocking)
+        try:
+            from platform_db import record_system_alert
+            record_system_alert(
+                "TENANT_API_ERROR",
+                f"{method} {path} raised {type(exc).__name__}: {exc}",
+                severity="error",
+                client_slug=tenant,
+            )
+        except Exception:
+            pass
 
     # ── Forgot password page (GET /forgot-password) ───────────────────────────
     def serve_forgot_password_page(self):
@@ -5437,6 +5494,32 @@ if __name__ == '__main__':
 
     # Start daily backup scheduler (runs at BACKUP_HOUR, default 02:00)
     _start_backup_scheduler()
+
+    # ── Auto-migrate all tenant DBs (ensure all tables exist) ────────────────
+    # Runs CREATE TABLE IF NOT EXISTS for every registered tenant so a DB created
+    # before a schema addition (e.g. hospital_expenses) gets updated transparently.
+    try:
+        _registry_path = os.path.join(BASE_DIR, 'tenant_registry.json')
+        if os.path.exists(_registry_path):
+            import json as _jj
+            _reg = _jj.loads(open(_registry_path, encoding='utf-8').read())
+            _migrated = 0
+            for _slug, _info in _reg.items():
+                try:
+                    hospital_db.set_request_tenant(_slug)
+                    hospital_db.create_all_tables()
+                    try: hospital_db.create_hms_tables()
+                    except Exception: pass
+                    try: _hms.create_hms_v4_tables()
+                    except Exception: pass
+                    _migrated += 1
+                except Exception as _me:
+                    print(f"  ⚠️  Tenant migration {_slug}: {_me}")
+            hospital_db.set_request_tenant(None)
+            if _migrated:
+                print(f"✅ Auto-migrated {_migrated} tenant DB(s)")
+    except Exception as _mig_err:
+        print(f"⚠️  Tenant auto-migration error: {_mig_err}")
 
     print(f"🌐 Server URL:   {APP_URL}")
     print(f"🔐 Admin Panel:  {APP_URL}/admin")
