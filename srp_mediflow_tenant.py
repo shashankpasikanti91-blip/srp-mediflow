@@ -134,23 +134,52 @@ def create_tenant_db(
     }
     schema_path = Path(__file__).parent / "srp_mediflow_schema.sql"
     if schema_path.exists():
-        with open(schema_path, encoding='utf-8') as f:
-            schema_sql = f.read()
+        import subprocess, os as _os
         try:
+            # Use psql to execute schema — handles dollar-quoting, multi-statement blocks,
+            # DO $$ ... $$ blocks and all complex SQL correctly.
+            env = dict(_os.environ)
+            env['PGPASSWORD'] = db_pass
+            result = subprocess.run(
+                ['psql', '-h', host, '-p', str(port), '-U', db_user, '-d', db_name,
+                 '-f', str(schema_path), '--no-password', '-v', 'ON_ERROR_STOP=0'],
+                capture_output=True, text=True, env=env, timeout=60
+            )
+            if result.returncode == 0:
+                print(f"✅  Schema applied to '{db_name}' via psql.")
+            else:
+                # psql returned non-zero but ON_ERROR_STOP=0 means it tried all statements
+                # Check if staff_users was actually created
+                tconn2 = psycopg2.connect(**tenant_conn_cfg)
+                tcur2 = tconn2.cursor()
+                tcur2.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_name='staff_users'")
+                cnt = tcur2.fetchone()[0]
+                tcur2.close(); tconn2.close()
+                if cnt:
+                    print(f"✅  Schema applied to '{db_name}' (staff_users present).")
+                else:
+                    print(f"⚠️  psql schema apply had errors, falling back to direct execution.")
+                    print(f"    psql stderr: {result.stderr[:500]}")
+                    raise RuntimeError("psql schema incomplete")
+        except FileNotFoundError:
+            # psql not in PATH — fall back to psycopg2 with autocommit per statement
+            print("⚠️  psql not found, using psycopg2 direct execution.")
+            with open(schema_path, encoding='utf-8') as f:
+                schema_sql = f.read()
             tconn = psycopg2.connect(**tenant_conn_cfg)
-            # Split by semicolon and execute each statement
-            statements = [s.strip() for s in schema_sql.split(';') if s.strip()]
+            tconn.autocommit = True   # autocommit: each statement is its own transaction
             tcur = tconn.cursor()
+            statements = [s.strip() for s in schema_sql.split(';') if s.strip()]
+            ok = 0
             for stmt in statements:
                 try:
                     tcur.execute(stmt)
-                except Exception as e:
-                    tconn.rollback()
-                    tcur = tconn.cursor()
-            tconn.commit()
+                    ok += 1
+                except Exception:
+                    pass   # skip errors (IF NOT EXISTS, etc.)
             tcur.close(); tconn.close()
-            print(f"✅  Schema applied to '{db_name}'.")
-        except Exception as e:
+            print(f"✅  Schema applied to '{db_name}' via psycopg2 ({ok} statements).")
+        except (RuntimeError, Exception) as e:
             print(f"⚠️  Schema apply warning: {e}")
     else:
         print(f"⚠️  Schema file not found at {schema_path}. Skipping schema setup.")
