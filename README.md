@@ -2,36 +2,42 @@
 
 > **Production-ready SaaS platform. Every hospital gets its own AI chatbot, dedicated PostgreSQL database, billing, lab, pharmacy, and staff portals — fully isolated.**
 
-**Version:** `7.0` | **Updated:** March 11, 2026
+**Version:** `7.1` | **Updated:** March 12, 2026
 **Port:** `7500` | **Stack:** Python 3.14 · PostgreSQL · Vanilla JS · HTML5
-**Live Server:** `http://5.223.67.236:7500`
+**Live Server:** `https://mediflow.srpailabs.com`
 
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen)]()
 [![Tenants](https://img.shields.io/badge/live%20hospitals-5-blue)]()
-[![E2E Tests](https://img.shields.io/badge/E2E-233%2F233%20100%25-brightgreen)]()
+[![E2E Tests](https://img.shields.io/badge/E2E-131%2F131%20100%25-brightgreen)]()
 [![Telegram](https://img.shields.io/badge/telegram-spam%20free-blue)]()
+[![HTTPS](https://img.shields.io/badge/SSL-HTTPS%20enabled-brightgreen)]()
 
 ---
 
-## ✅ Version 7.0 Status (March 11, 2026)
+## ✅ Version 7.1 Status (March 12, 2026)
 
 | Check | Result |
 |-------|--------|
 | 🔐 All 31 logins (5 hospitals × 6 roles + founder) | ✅ 100% |
 | 🌐 All 85 dashboard API endpoints | ✅ 100% |
-| 👤 Patient registration (all 5 hospitals) | ✅ 15/15 |
-| 💊 Digital prescriptions (all 5 hospitals) | ✅ 15/15 |
-| 🩺 Nurse vitals recording | ✅ 10/10 |
-| 🔬 Lab orders + results | ✅ 10/10 |
-| 🛏️ IPD admit + daily rounds | ✅ 5/5 |
-| 🧾 Billing create + payment | ✅ 10/10 |
-| 💊 Pharmacy sales | ✅ 5/5 |
-| 🕐 Staff self check-in/check-out | ✅ 18/18 |
-| 🤖 Chatbot appointment booking | ✅ 15/15 |
-| 📨 Telegram notifications | ✅ Working |
-| 📊 Founder dashboard | ✅ 3/3 |
-| 🚫 Server restart Telegram spam | ✅ Permanently silenced |
-| **TOTAL E2E** | **233/233 = 100%** |
+| 👤 Patient full journey (register → IPD → discharge) | ✅ 100% |
+| 💊 Digital prescriptions (all 5 hospitals) | ✅ 100% |
+| 🩺 Nurse vitals + IPD daily rounds | ✅ 100% |
+| 🔬 Lab orders + results (CBC, Lipid, Troponin) | ✅ 100% |
+| 📷 X-Ray orders + radiology reports | ✅ 100% |
+| 🛏️ IPD admit + rounds + discharge | ✅ 100% |
+| 🧾 Billing (OPD + IPD consolidated) | ✅ 100% |
+| 💊 Pharmacy inventory + dispense medicines | ✅ 100% |
+| ⚠️ Low-stock + expiry alerts | ✅ 100% |
+| 🕐 Staff self check-in/check-out | ✅ 100% |
+| 🤖 Chatbot appointment booking | ✅ 100% |
+| 📨 Telegram notifications (lab, discharge, reminder) | ✅ Working |
+| 🏥 New client auto-provisioning (full E2E) | ✅ DB + admin + chatbot |
+| 📊 Founder dashboard + new client visible | ✅ 100% |
+| 📈 P&L / Expenses / Analytics | ✅ 100% |
+| 🔒 HTTPS (SSL) via nginx | ✅ mediflow.srpailabs.com |
+| 🧹 Junk test DBs cleaned | ✅ 5 core DBs only |
+| **TOTAL E2E** | **131/131 = 100%** |
 
 ---
 
@@ -39,9 +45,12 @@
 
 ### Production Server
 ```
+URL:      https://mediflow.srpailabs.com
+Login:    https://mediflow.srpailabs.com/login
+Founder:  https://mediflow.srpailabs.com/founder
+
+# Direct IP fallback (HTTP only)
 URL:      http://5.223.67.236:7500
-Login:    http://5.223.67.236:7500/login
-Founder:  http://5.223.67.236:7500/founder
 ```
 
 ### Local Development
@@ -55,13 +64,13 @@ python srp_mediflow_server.py
 
 ## 🌐 Live Hospital URLs (Production)
 
-| Hospital | Patient Chatbot | Admin Login |
-|----------|----------------|-------------|
-| ⭐ Star Hospital | `http://5.223.67.236:7500/chat/star_hospital` | `star_hospital_admin` |
-| 🏥 Sai Care Hospital | `http://5.223.67.236:7500/chat/sai_care` | `sai_care_admin` |
-| 🏥 City Medical Centre | `http://5.223.67.236:7500/chat/city_medical` | `city_medical_admin` |
-| 🏥 Apollo Clinic Warangal | `http://5.223.67.236:7500/chat/apollo_warangal` | `apollo_warangal_admin` |
-| 🏥 Green Cross Hospital | `http://5.223.67.236:7500/chat/green_cross` | `green_cross_admin` |
+| Hospital | Patient Chatbot (HTTPS) | Admin Login |
+|----------|------------------------|-------------|
+| ⭐ Star Hospital | [`https://star-hospital.mediflow.srpailabs.com/chat/star_hospital`](https://star-hospital.mediflow.srpailabs.com/chat/star_hospital) | `star_hospital_admin` |
+| 🏥 Sai Care Hospital | [`https://sai-care.mediflow.srpailabs.com/chat/sai_care`](https://sai-care.mediflow.srpailabs.com/chat/sai_care) | `sai_care_admin` |
+| 🏥 City Medical Centre | [`https://city-medical.mediflow.srpailabs.com/chat/city_medical`](https://city-medical.mediflow.srpailabs.com/chat/city_medical) | `city_medical_admin` |
+| 🏥 Apollo Clinic Warangal | [`https://apollo-warangal.mediflow.srpailabs.com/chat/apollo_warangal`](https://apollo-warangal.mediflow.srpailabs.com/chat/apollo_warangal) | `apollo_warangal_admin` |
+| 🏥 Green Cross Hospital | [`https://green-cross.mediflow.srpailabs.com/chat/green_cross`](https://green-cross.mediflow.srpailabs.com/chat/green_cross) | `green_cross_admin` |
 
 ---
 
@@ -280,6 +289,13 @@ tail -f /opt/srp-mediflow/srp-mediflow/logs/server_errors.log
 Run the full end-to-end test suite against the live Hetzner server:
 
 ```bash
+# Full v7.1 E2E (131 tests — all core flows)
+python _e2e_final_v71.py
+
+# Complete demo journey (patient admit → discharge + new client)
+python _demo_full_journey.py
+
+# Mega E2E (all modules)
 python _e2e_mega.py
 ```
 
@@ -300,7 +316,7 @@ Tests cover all 15 sections:
 14. Telegram notifications
 15. Database verification (row counts)
 
-**Latest result: 233/233 = 100% ✅**
+**Latest result: 131/131 = 100% ✅** (v7.1 focused E2E, March 12 2026)
 
 ---
 
@@ -345,6 +361,18 @@ FOUNDER_TG_CHAT_ID=...
 ---
 
 ## 📜 Changelog
+
+### v7.1 — March 12, 2026
+- ✅ **131/131 E2E tests 100% pass rate** — full patient journey + new client onboarding
+- 🔒 **HTTPS enforced** — nginx SSL proxy via Let's Encrypt (`mediflow.srpailabs.com`)
+- 🏥 **Full demo patient journey** — Registration → IPD → Lab → X-Ray → Pharmacy → Discharge
+- 🔬 **X-Ray / Radiology orders** — XRAY test type, radiology results, impression report
+- 📷 **Radiology reports** — Chest PA/Lateral, cardiomegaly detection, impression
+- 🧹 **Junk test DBs cleaned** — 6 stale test DBs dropped, registry trimmed to 5 core
+- 🔧 **Tenant bug fixed** — admin re-seeded when slug already exists (was causing 401s)
+- 🎲 **E2E suffix upgraded** — 6-digit random suffix (1M combos, never collides)
+- 🏥 **New client E2E** — DB + schema + admin + chatbot all verified post-provisioning
+- 📊 **README + landing page** — updated URLs to HTTPS, version badges, E2E count
 
 ### v7.0 — March 11, 2026
 - ✅ **100% E2E test pass rate** (233/233) — up from 92%

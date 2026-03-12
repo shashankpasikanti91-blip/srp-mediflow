@@ -1515,9 +1515,11 @@
                         if (document.getElementById('roundsBody')) document.getElementById('roundsBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">No rounds scheduled</td></tr>';
                     }
                     
-                    // Update reports
-                    document.getElementById('reportTotalPatients').textContent = data.total_appointments || 0;
-                    document.getElementById('reportTotalAppointments').textContent = data.total_appointments || 0;
+                    // Update reports (guard against missing elements)
+                    const _rtp = document.getElementById('reportTotalPatients');
+                    const _rta = document.getElementById('reportTotalAppointments');
+                    if (_rtp) _rtp.textContent = data.total_appointments || 0;
+                    if (_rta) _rta.textContent = data.total_appointments || 0;
                     
                     // Update timestamp
                     const now = new Date();
@@ -1525,11 +1527,16 @@
                 })
                 .catch(e => {
                     console.error('Error loading admin data:', e);
-                    const banner = document.getElementById('serverAlertBanner');
-                    if (banner) {
-                        document.getElementById('serverAlertMsg').textContent =
-                            'Could not reach the server (' + (e.message || 'network error') + '). Data shown may be outdated.';
-                        banner.style.display = 'flex';
+                    // Only show network/fetch errors — ignore DOM/null ref errors
+                    const isNetworkErr = (e instanceof TypeError && /fetch|network|Failed to fetch/i.test(e.message))
+                                        || e.name === 'NetworkError';
+                    if (isNetworkErr) {
+                        const banner = document.getElementById('serverAlertBanner');
+                        const msg    = document.getElementById('serverAlertMsg');
+                        if (banner && msg) {
+                            msg.textContent = 'Could not reach the server. Data shown may be outdated. Retrying…';
+                            banner.style.display = 'flex';
+                        }
                     }
                 });
         }

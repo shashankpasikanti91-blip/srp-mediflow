@@ -87,7 +87,30 @@ def create_tenant_db(
 
     registry = _load_registry()
     if slug in registry:
-        print(f"ℹ️  Tenant '{slug}' already exists — skipping DB creation.")
+        print(f"ℹ️  Tenant '{slug}' already exists in registry — re-seeding admin and returning.")
+        # Re-seed admin user in case password changed (e.g. during E2E re-runs)
+        db_name = registry[slug].get('db_name', f'srp_{slug}')
+        try:
+            import auth as _auth_mod
+            pw_hash = _auth_mod.hash_password(admin_password)
+            _tenant_conn_cfg = {
+                'host': ADMIN_DB_CONFIG['host'], 'port': ADMIN_DB_CONFIG['port'],
+                'dbname': db_name, 'user': ADMIN_DB_CONFIG['user'],
+                'password': ADMIN_DB_CONFIG['password'],
+            }
+            _tc = psycopg2.connect(**_tenant_conn_cfg)
+            _tcur = _tc.cursor()
+            _tcur.execute(
+                "INSERT INTO staff_users (username, password_hash, role, full_name, must_change_password) "
+                "VALUES (%s,%s,'ADMIN','Hospital Administrator',FALSE) "
+                "ON CONFLICT (username) DO UPDATE "
+                "SET password_hash=EXCLUDED.password_hash, must_change_password=FALSE",
+                (admin_username, pw_hash)
+            )
+            _tc.commit(); _tcur.close(); _tc.close()
+            print(f"✅  Admin user '{admin_username}' re-seeded in existing DB.")
+        except Exception as _re_err:
+            print(f"⚠️  Admin re-seed warning (existing slug): {_re_err}")
         return registry[slug]
 
     # Step 1: create database (must use autocommit=True for CREATE DATABASE)
