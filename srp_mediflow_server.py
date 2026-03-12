@@ -541,7 +541,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == '/chat':
             self.serve_file('index.html', 'text/html')
         elif path == '/ping' or path == '/health':
-            self.send_json({'status': 'ok', 'service': 'SRP MediFlow', 'version': '4.0'})
+            # Return db:True so admin dashboards don't show "Database connection lost"
+            # The detailed per-tenant health check is at GET /health inside tenant block
+            self.send_json({'status': 'ok', 'service': 'SRP MediFlow', 'version': '4.0', 'db': _DB_AVAILABLE})
         elif path.startswith('/chat/'):
             # Per-client chatbot URL: /chat/{tenant_slug}
             # Serve index.html with injected TENANT_SLUG so /api/config loads correct branding
@@ -4215,6 +4217,36 @@ class Handler(BaseHTTPRequestHandler):
             log_access(user, 'create_bill',
                        f"patient={patient_name} type={data.get('bill_type','OPD')}",
                        self.client_address[0])
+            # ── Dual-write to HMS billing table so P&L analytics picks it up ──
+            if _HMS_AVAILABLE:
+                try:
+                    _items = []
+                    _fee_map = [
+                        ('consultation_fee', 'consultation', 'Consultation Fee'),
+                        ('lab_charges',      'lab',          'Lab Charges'),
+                        ('pharmacy_charges', 'pharmacy',     'Pharmacy'),
+                        ('imaging_charges',  'imaging',      'Imaging / X-Ray'),
+                        ('misc_charges',     'misc',         'Miscellaneous'),
+                    ]
+                    for _field, _itype, _iname in _fee_map:
+                        _amt = float(data.get(_field, 0))
+                        if _amt > 0:
+                            _items.append({'item_type': _itype, 'item_name': _iname,
+                                           'quantity': 1, 'price': _amt, 'tax_percent': 0})
+                    if not _items:
+                        _items = [{'item_type': 'consultation', 'item_name': 'Bill',
+                                   'quantity': 1, 'price': 0, 'tax_percent': 0}]
+                    _hms.create_invoice({
+                        'patient_name':  patient_name,
+                        'patient_phone': data.get('patient_phone', ''),
+                        'bill_type':     data.get('bill_type', 'OPD').upper(),
+                        'items':         _items,
+                        'discount':      float(data.get('discount', 0)),
+                        'notes':         data.get('notes', ''),
+                        'created_by':    user['username'],
+                    })
+                except Exception as _hms_err:
+                    print(f"[Billing] HMS dual-write failed (non-fatal): {_hms_err}")
             self.send_json({'status': 'ok', 'id': bill_id})
         else:
             self.send_json({'error': 'Failed to create bill'}, 500)
