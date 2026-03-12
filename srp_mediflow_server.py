@@ -2674,41 +2674,38 @@ class Handler(BaseHTTPRequestHandler):
                     f"Plan: {data.get('plan_type','starter')}\n"
                     f"IP: {self.client_address[0]}"
                 )
-                # Run full schema initialization for the new tenant synchronously
-                # before returning 201 — ensures all tables + admin user exist
+                # Run full schema initialization SYNCHRONOUSLY so DB is ready before 201 is returned
                 if new_slug:
-                    def _init_new_tenant(slug):
-                        try:
-                            import db as _db
-                            from hms_db import create_hms_v4_tables as _ch4
-                            _db.set_request_tenant(slug)
-                            _db.create_all_tables()   # creates staff_users, stock, prescriptions, etc.
-                            _db.create_hms_tables()   # creates patients, billing, beds, wards, etc.
-                            _ch4()                    # creates hospital_expenses, staff_headcount
-                            # Re-insert/update admin user with must_change_password=FALSE
-                            admin_un   = data.get('admin_username', 'admin').strip() or 'admin'
-                            admin_pw   = data.get('admin_password', '')
-                            admin_name = data.get('admin_name', 'Hospital Administrator')
-                            if admin_pw:
-                                import auth as _auth
-                                pw_hash = _auth.hash_password(admin_pw)
-                                _conn = _db.get_connection()
-                                if _conn:
-                                    _cur = _conn.cursor()
-                                    _cur.execute(
-                                        "INSERT INTO staff_users "
-                                        "(username,password_hash,role,full_name,must_change_password) "
-                                        "VALUES (%s,%s,'ADMIN',%s,FALSE) "
-                                        "ON CONFLICT (username) DO UPDATE "
-                                        "SET password_hash=EXCLUDED.password_hash, must_change_password=FALSE",
-                                        (admin_un, pw_hash, admin_name)
-                                    )
-                                    _conn.commit(); _cur.close(); _conn.close()
-                            _db.set_request_tenant(None)  # reset after init
-                            _sys_log.info(f"TENANT_SCHEMA_INIT_OK: slug={slug} admin={admin_un}")
-                        except Exception as _te:
-                            _sys_log.warning(f"TENANT_SCHEMA_INIT_WARN: slug={slug} err={_te}")
-                    threading.Thread(target=_init_new_tenant, args=(new_slug,), daemon=True, name=f'TenantInit-{new_slug}').start()
+                    try:
+                        import db as _db
+                        from hms_db import create_hms_v4_tables as _ch4
+                        _db.set_request_tenant(new_slug)
+                        _db.create_all_tables()   # creates staff_users, stock, prescriptions, etc.
+                        _db.create_hms_tables()   # creates patients, billing, beds, wards, etc.
+                        _ch4()                    # creates hospital_expenses, staff_headcount
+                        # Insert/update admin user with must_change_password=FALSE
+                        admin_un   = data.get('admin_username', 'admin').strip() or 'admin'
+                        admin_pw   = data.get('admin_password', '')
+                        admin_name = data.get('admin_name', 'Hospital Administrator')
+                        if admin_pw:
+                            import auth as _auth
+                            pw_hash = _auth.hash_password(admin_pw)
+                            _conn = _db.get_connection()
+                            if _conn:
+                                _cur = _conn.cursor()
+                                _cur.execute(
+                                    "INSERT INTO staff_users "
+                                    "(username,password_hash,role,full_name,must_change_password) "
+                                    "VALUES (%s,%s,'ADMIN',%s,FALSE) "
+                                    "ON CONFLICT (username) DO UPDATE "
+                                    "SET password_hash=EXCLUDED.password_hash, must_change_password=FALSE",
+                                    (admin_un, pw_hash, admin_name)
+                                )
+                                _conn.commit(); _cur.close(); _conn.close()
+                        _db.set_request_tenant(None)  # reset after init
+                        _sys_log.info(f"TENANT_SCHEMA_INIT_OK: slug={new_slug} admin={admin_un}")
+                    except Exception as _te:
+                        _sys_log.warning(f"TENANT_SCHEMA_INIT_WARN: slug={new_slug} err={_te}")
             self.send_json(result, code)
         except Exception as exc:
             _error_log.error(f"HOSPITAL_SIGNUP_ERROR: {exc}")
