@@ -189,6 +189,38 @@ def create_hms_v4_tables() -> None:
             UNIQUE (snapshot_month, role)
         )
         """,
+
+        # ── notification_settings: per-tenant provider config ─────────────────
+        """
+        CREATE TABLE IF NOT EXISTS notification_settings (
+            id            SERIAL PRIMARY KEY,
+            tenant_slug   VARCHAR(80)  DEFAULT '',
+            setting_key   VARCHAR(100) NOT NULL,
+            setting_value TEXT         DEFAULT '',
+            is_encrypted  BOOLEAN      DEFAULT FALSE,
+            updated_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+            updated_by    VARCHAR(80)  DEFAULT '',
+            UNIQUE (tenant_slug, setting_key)
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_ns_tenant_key ON notification_settings (tenant_slug, setting_key)",
+
+        # ── notification_logs: audit trail of every sent notification ─────────
+        """
+        CREATE TABLE IF NOT EXISTS notification_logs (
+            id               SERIAL PRIMARY KEY,
+            tenant_slug      VARCHAR(80)  DEFAULT '',
+            channel          VARCHAR(30)  DEFAULT '',
+            event_type       VARCHAR(60)  DEFAULT '',
+            recipient        VARCHAR(120) DEFAULT '',
+            message_preview  TEXT         DEFAULT '',
+            status           VARCHAR(20)  DEFAULT 'sent',
+            provider_response TEXT        DEFAULT '',
+            created_at       TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_nl_tenant    ON notification_logs (tenant_slug)",
+        "CREATE INDEX IF NOT EXISTS idx_nl_created   ON notification_logs (created_at DESC)",
     ]
 
     conn = get_connection()
@@ -2129,7 +2161,7 @@ def get_analytics_pl(period: str = "monthly") -> dict:
     department breakdown, staff cost ratio, and 12-month trend.
     """
     today = date.today()
-    if period == "daily":
+    if period in ("daily", "today"):
         start = today;                    end = today
         prev_start = today - timedelta(days=1);  prev_end = today - timedelta(days=1)
         label = today.isoformat()

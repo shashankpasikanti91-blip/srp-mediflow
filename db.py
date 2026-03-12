@@ -2789,11 +2789,37 @@ def get_extended_dashboard_data() -> dict:
     """Extended admin dashboard: includes admissions, surgery, pharmacy alerts."""
     base = get_admin_dashboard_data()
     try:
+        import datetime as _dt
         active_admissions = get_all_admissions(status='admitted', limit=50)
         low_stock         = get_low_stock_alerts()
         expiry_alerts     = get_expiry_alerts(90)
         pending_surgeries = get_surgery_records(50)
         all_bills         = get_all_bills(100)
+
+        # ── Today's revenue: query billing table directly with today's date ──
+        today_revenue = 0.0
+        try:
+            conn = get_connection()
+            if conn:
+                try:
+                    cur = conn.cursor()
+                    today = _dt.date.today()
+                    cur.execute(
+                        "SELECT COALESCE(SUM(net_amount),0) AS rev FROM billing WHERE DATE(created_at)=%s",
+                        (today,)
+                    )
+                    row = cur.fetchone()
+                    today_revenue = float(row[0] if row else 0)
+                finally:
+                    conn.close()
+        except Exception as _rev_e:
+            # Fallback: sum today's bills from the already-fetched list
+            today_str = _dt.date.today().isoformat()
+            today_revenue = sum(
+                float(b.get('net_amount', 0)) for b in all_bills
+                if (b.get('created_at') or b.get('date') or '')[:10] == today_str
+            )
+
         base.update({
             'active_admissions':    active_admissions,
             'total_admissions':     len(active_admissions),
@@ -2803,7 +2829,7 @@ def get_extended_dashboard_data() -> dict:
             'expiry_items':         expiry_alerts,
             'surgery_records':      pending_surgeries,
             'all_bills':            all_bills,
-            'total_revenue':        sum(float(b.get('net_amount', 0)) for b in all_bills),
+            'total_revenue':        today_revenue,   # Today's revenue (not all-time)
         })
     except Exception as e:
         print(f"get_extended_dashboard_data warning: {e}")

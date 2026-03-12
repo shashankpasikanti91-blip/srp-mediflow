@@ -234,14 +234,32 @@ class NotificationService:
         self._dispatch(event_type, recipient or self._default_recipient, message)
 
     # ── Test notification ─────────────────────────────────────────────────────
-    def test_send(self, recipient: str = "") -> dict:
+    def test_send(self, recipient: str = "", channel: str = "",
+                  message: str = "") -> dict:
         """
         Synchronous test send. Returns result dict immediately.
         Used by /api/settings/notifications/test endpoint.
+
+        Args:
+            recipient: Telegram chat_id or phone number (defaults to configured chat)
+            channel:   Ignored (provider is already selected at build time) — kept
+                       for API compatibility with the handler that passes it.
+            message:   Optional custom message body; defaults to a standard test msg.
         """
+        # If a specific channel override was requested and we're using the wrong
+        # provider, rebuild with that channel's env creds (best-effort).
+        if channel and channel != self._provider.name:
+            from notifications.telegram_provider import TelegramProvider as _TGProv
+            import os as _os
+            if channel == "telegram":
+                self._provider = _TGProv(
+                    token   = _os.getenv("TELEGRAM_BOT_TOKEN", ""),
+                    chat_id = _os.getenv("TELEGRAM_CHAT_ID", ""),
+                )
+
         if not self._provider.is_configured():
-            return {"status": "failed", "error": f"{self._provider.name} not configured"}
-        msg = (
+            return {"status": "failed", "error": f"{self._provider.name} not configured — check TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in .env"}
+        msg = message or (
             "🔔 *SRP MediFlow Test Notification*\n\n"
             f"Provider: {self._provider.name}\n"
             f"Tenant: {self.tenant_slug or 'default'}\n"
