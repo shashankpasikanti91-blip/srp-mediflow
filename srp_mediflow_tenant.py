@@ -139,8 +139,8 @@ def create_tenant_db(
         tconn = psycopg2.connect(**tenant_conn_cfg)
         tcur = tconn.cursor()
         tcur.execute(
-            "INSERT INTO staff_users (username, password_hash, role, full_name) "
-            "VALUES (%s,%s,'ADMIN','Hospital Administrator') ON CONFLICT DO NOTHING",
+            "INSERT INTO staff_users (username, password_hash, role, full_name, must_change_password) "
+            "VALUES (%s,%s,'ADMIN','Hospital Administrator',FALSE) ON CONFLICT DO NOTHING",
             (admin_username, pw_hash)
         )
         tconn.commit()
