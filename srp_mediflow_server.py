@@ -757,7 +757,21 @@ class Handler(BaseHTTPRequestHandler):
                 docs = hospital_db.get_all_doctors() if _DB_AVAILABLE else []
                 self.send_json({'doctors': docs})
         elif path == '/health':
-            self.send_json({'status': 'ok', 'timestamp': time.time(), 'db': _DB_AVAILABLE})
+            # Live DB ping — never return a stale cached flag
+            _db_live = False
+            try:
+                if hospital_db and hasattr(hospital_db, 'test_connection'):
+                    _db_live = hospital_db.test_connection()
+                else:
+                    _db_live = _DB_AVAILABLE
+            except Exception:
+                _db_live = False
+            self.send_json({
+                'status':    'ok',
+                'timestamp': time.time(),
+                'db':        _db_live,
+                'version':   '7.1',
+            })
 
         # ── WhatsApp webhook verification (Meta GET challenge) ─────────────────
         elif path.startswith('/api/whatsapp/webhook'):
@@ -1035,6 +1049,57 @@ class Handler(BaseHTTPRequestHandler):
                     data_out = {'doctors_on_duty': [], 'doctors_on_duty_count': 0}
                 self.send_json(data_out)
 
+        # ── P&L Analytics (revenue - expenses = profit) ───────────────────────
+        elif path == '/api/admin/analytics/pl':
+            if self.require_role('ADMIN'):
+                from urllib.parse import parse_qs, urlparse as _up
+                qs  = parse_qs(_up(self.path).query)
+                rng = qs.get('period', ['monthly'])[0]
+                if _HMS_AVAILABLE:
+                    try:
+                        data_out = _hms.get_analytics_pl(period=rng)
+                    except Exception as _e:
+                        data_out = {'error': str(_e), 'revenue': {'total': 0}, 'expenses': {'total': 0}, 'profit': {'gross': 0, 'net_margin': 0}, 'trend': [], 'operational': {}}
+                else:
+                    data_out = {'revenue': {'total': 0}, 'expenses': {'total': 0}, 'profit': {'gross': 0, 'net_margin': 0}, 'trend': [], 'operational': {}}
+                self.send_json(data_out)
+
+        # ── Expense list ──────────────────────────────────────────────────────
+        elif path == '/api/admin/expenses':
+            if self.require_role('ADMIN'):
+                from urllib.parse import parse_qs, urlparse as _up
+                qs  = parse_qs(_up(self.path).query)
+                rng = qs.get('period', ['monthly'])[0]
+                cat = qs.get('category', [''])[0]
+                if _HMS_AVAILABLE:
+                    try:
+                        data_out = _hms.get_expenses(period=rng, category=cat)
+                    except Exception as _e:
+                        data_out = {'expenses': [], 'by_category': [], 'total_expenses': 0}
+                else:
+                    data_out = {'expenses': [], 'by_category': [], 'total_expenses': 0}
+                self.send_json(data_out)
+
+        # ── Expense categories list ───────────────────────────────────────────
+        elif path == '/api/admin/expenses/categories':
+            if self.require_role('ADMIN'):
+                cats = _hms.EXPENSE_CATEGORIES if _HMS_AVAILABLE else []
+                self.send_json({'categories': cats})
+
+        # ── Staff Attendance list ────────────────────────────────────────────
+        elif path == '/api/admin/attendance':
+            if self.require_role('ADMIN'):
+                from urllib.parse import parse_qs, urlparse as _up
+                qs   = parse_qs(_up(self.path).query)
+                date = qs.get('date', [''])[0]
+                try:
+                    rows = hospital_db.get_attendance_all(500) if _DB_AVAILABLE else []
+                    if date:
+                        rows = [r for r in rows if str(r.get('recorded_at',''))[:10] == date]
+                except Exception:
+                    rows = []
+                self.send_json({'attendance': rows, 'count': len(rows)})
+
         # ── SaaS: Audit log ───────────────────────────────────────────────────
         elif path == '/api/admin/audit-log':
             if self.require_role('ADMIN'):
@@ -1043,6 +1108,9 @@ class Handler(BaseHTTPRequestHandler):
                 limit  = int(qs.get('limit', ['200'])[0])
                 logs   = hospital_db.get_audit_logs(limit) if _DB_AVAILABLE else []
                 self.send_json({'logs': logs, 'count': len(logs)})
+
+        elif path == '/api/admin/expenses/add':
+            self.send_json({'error': 'Use POST'}, 405)
 
         # ── SaaS: Clients registry (enhanced) ─────────────────────────────────
         elif path == '/api/admin/clients/registry':
@@ -2136,6 +2204,36 @@ class Handler(BaseHTTPRequestHandler):
             self.handle_pharmacy_add_stock(data)
         elif path == '/api/pharmacy/sell':
             self.handle_pharmacy_sell(data)
+        elif path == '/api/admin/expenses/add':
+            if self.require_role('ADMIN'):
+                if _HMS_AVAILABLE:
+                    try:
+                        data['created_by'] = (self.get_session_user() or {}).get('username', 'admin')
+                        result = _hms.add_expense(data)
+                        self.send_json(result, 201)
+                    except Exception as _ee:
+                        self.send_json({'error': str(_ee)}, 500)
+                else:
+                    self.send_json({'error': 'DB unavailable'}, 503)
+
+        # ── Staff Attendance Check-In ──────────────────────────────────────────
+        elif path == '/api/admin/attendance/checkin':
+            if self.require_role('ADMIN'):
+                try:
+                    att_id = hospital_db.save_attendance(data.get('staff_name','Unknown'), 'check-in', data.get('notes', f"Role: {data.get('role','Staff')}")) if _DB_AVAILABLE else 0
+                    self.send_json({'att_id': att_id, 'status': 'checked_in', 'message': f"Check-in recorded for {data.get('staff_name','')}"}, 201)
+                except Exception as _e:
+                    self.send_json({'error': str(_e)}, 500)
+
+        # ── Staff Attendance Check-Out ─────────────────────────────────────────
+        elif path == '/api/admin/attendance/checkout':
+            if self.require_role('ADMIN'):
+                try:
+                    att_id = hospital_db.save_attendance(data.get('staff_name','Unknown'), 'check-out', data.get('notes', f"Role: {data.get('role','Staff')}")) if _DB_AVAILABLE else 0
+                    self.send_json({'att_id': att_id, 'status': 'checked_out', 'message': f"Check-out recorded for {data.get('staff_name','')}"})
+                except Exception as _e:
+                    self.send_json({'error': str(_e)}, 500)
+
         elif path == '/api/billing/add-item':
             self.handle_billing_add_item(data)
         elif path == '/api/billing/ipd/create':

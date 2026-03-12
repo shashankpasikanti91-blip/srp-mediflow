@@ -156,6 +156,39 @@ def create_hms_v4_tables() -> None:
         # ── UHID: Unique Hospital ID per patient (added as optional migration) ─
         "ALTER TABLE patients ADD COLUMN IF NOT EXISTS uhid VARCHAR(20) DEFAULT NULL",
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_uhid ON patients (uhid) WHERE uhid IS NOT NULL",
+
+        # ── hospital_expenses: monthly operating cost tracking ────────────────
+        """
+        CREATE TABLE IF NOT EXISTS hospital_expenses (
+            expense_id   SERIAL PRIMARY KEY,
+            expense_date DATE         NOT NULL DEFAULT CURRENT_DATE,
+            category     VARCHAR(80)  NOT NULL,
+            sub_category VARCHAR(120) DEFAULT '',
+            description  VARCHAR(300) DEFAULT '',
+            amount       NUMERIC(12,2) NOT NULL DEFAULT 0,
+            payment_mode VARCHAR(40)  DEFAULT 'Cash',
+            vendor       VARCHAR(150) DEFAULT '',
+            invoice_ref  VARCHAR(80)  DEFAULT '',
+            recurring    BOOLEAN      DEFAULT FALSE,
+            created_by   VARCHAR(60)  DEFAULT 'admin',
+            created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+        )
+        """,
+        "CREATE INDEX IF NOT EXISTS idx_exp_date     ON hospital_expenses (expense_date)",
+        "CREATE INDEX IF NOT EXISTS idx_exp_category ON hospital_expenses (category)",
+
+        # ── staff_headcount: quick snapshot (one row per role per month) ──────
+        """
+        CREATE TABLE IF NOT EXISTS staff_headcount (
+            hc_id        SERIAL PRIMARY KEY,
+            snapshot_month DATE    NOT NULL,
+            role         VARCHAR(60) NOT NULL,
+            headcount    INTEGER     DEFAULT 0,
+            avg_salary   NUMERIC(10,2) DEFAULT 0,
+            updated_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (snapshot_month, role)
+        )
+        """,
     ]
 
     conn = get_connection()
@@ -1973,7 +2006,358 @@ def get_analytics_doctors() -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 7. MOBILE-READY DASHBOARD
+# EXPENSE MANAGEMENT MODULE
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Standard expense categories for a hospital
+EXPENSE_CATEGORIES = [
+    "Rent & Premises",
+    "Electricity & Power",
+    "Water & Utilities",
+    "Internet & Communication",
+    "Medical Equipment",
+    "Medicines & Consumables",
+    "Staff Salaries",
+    "Contract Staff",
+    "Security",
+    "Housekeeping",
+    "Marketing & Advertising",
+    "Insurance",
+    "Maintenance & Repairs",
+    "Administrative",
+    "Legal & Compliance",
+    "Lab Supplies",
+    "Ambulance & Transport",
+    "Other",
+]
+
+
+def add_expense(data: dict) -> dict:
+    """Insert a new expense record. Returns {expense_id, status}."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO hospital_expenses
+                    (expense_date, category, sub_category, description,
+                     amount, payment_mode, vendor, invoice_ref, recurring, created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                RETURNING expense_id
+                """,
+                (
+                    data.get("expense_date") or date.today().isoformat(),
+                    data.get("category", "Other"),
+                    data.get("sub_category", ""),
+                    data.get("description", ""),
+                    float(data.get("amount", 0)),
+                    data.get("payment_mode", "Cash"),
+                    data.get("vendor", ""),
+                    data.get("invoice_ref", ""),
+                    bool(data.get("recurring", False)),
+                    data.get("created_by", "admin"),
+                ),
+            )
+            eid = cur.fetchone()[0]
+            conn.commit()
+    return {"expense_id": eid, "status": "saved"}
+
+
+def get_expenses(period: str = "monthly", category: str = "") -> dict:
+    """Return expense list + summary for a period."""
+    today = date.today()
+    if period == "daily":
+        start, end = today, today
+    elif period == "weekly":
+        start = today - timedelta(days=6); end = today
+    elif period == "yearly":
+        start = today.replace(month=1, day=1); end = today
+    else:  # monthly
+        start = today.replace(day=1); end = today
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            params: list = [start, end]
+            cat_filter = ""
+            if category:
+                cat_filter = " AND category = %s"
+                params.append(category)
+
+            cur.execute(
+                f"""
+                SELECT expense_id, expense_date, category, sub_category,
+                       description, amount, payment_mode, vendor, invoice_ref, recurring
+                FROM hospital_expenses
+                WHERE expense_date BETWEEN %s AND %s{cat_filter}
+                ORDER BY expense_date DESC, expense_id DESC
+                """,
+                params,
+            )
+            rows = [_float_row(dict(r)) for r in cur.fetchall()]
+
+            # Summary by category
+            cur.execute(
+                f"""
+                SELECT category,
+                       SUM(amount) AS total,
+                       COUNT(*)    AS count
+                FROM hospital_expenses
+                WHERE expense_date BETWEEN %s AND %s{cat_filter}
+                GROUP BY category
+                ORDER BY total DESC
+                """,
+                params,
+            )
+            by_cat = [_float_row(dict(r)) for r in cur.fetchall()]
+
+            total = sum(r["total"] for r in by_cat)
+
+    return {
+        "period": period,
+        "start_date": start.isoformat(),
+        "end_date": end.isoformat(),
+        "expenses": rows,
+        "by_category": by_cat,
+        "total_expenses": round(total, 2),
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+def get_analytics_pl(period: str = "monthly") -> dict:
+    """
+    Full Profit & Loss analytics for management dashboard.
+    Returns revenue, expenses, gross profit, net margin, MoM/YoY growth,
+    department breakdown, staff cost ratio, and 12-month trend.
+    """
+    today = date.today()
+    if period == "daily":
+        start = today;                    end = today
+        prev_start = today - timedelta(days=1);  prev_end = today - timedelta(days=1)
+        label = today.isoformat()
+    elif period == "weekly":
+        start = today - timedelta(days=6); end = today
+        prev_start = today - timedelta(days=13); prev_end = today - timedelta(days=7)
+        label = f"{start.isoformat()} to {end.isoformat()}"
+    elif period == "yearly":
+        start = today.replace(month=1, day=1); end = today
+        prev_start = start.replace(year=start.year - 1)
+        prev_end   = end.replace(year=end.year - 1)
+        label = str(today.year)
+    else:  # monthly
+        start = today.replace(day=1); end = today
+        if today.month == 1:
+            prev_start = date(today.year - 1, 12, 1)
+            prev_end   = date(today.year - 1, 12, 31)
+        else:
+            prev_start = date(today.year, today.month - 1, 1)
+            import calendar as _cal
+            prev_end = date(today.year, today.month - 1,
+                            _cal.monthrange(today.year, today.month - 1)[1])
+        label = today.strftime("%B %Y")
+
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+
+            def _rev(s, e):
+                cur.execute(
+                    """
+                    SELECT
+                        COALESCE(SUM(net_amount),0) AS total_revenue,
+                        COALESCE(SUM(CASE WHEN status='paid'   THEN net_amount ELSE 0 END),0) AS collected,
+                        COALESCE(SUM(CASE WHEN status='unpaid' THEN net_amount ELSE 0 END),0) AS outstanding,
+                        COUNT(*) AS invoices,
+                        COALESCE(SUM(CASE WHEN bill_type='OPD'      THEN net_amount ELSE 0 END),0) AS opd,
+                        COALESCE(SUM(CASE WHEN bill_type='IPD'      THEN net_amount ELSE 0 END),0) AS ipd,
+                        COALESCE(SUM(CASE WHEN bill_type='PHARMACY' THEN net_amount ELSE 0 END),0) AS pharmacy,
+                        COALESCE(SUM(CASE WHEN bill_type='LAB'      THEN net_amount ELSE 0 END),0) AS lab,
+                        COALESCE(SUM(CASE WHEN bill_type='SURGERY'  THEN net_amount ELSE 0 END),0) AS surgery,
+                        COALESCE(AVG(net_amount), 0) AS avg_bill
+                    FROM billing WHERE DATE(created_at) BETWEEN %s AND %s
+                    """, (s, e))
+                return _float_row(dict(cur.fetchone()))
+
+            def _exp(s, e):
+                cur.execute(
+                    """
+                    SELECT COALESCE(SUM(amount),0) AS total,
+                           COALESCE(SUM(CASE WHEN category='Staff Salaries'     THEN amount ELSE 0 END),0) AS salaries,
+                           COALESCE(SUM(CASE WHEN category='Rent & Premises'    THEN amount ELSE 0 END),0) AS rent,
+                           COALESCE(SUM(CASE WHEN category='Electricity & Power' THEN amount ELSE 0 END),0) AS electricity,
+                           COALESCE(SUM(CASE WHEN category='Medical Equipment'  THEN amount ELSE 0 END),0) AS equipment,
+                           COALESCE(SUM(CASE WHEN category='Medicines & Consumables' THEN amount ELSE 0 END),0) AS medicines,
+                           COALESCE(SUM(CASE WHEN category='Marketing & Advertising' THEN amount ELSE 0 END),0) AS marketing,
+                           COALESCE(SUM(CASE WHEN category='Maintenance & Repairs'   THEN amount ELSE 0 END),0) AS maintenance,
+                           COALESCE(SUM(CASE WHEN category='Internet & Communication' THEN amount ELSE 0 END),0) AS internet,
+                           COALESCE(SUM(CASE WHEN category='Water & Utilities'  THEN amount ELSE 0 END),0) AS water,
+                           COALESCE(SUM(CASE WHEN category='Insurance'          THEN amount ELSE 0 END),0) AS insurance,
+                           COALESCE(SUM(CASE WHEN category='Lab Supplies'       THEN amount ELSE 0 END),0) AS lab_supplies
+                    FROM hospital_expenses WHERE expense_date BETWEEN %s AND %s
+                    """, (s, e))
+                return _float_row(dict(cur.fetchone()))
+
+            # Current + previous period
+            rev_cur  = _rev(start, end)
+            rev_prev = _rev(prev_start, prev_end)
+            exp_cur  = _exp(start, end)
+            exp_prev = _exp(prev_start, prev_end)
+
+            # 12-month rolling trend
+            cur.execute(
+                """
+                SELECT TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS month,
+                       DATE_TRUNC('month', created_at) AS month_dt,
+                       COALESCE(SUM(net_amount),0) AS revenue
+                FROM billing
+                WHERE created_at >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '11 months')
+                GROUP BY month_dt, month
+                ORDER BY month_dt
+                """)
+            rev_trend = [_float_row(dict(r)) for r in cur.fetchall()]
+
+            cur.execute(
+                """
+                SELECT TO_CHAR(DATE_TRUNC('month', expense_date), 'Mon YYYY') AS month,
+                       DATE_TRUNC('month', expense_date) AS month_dt,
+                       COALESCE(SUM(amount),0) AS expenses
+                FROM hospital_expenses
+                WHERE expense_date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '11 months')
+                GROUP BY month_dt, month
+                ORDER BY month_dt
+                """)
+            exp_trend = [_float_row(dict(r)) for r in cur.fetchall()]
+
+            # Staff headcount + total salary
+            cur.execute("SELECT COUNT(*) AS cnt FROM doctors")
+            doc_count = cur.fetchone()["cnt"]
+            cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role != 'FOUNDER'")
+            staff_count = cur.fetchone()["cnt"]
+
+            # Patient count this period
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM patients WHERE DATE(created_at) BETWEEN %s AND %s",
+                (start, end))
+            new_patients = cur.fetchone()["cnt"]
+
+            # Appointments this period
+            cur.execute(
+                "SELECT COUNT(*) AS cnt FROM appointments WHERE DATE(created_at) BETWEEN %s AND %s",
+                (start, end))
+            appointments = cur.fetchone()["cnt"]
+
+            # Expense by category for chart
+            cur.execute(
+                """
+                SELECT category, COALESCE(SUM(amount),0) AS total
+                FROM hospital_expenses
+                WHERE expense_date BETWEEN %s AND %s
+                GROUP BY category ORDER BY total DESC
+                """, (start, end))
+            exp_by_cat = [_float_row(dict(r)) for r in cur.fetchall()]
+
+    # ── Computed KPIs ───────────────────────────────────────────────────────
+    total_rev  = rev_cur["total_revenue"]
+    total_exp  = exp_cur["total"]
+    gross_profit = total_rev - total_exp
+    net_margin   = round(gross_profit / total_rev * 100, 1) if total_rev else 0
+
+    prev_rev  = rev_prev["total_revenue"]
+    prev_exp  = exp_prev["total"]
+    rev_growth_pct = round((total_rev - prev_rev) / prev_rev * 100, 1) if prev_rev else 0
+    exp_growth_pct = round((total_exp - prev_exp) / prev_exp * 100, 1) if prev_exp else 0
+    profit_growth  = round(((gross_profit - (prev_rev - prev_exp)) / abs(prev_rev - prev_exp) * 100), 1) \
+                     if (prev_rev - prev_exp) != 0 else 0
+
+    salary_ratio   = round(exp_cur["salaries"] / total_rev * 100, 1) if total_rev else 0
+    rev_per_patient = round(total_rev / new_patients, 2) if new_patients else 0
+
+    # Merge trend lists into month-keyed dict
+    trend_map: dict = {}
+    for r in rev_trend:
+        trend_map[r["month"]] = {"month": r["month"], "revenue": r["revenue"], "expenses": 0}
+    for r in exp_trend:
+        if r["month"] in trend_map:
+            trend_map[r["month"]]["expenses"] = r["expenses"]
+        else:
+            trend_map[r["month"]] = {"month": r["month"], "revenue": 0, "expenses": r["expenses"]}
+    trend_list = sorted(trend_map.values(), key=lambda x: x["month"])
+    for t in trend_list:
+        t["profit"] = round(t["revenue"] - t["expenses"], 2)
+
+    # Forecasting: simple linear regression on last 3 months profit
+    profits = [t["profit"] for t in trend_list[-3:]] if len(trend_list) >= 3 else []
+    if len(profits) == 3:
+        slope   = ((profits[2] - profits[0]) / 2)
+        forecast_next = round(profits[-1] + slope, 2)
+    else:
+        forecast_next = gross_profit
+
+    return {
+        "period":        period,
+        "label":         label,
+        "start_date":    start.isoformat(),
+        "end_date":      end.isoformat(),
+
+        # Revenue
+        "revenue": {
+            "total":       round(total_rev, 2),
+            "collected":   rev_cur["collected"],
+            "outstanding": rev_cur["outstanding"],
+            "invoices":    int(rev_cur["invoices"]),
+            "avg_bill":    rev_cur["avg_bill"],
+            "by_dept": {
+                "OPD":      rev_cur["opd"],
+                "IPD":      rev_cur["ipd"],
+                "Pharmacy": rev_cur["pharmacy"],
+                "Lab":      rev_cur["lab"],
+                "Surgery":  rev_cur["surgery"],
+            },
+            "growth_pct": rev_growth_pct,
+            "prev_total":  round(prev_rev, 2),
+        },
+
+        # Expenses
+        "expenses": {
+            "total":       round(total_exp, 2),
+            "by_category": exp_by_cat,
+            "salaries":    exp_cur["salaries"],
+            "rent":        exp_cur["rent"],
+            "electricity": exp_cur["electricity"],
+            "equipment":   exp_cur["equipment"],
+            "medicines":   exp_cur["medicines"],
+            "marketing":   exp_cur["marketing"],
+            "maintenance": exp_cur["maintenance"],
+            "internet":    exp_cur["internet"],
+            "water":       exp_cur["water"],
+            "insurance":   exp_cur["insurance"],
+            "lab_supplies": exp_cur["lab_supplies"],
+            "growth_pct":  exp_growth_pct,
+            "prev_total":  round(prev_exp, 2),
+        },
+
+        # Profit
+        "profit": {
+            "gross":        round(gross_profit, 2),
+            "net_margin":   net_margin,
+            "growth_pct":   profit_growth,
+            "prev_gross":   round(prev_rev - prev_exp, 2),
+            "forecast_next": forecast_next,
+            "salary_ratio": salary_ratio,
+        },
+
+        # Operational
+        "operational": {
+            "staff_count":      staff_count,
+            "doctor_count":     doc_count,
+            "new_patients":     new_patients,
+            "appointments":     appointments,
+            "rev_per_patient":  rev_per_patient,
+        },
+
+        # Trend (12 months)
+        "trend": trend_list,
+
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_mobile_dashboard() -> dict:

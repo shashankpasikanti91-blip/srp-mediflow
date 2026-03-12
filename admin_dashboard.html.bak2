@@ -712,196 +712,128 @@
             
             <!-- Reports Section -->
             <div id="reports" class="section">
+                <h2>📊 Reports &amp; Analytics</h2>
 
-                <!-- ═══════════ POWERBI HEADER BAR ═══════════ -->
-                <div style="background:linear-gradient(135deg,#1a2040 0%,#2d3561 100%);border-radius:12px;padding:18px 24px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-                    <div style="display:flex;align-items:center;gap:14px;">
-                        <div style="background:#667eea;border-radius:10px;padding:10px;line-height:1;font-size:22px;">📊</div>
+                <!-- Period Tabs -->
+                <div style="display:flex;gap:8px;margin-bottom:20px;background:#f8f9fa;padding:6px;border-radius:10px;width:fit-content;">
+                    <button id="rptTab-monthly" onclick="switchReportPeriod('monthly')"
+                        style="padding:8px 22px;border:none;border-radius:7px;background:#667eea;color:#fff;font-weight:700;cursor:pointer;transition:all .2s;">Monthly</button>
+                    <button id="rptTab-yearly" onclick="switchReportPeriod('yearly')"
+                        style="padding:8px 22px;border:none;border-radius:7px;background:transparent;color:#555;font-weight:600;cursor:pointer;transition:all .2s;">Yearly</button>
+                    <button id="rptTab-today" onclick="switchReportPeriod('today')"
+                        style="padding:8px 22px;border:none;border-radius:7px;background:transparent;color:#555;font-weight:600;cursor:pointer;transition:all .2s;">Today</button>
+                </div>
+
+                <!-- KPI Cards Row -->
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;">
+                    <div class="stat-card" style="border-left:4px solid #667eea;position:relative;">
+                        <h3>TOTAL REVENUE</h3>
+                        <div class="number" id="rptRevenue" style="color:#667eea;font-size:1.4rem;">₹0</div>
+                        <div id="rptRevGrowth" style="font-size:11px;color:#27ae60;margin-top:4px;font-weight:600;"></div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #00b894;">
+                        <h3>PHARMACY SALES</h3>
+                        <div class="number" id="rptPharmSales" style="color:#00b894;font-size:1.4rem;">₹0</div>
+                        <div id="rptPharmPct" style="font-size:11px;color:#636e72;margin-top:4px;"></div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #e17055;">
+                        <h3>OPD / IPD</h3>
+                        <div class="number" id="rptOPDIPD" style="color:#e17055;font-size:1.4rem;">0 / 0</div>
+                        <div id="rptOPDPct" style="font-size:11px;color:#636e72;margin-top:4px;"></div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #6c5ce7;">
+                        <h3>LAB REVENUE</h3>
+                        <div class="number" id="rptLabRev" style="color:#6c5ce7;font-size:1.4rem;">₹0</div>
+                        <div id="rptLabPct" style="font-size:11px;color:#636e72;margin-top:4px;"></div>
+                    </div>
+                    <div class="stat-card" style="border-left:4px solid #fd79a8;">
+                        <h3>OUTSTANDING</h3>
+                        <div class="number" id="rptOutstanding" style="color:#fd79a8;font-size:1.4rem;">₹0</div>
+                        <div id="rptCollected" style="font-size:11px;color:#636e72;margin-top:4px;"></div>
+                    </div>
+                </div>
+
+                <!-- Row 1: Revenue Trend + Department Breakdown -->
+                <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:18px;">
+                    <div class="table-container">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <h3 style="margin:0;">📈 Revenue Trend</h3>
+                            <span id="rptTrendLabel" style="font-size:12px;color:#888;">Loading…</span>
+                        </div>
+                        <canvas id="chartRevenueTrend" height="190"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <h3 style="margin-bottom:10px;">🏥 Revenue by Department</h3>
+                        <canvas id="chartDeptBreakdown" height="190"></canvas>
+                    </div>
+                </div>
+
+                <!-- Row 2: Patient Growth + Doctor Performance -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px;">
+                    <div class="table-container">
+                        <h3 style="margin-bottom:10px;">👥 Appointments by Status</h3>
+                        <canvas id="chartAppointments" height="210"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <h3 style="margin-bottom:10px;">👨‍⚕️ Doctor Workload</h3>
+                        <canvas id="chartDoctors" height="210"></canvas>
+                    </div>
+                </div>
+
+                <!-- Row 3: IPD vs OPD + Invoice Summary table -->
+                <div style="display:grid;grid-template-columns:1fr 2fr;gap:18px;margin-bottom:18px;">
+                    <div class="table-container">
+                        <h3 style="margin-bottom:10px;">🏥 IPD vs OPD</h3>
+                        <canvas id="chartIPDvsOPD" height="210"></canvas>
+                    </div>
+                    <div class="table-container">
+                        <h3 style="margin-bottom:12px;">📋 Revenue Summary</h3>
+                        <table style="width:100%;font-size:13px;">
+                            <thead><tr style="background:#f8f9fa;">
+                                <th style="padding:8px;text-align:left;color:#555;">Department</th>
+                                <th style="padding:8px;text-align:right;color:#555;">Revenue (₹)</th>
+                                <th style="padding:8px;text-align:right;color:#555;">% Share</th>
+                                <th style="padding:8px;text-align:right;color:#555;">Invoices</th>
+                            </tr></thead>
+                            <tbody id="rptSummaryTable">
+                                <tr><td colspan="4" style="text-align:center;padding:20px;color:#aaa;">Loading analytics…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Export Section -->
+                <div class="table-container" style="background:#f0f9ff;border-left:4px solid #0ea5e9;">
+                    <h3 style="color:#0369a1;margin-bottom:16px;">📥 Export Data</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
                         <div>
-                            <div style="color:#fff;font-size:18px;font-weight:800;letter-spacing:.5px;">Management Analytics</div>
-                            <div style="color:#a0aec0;font-size:11px;margin-top:2px;">Executive P&amp;L · Expenses · Operations · Forecasting</div>
+                            <label style="font-size:12px;font-weight:600;color:#555;">Format:</label><br>
+                            <select id="exportFormat" style="padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;">
+                                <option value="csv">CSV (Excel-compatible)</option>
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="json">JSON</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;font-weight:600;color:#555;">Period:</label><br>
+                            <select id="exportRange" style="padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:4px;">
+                                <option value="today">Today</option>
+                                <option value="weekly">This Week</option>
+                                <option value="monthly" selected>This Month</option>
+                                <option value="yearly">This Year</option>
+                                <option value="all">All Time</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-top:20px;">
+                            <button class="btn btn-primary" onclick="exportData('patients')">👥 Export Patients</button>
+                            <button class="btn btn-success" onclick="exportData('appointments')">📅 Export Appointments</button>
+                            <button class="btn" style="background:#8e44ad;color:white;" onclick="exportData('billing')">🧾 Export Billing</button>
+                            <button class="btn" style="background:#e17055;color:white;" onclick="exportFullReport()">📊 Full Report (All Data)</button>
                         </div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                        <div style="display:flex;background:rgba(255,255,255,.08);border-radius:8px;padding:3px;gap:2px;">
-                            <button id="rptTab-today"   onclick="switchReportPeriod('today')"   class="rpt-tab">Today</button>
-                            <button id="rptTab-weekly"  onclick="switchReportPeriod('weekly')"  class="rpt-tab">Week</button>
-                            <button id="rptTab-monthly" onclick="switchReportPeriod('monthly')" class="rpt-tab rpt-tab-active">Month</button>
-                            <button id="rptTab-yearly"  onclick="switchReportPeriod('yearly')"  class="rpt-tab">Year</button>
-                        </div>
-                        <span id="rptLastUpdated" style="color:#718096;font-size:11px;">—</span>
-                        <button onclick="loadReportsSection()" style="background:#667eea;border:none;border-radius:7px;color:#fff;padding:7px 14px;font-size:12px;cursor:pointer;font-weight:600;">↺ Refresh</button>
-                    </div>
+                    <div id="exportMsg" style="margin-top:10px;display:none;"></div>
                 </div>
-
-                <!-- ═══════════ PAGE TABS ═══════════ -->
-                <div style="display:flex;gap:2px;margin-bottom:20px;border-bottom:2px solid #e8ecef;">
-                    <button class="rpt-page-tab rpt-page-active" onclick="switchReportPage('overview')"    id="rptPage-overview">📈 Overview</button>
-                    <button class="rpt-page-tab"                  onclick="switchReportPage('pl')"          id="rptPage-pl">💰 P&amp;L</button>
-                    <button class="rpt-page-tab"                  onclick="switchReportPage('expenses')"   id="rptPage-expenses">🏦 Expenses</button>
-                    <button class="rpt-page-tab"                  onclick="switchReportPage('operations')" id="rptPage-operations">🏥 Operations</button>
-                    <button class="rpt-page-tab"                  onclick="switchReportPage('doctors')"    id="rptPage-doctors">👨‍⚕️ Doctors</button>
-                    <button class="rpt-page-tab"                  onclick="switchReportPage('export')"     id="rptPage-export">📥 Export</button>
-                </div>
-
-                <!-- ════ PAGE: OVERVIEW ════ -->
-                <div id="rptPageOverview">
-                    <!-- KPIs row 1 -->
-                    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px;">
-                        <div class="bi-kpi" style="--kc:#667eea"><div class="bi-kpi-lbl">REVENUE</div><div class="bi-kpi-val" id="plTotalRev">₹ —</div><div class="bi-kpi-sub" id="plRevGrowth"></div></div>
-                        <div class="bi-kpi" style="--kc:#e74c3c"><div class="bi-kpi-lbl">EXPENSES</div><div class="bi-kpi-val" id="plTotalExp">₹ —</div><div class="bi-kpi-sub" id="plExpGrowth"></div></div>
-                        <div class="bi-kpi" style="--kc:#27ae60"><div class="bi-kpi-lbl">GROSS PROFIT</div><div class="bi-kpi-val" id="plGrossProfit">₹ —</div><div class="bi-kpi-sub" id="plProfGrowth"></div></div>
-                        <div class="bi-kpi" style="--kc:#f39c12"><div class="bi-kpi-lbl">NET MARGIN %</div><div class="bi-kpi-val" id="plNetMargin">— %</div><div class="bi-kpi-sub" id="plMarginNote"></div></div>
-                        <div class="bi-kpi" style="--kc:#9b59b6"><div class="bi-kpi-lbl">NEXT FORECAST</div><div class="bi-kpi-val" id="plForecast">₹ —</div><div class="bi-kpi-sub">Next period</div></div>
-                        <div class="bi-kpi" style="--kc:#16a085"><div class="bi-kpi-lbl">STAFF / DOCTORS</div><div class="bi-kpi-val" id="plStaffCount">—</div><div class="bi-kpi-sub" id="plSalaryRatio"></div></div>
-                    </div>
-                    <!-- Charts -->
-                    <div style="display:grid;grid-template-columns:3fr 1.2fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📈 12-Month Revenue · Expenses · Profit Trend</span><span id="ovTrendLbl" class="bi-card-sub"></span></div><canvas id="chartPLTrend" height="200"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>🏥 Revenue Mix</span></div><canvas id="chartRevMix" height="200"></canvas></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1.2fr 2fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>💸 Cost Structure</span></div><canvas id="chartExpMix" height="200"></canvas></div>
-                        <div class="bi-card">
-                            <div class="bi-card-hdr"><span>📋 P&amp;L Snapshot</span></div>
-                            <table style="width:100%;font-size:13px;border-collapse:collapse;">
-                                <thead><tr style="background:#f8f9fa;"><th style="padding:8px 10px;text-align:left;">Line Item</th><th style="padding:8px;text-align:right;">Current</th><th style="padding:8px;text-align:right;">Prior</th><th style="padding:8px;text-align:right;">Change</th></tr></thead>
-                                <tbody id="plSnapshotTable"><tr><td colspan="4" style="padding:18px;text-align:center;color:#bbb;">Loading…</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ════ PAGE: P&L ════ -->
-                <div id="rptPagePl" style="display:none;">
-                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>💧 Waterfall: Revenue → Costs → Net Profit</span></div><canvas id="chartWaterfall" height="240"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📊 Revenue by Department</span></div><canvas id="chartDeptBar" height="240"></canvas></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📉 Monthly Margin % Trend</span></div><canvas id="chartMarginTrend" height="200"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>⚖️ Revenue vs Expenses (MoM)</span></div><canvas id="chartRevVsExp" height="200"></canvas></div>
-                    </div>
-                    <div class="bi-card"><div class="bi-card-hdr"><span>📐 Key Financial Ratios</span></div><div id="plRatiosGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:8px 0;"></div></div>
-                </div>
-
-                <!-- ════ PAGE: EXPENSES ════ -->
-                <div id="rptPageExpenses" style="display:none;">
-                    <div class="bi-card" style="margin-bottom:14px;">
-                        <div class="bi-card-hdr"><span>➕ Record Expense</span></div>
-                        <div style="display:grid;grid-template-columns:repeat(4,1fr) auto;gap:10px;align-items:end;margin-top:6px;">
-                            <div><label class="bi-lbl">Date</label><input id="expDate" type="date" class="bi-in"></div>
-                            <div><label class="bi-lbl">Category *</label>
-                                <select id="expCategory" class="bi-in">
-                                    <option value="">Select…</option>
-                                    <option>Rent &amp; Premises</option><option>Electricity &amp; Power</option>
-                                    <option>Water &amp; Utilities</option><option>Internet &amp; Communication</option>
-                                    <option>Medical Equipment</option><option>Medicines &amp; Consumables</option>
-                                    <option>Staff Salaries</option><option>Contract Staff</option><option>Security</option>
-                                    <option>Housekeeping</option><option>Marketing &amp; Advertising</option>
-                                    <option>Insurance</option><option>Maintenance &amp; Repairs</option>
-                                    <option>Lab Supplies</option><option>Administrative</option><option>Other</option>
-                                </select>
-                            </div>
-                            <div><label class="bi-lbl">Amount (₹) *</label><input id="expAmount" type="number" min="0" placeholder="0.00" class="bi-in"></div>
-                            <div><label class="bi-lbl">Vendor / Description</label><input id="expVendor" type="text" placeholder="e.g. APSPDCL" class="bi-in"></div>
-                            <button onclick="saveExpense()" style="background:#667eea;color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;">+ Save</button>
-                        </div>
-                        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px;">
-                            <div><label class="bi-lbl">Sub-Category</label><input id="expSubcat" type="text" placeholder="Optional detail" class="bi-in"></div>
-                            <div><label class="bi-lbl">Payment Mode</label>
-                                <select id="expPayMode" class="bi-in"><option>Cash</option><option>Bank Transfer</option><option>Cheque</option><option>UPI</option><option>Credit Card</option></select>
-                            </div>
-                            <div><label class="bi-lbl">Invoice Ref</label><input id="expInvRef" type="text" placeholder="INV-001" class="bi-in"></div>
-                        </div>
-                        <div id="expSaveMsg" style="display:none;margin-top:8px;font-size:13px;font-weight:600;"></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📊 Monthly Expense Trend (Stacked)</span></div><canvas id="chartExpTrend" height="220"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>🍩 Breakdown</span></div><canvas id="chartExpDonut" height="220"></canvas></div>
-                    </div>
-                    <div class="bi-card">
-                        <div class="bi-card-hdr"><span>📋 Expense Ledger</span><span id="expTotalBadge" style="background:#e74c3c;color:#fff;font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;"></span></div>
-                        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">
-                            <thead><tr style="background:#f8f9fa;"><th style="padding:8px;text-align:left;">Date</th><th style="padding:8px;">Category</th><th style="padding:8px;">Description</th><th style="padding:8px;">Vendor</th><th style="padding:8px;text-align:right;">Amount (₹)</th><th style="padding:8px;">Mode</th></tr></thead>
-                            <tbody id="expLedgerBody"><tr><td colspan="6" style="padding:20px;text-align:center;color:#bbb;">No expenses recorded yet.</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ════ PAGE: OPERATIONS ════ -->
-                <div id="rptPageOperations" style="display:none;">
-                    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;">
-                        <div class="bi-kpi" style="--kc:#667eea"><div class="bi-kpi-lbl">NEW PATIENTS</div><div class="bi-kpi-val" id="opsNewPat">—</div><div class="bi-kpi-sub">This period</div></div>
-                        <div class="bi-kpi" style="--kc:#e17055"><div class="bi-kpi-lbl">APPOINTMENTS</div><div class="bi-kpi-val" id="opsAppts">—</div><div class="bi-kpi-sub" id="opsApptSub"></div></div>
-                        <div class="bi-kpi" style="--kc:#00b894"><div class="bi-kpi-lbl">REV / PATIENT</div><div class="bi-kpi-val" id="opsRevPerPat">₹ —</div><div class="bi-kpi-sub">Avg bill</div></div>
-                        <div class="bi-kpi" style="--kc:#6c5ce7"><div class="bi-kpi-lbl">OPD VISITS</div><div class="bi-kpi-val" id="opsOPD">—</div><div class="bi-kpi-sub" id="opsOPDSub"></div></div>
-                        <div class="bi-kpi" style="--kc:#fd79a8"><div class="bi-kpi-lbl">IPD ADMISSIONS</div><div class="bi-kpi-val" id="opsIPD">—</div><div class="bi-kpi-sub" id="opsIPDSub"></div></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📅 Appointments by Status</span></div><canvas id="chartAppointments" height="220"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>🏥 IPD vs OPD Split</span></div><canvas id="chartIPDvsOPD" height="220"></canvas></div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📊 Department Revenue Comparison</span></div><canvas id="chartDeptRevOps" height="200"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>💊 Pharmacy Contribution</span></div><canvas id="chartPharmOps" height="200"></canvas></div>
-                    </div>
-                </div>
-
-                <!-- ════ PAGE: DOCTORS ════ -->
-                <div id="rptPageDoctors" style="display:none;">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
-                        <div class="bi-card"><div class="bi-card-hdr"><span>👨‍⚕️ Doctor Workload (Appointments)</span></div><canvas id="chartDoctors" height="230"></canvas></div>
-                        <div class="bi-card"><div class="bi-card-hdr"><span>📝 Prescriptions per Doctor</span></div><canvas id="chartDocRx" height="230"></canvas></div>
-                    </div>
-                    <div class="bi-card">
-                        <div class="bi-card-hdr"><span>🏆 Doctor Performance</span></div>
-                        <table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:8px;">
-                            <thead><tr style="background:#f0f4ff;"><th style="padding:9px 12px;text-align:left;">#</th><th style="padding:9px 12px;text-align:left;">Doctor</th><th style="padding:9px;text-align:right;">Prescriptions</th><th style="padding:9px;text-align:right;">Unique Patients</th><th style="padding:9px;text-align:right;">Visit Records</th><th style="padding:9px;text-align:center;">Status</th></tr></thead>
-                            <tbody id="docPerfTable"><tr><td colspan="6" style="padding:20px;text-align:center;color:#bbb;">Loading…</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- ════ PAGE: EXPORT ════ -->
-                <div id="rptPageExport" style="display:none;">
-                    <div class="bi-card">
-                        <div class="bi-card-hdr"><span>📥 Export Data</span></div>
-                        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin-top:8px;">
-                            <div><label class="bi-lbl">Format</label><select id="exportFormat" class="bi-in" style="min-width:160px;"><option value="csv">CSV (Excel-compatible)</option><option value="json">JSON</option></select></div>
-                            <div><label class="bi-lbl">Period</label><select id="exportRange" class="bi-in" style="min-width:140px;"><option value="today">Today</option><option value="weekly">This Week</option><option value="monthly" selected>This Month</option><option value="yearly">This Year</option><option value="all">All Time</option></select></div>
-                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                                <button class="btn btn-primary" onclick="exportData('patients')">👥 Patients</button>
-                                <button class="btn btn-success" onclick="exportData('appointments')">📅 Appointments</button>
-                                <button class="btn" style="background:#8e44ad;color:white;" onclick="exportData('billing')">🧾 Billing</button>
-                                <button class="btn" style="background:#e17055;color:white;" onclick="exportFullReport()">📊 Full Report</button>
-                            </div>
-                        </div>
-                        <div id="exportMsg" style="margin-top:12px;display:none;font-size:13px;font-weight:600;"></div>
-                    </div>
-                </div>
-
-            </div><!-- /#reports -->
-
-            <!-- ─── PowerBI Inline Styles ─── -->
-            <style>
-            .rpt-tab{background:transparent;border:none;color:#a0aec0;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;}
-            .rpt-tab-active,.rpt-tab:hover{background:#667eea;color:#fff;}
-            .rpt-page-tab{background:transparent;border:none;border-bottom:3px solid transparent;color:#555;padding:8px 18px;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;margin-bottom:-2px;}
-            .rpt-page-active{border-bottom-color:#667eea!important;color:#667eea!important;}
-            .rpt-page-tab:hover{color:#667eea;}
-            .bi-kpi{background:#fff;border-radius:10px;padding:14px 16px;border-top:3px solid var(--kc,#667eea);box-shadow:0 2px 8px rgba(0,0,0,.06);}
-            .bi-kpi-lbl{font-size:10px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;}
-            .bi-kpi-val{font-size:1.3rem;font-weight:800;color:#1a202c;line-height:1;}
-            .bi-kpi-sub{font-size:11px;color:#636e72;margin-top:5px;font-weight:600;}
-            .bi-card{background:#fff;border-radius:10px;padding:16px 18px;box-shadow:0 2px 8px rgba(0,0,0,.06);}
-            .bi-card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-            .bi-card-hdr>span:first-child{font-size:13px;font-weight:700;color:#2d3748;}
-            .bi-card-sub{font-size:11px;color:#a0aec0;}
-            .bi-lbl{display:block;font-size:11px;font-weight:700;color:#666;margin-bottom:3px;letter-spacing:.3px;}
-            .bi-in{width:100%;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;box-sizing:border-box;background:#fafbff;}
-            .bi-in:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15);}
-            </style>
+            </div>
 
             <!-- Patients Section -->
             <div id="patients" class="section">
@@ -2561,433 +2493,268 @@
             } catch(e) { console.error('loadDoctorDropdowns:', e); }
         }
 
+        // ── Reports Section Charts + KPIs ────────────────────────────────────
+        let _chartAppt = null, _chartRev = null, _chartDoc = null, _chartIPD = null;
 
-        // ═══════════════════════════════════════════════════════════════════
-        // ── PowerBI Reports Section ─────────────────────────────────────────
-        // ═══════════════════════════════════════════════════════════════════
+        // ── Report period state ────────────────────────────────────────────────
         let _rptPeriod = 'monthly';
-        let _rptPage = 'overview';
-        const _charts = {};   // keyed chartId → Chart instance
-
-        function _destroyChart(id) { if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; } }
-        function _fmt(v) { return '₹' + Math.round(v || 0).toLocaleString('en-IN'); }
-        function _gBadge(pct, el) {
-            const p = parseFloat(pct || 0);
-            el.textContent = (p >= 0 ? '▲ +' : '▼ ') + p.toFixed(1) + '% vs prior';
-            el.style.color = p >= 0 ? '#27ae60' : '#e74c3c';
-        }
+        let _chartTrend = null, _chartDept = null;
 
         function switchReportPeriod(period) {
             _rptPeriod = period;
-            ['today','weekly','monthly','yearly'].forEach(p => {
-                const b = document.getElementById('rptTab-' + p);
-                if (!b) return;
-                b.classList.toggle('rpt-tab-active', p === period);
-            });
-            loadReportsSection();
-        }
-
-        function switchReportPage(page) {
-            _rptPage = page;
-            ['overview','pl','expenses','operations','doctors','export'].forEach(p => {
-                const el = document.getElementById('rptPage-' + p);
-                if (el) el.classList.toggle('rpt-page-active', p === page);
-                const pg = document.getElementById('rptPage' + p.charAt(0).toUpperCase() + p.slice(1));
-                if (pg) pg.style.display = p === page ? '' : 'none';
+            ['monthly','yearly','today'].forEach(p => {
+                const btn = document.getElementById('rptTab-' + p);
+                if (btn) {
+                    btn.style.background   = p === period ? '#667eea' : 'transparent';
+                    btn.style.color        = p === period ? '#fff'    : '#555';
+                }
             });
             loadReportsSection();
         }
 
         async function loadReportsSection() {
             const period = _rptPeriod || 'monthly';
-            document.getElementById('rptLastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
 
-            if (_rptPage === 'overview' || _rptPage === 'pl') { await _loadPLData(period); }
-            else if (_rptPage === 'expenses')   { await _loadExpensesPage(period); }
-            else if (_rptPage === 'operations') { await _loadOperationsPage(period); }
-            else if (_rptPage === 'doctors')    { await _loadDoctorsPage(); }
-        }
-
-        // ── OVERVIEW + P&L ──────────────────────────────────────────────────
-        async function _loadPLData(period) {
+            // ── 1. Analytics API (revenue/summary) ──────────────────────────
             try {
-                // Try full P&L analytics first
-                let plData = null;
-                try {
-                    const r = await authFetch('/api/admin/analytics/pl?period=' + period);
-                    if (r.ok) plData = await r.json();
-                } catch(e) {}
-
-                // Fallback to old revenue API
-                if (!plData) {
-                    const r = await authFetch('/api/admin/analytics/revenue?period=' + period);
-                    const d = await r.json();
-                    const s = d.summary || {};
-                    plData = {
-                        revenue: { total: s.total_revenue || 0, by_dept: { OPD: s.opd||0, IPD: s.ipd||0, Pharmacy: s.pharmacy||0, Lab: s.lab||0, Surgery: s.surgery||0 }, growth_pct: s.growth_pct || 0, prev_total: 0 },
-                        expenses: { total: 0, by_category: [], salaries: 0, rent: 0, electricity: 0 },
-                        profit: { gross: s.total_revenue||0, net_margin: 100, growth_pct: 0, forecast_next: s.total_revenue||0, salary_ratio: 0 },
-                        operational: { staff_count: 0, doctor_count: 0, new_patients: s.new_patients||0, appointments: 0, rev_per_patient: s.avg_bill||0 },
-                        trend: []
-                    };
-                    // Get trend from daily_breakdown
-                    (d.daily_breakdown || []).forEach(row => {
-                        plData.trend.push({ month: row.period || row.date || '—', revenue: parseFloat(row.revenue||0), expenses: 0, profit: parseFloat(row.revenue||0) });
-                    });
-                }
-
-                if (_rptPage === 'overview') _renderOverview(plData);
-                if (_rptPage === 'pl')       _renderPL(plData);
-
-            } catch(e) { console.error('_loadPLData:', e); }
-        }
-
-        function _renderOverview(d) {
-            const rev = d.revenue || {}; const exp = d.expenses || {}; const pr = d.profit || {}; const op = d.operational || {};
-            // KPIs
-            document.getElementById('plTotalRev').textContent    = _fmt(rev.total);
-            document.getElementById('plTotalExp').textContent    = _fmt(exp.total);
-            document.getElementById('plGrossProfit').textContent = _fmt(pr.gross);
-            document.getElementById('plNetMargin').textContent   = (parseFloat(pr.net_margin||0)).toFixed(1) + ' %';
-            document.getElementById('plForecast').textContent    = _fmt(pr.forecast_next);
-            document.getElementById('plStaffCount').textContent  = (op.staff_count||0) + ' / ' + (op.doctor_count||0);
-            _gBadge(rev.growth_pct, document.getElementById('plRevGrowth'));
-            _gBadge(pr.growth_pct,  document.getElementById('plProfGrowth'));
-            document.getElementById('plMarginNote').textContent  = parseFloat(pr.net_margin||0) >= 15 ? '✅ Healthy' : '⚠️ Monitor';
-            document.getElementById('plSalaryRatio').textContent = 'Salary ' + (parseFloat(pr.salary_ratio||0)).toFixed(1) + '% of rev';
-
-            // Trend chart
-            const trend = d.trend || [];
-            const tLabels = trend.map(t => t.month || t.date || '—');
-            const tRev  = trend.map(t => Math.round(t.revenue  || 0));
-            const tExp  = trend.map(t => Math.round(t.expenses || 0));
-            const tProf = trend.map(t => Math.round(t.profit   || 0));
-            _destroyChart('chartPLTrend');
-            const cT = document.getElementById('chartPLTrend');
-            if (cT && tLabels.length) {
-                _charts['chartPLTrend'] = new Chart(cT, { type: 'line', data: {
-                    labels: tLabels,
-                    datasets: [
-                        { label: 'Revenue', data: tRev, borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,.1)', tension: .4, fill: true, borderWidth: 2, pointRadius: 3 },
-                        { label: 'Expenses', data: tExp, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,.05)', tension: .4, fill: false, borderWidth: 2, pointRadius: 3, borderDash:[4,3] },
-                        { label: 'Profit', data: tProf, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,.1)', tension: .4, fill: false, borderWidth: 2, pointRadius: 3 }
-                    ]
-                }, options: { responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true, ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}}}} });
-            }
-
-            // Revenue mix donut
-            const depts = rev.by_dept || {};
-            _destroyChart('chartRevMix');
-            const cRM = document.getElementById('chartRevMix');
-            if (cRM) {
-                const dLabels = Object.keys(depts); const dVals = Object.values(depts).map(v=>Math.round(v));
-                _charts['chartRevMix'] = new Chart(cRM, { type:'doughnut', data:{ labels:dLabels, datasets:[{data:dVals,backgroundColor:['#667eea','#e17055','#00b894','#6c5ce7','#fd79a8','#ffeaa7'],borderWidth:2}] }, options:{responsive:true,plugins:{legend:{position:'right'}}} });
-            }
-
-            // Cost structure donut
-            const byCat = (exp.by_category || []).filter(c=>c.total>0);
-            _destroyChart('chartExpMix');
-            const cEM = document.getElementById('chartExpMix');
-            if (cEM && byCat.length) {
-                _charts['chartExpMix'] = new Chart(cEM, { type:'doughnut', data:{ labels:byCat.map(c=>c.category), datasets:[{data:byCat.map(c=>Math.round(c.total||0)),backgroundColor:['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#fd79a8','#636e72','#b2bec3'],borderWidth:2}] }, options:{responsive:true,plugins:{legend:{position:'right'}}} });
-            } else if (cEM) {
-                // Show placeholder
-                _charts['chartExpMix'] = new Chart(cEM, { type:'doughnut', data:{ labels:['No expense data'], datasets:[{data:[1],backgroundColor:['#e2e8f0'],borderWidth:1}] }, options:{responsive:true,plugins:{legend:{display:false}}} });
-            }
-
-            // P&L Snapshot table
-            const tbody = document.getElementById('plSnapshotTable');
-            if (tbody) {
-                const rows = [
-                    {item:'💰 Total Revenue', cur:rev.total||0, prev:rev.prev_total||0},
-                    {item:'💸 Total Expenses', cur:exp.total||0, prev:exp.prev_total||0},
-                    {item:'  — Staff Salaries', cur:exp.salaries||0, prev:0},
-                    {item:'  — Rent & Premises', cur:exp.rent||0, prev:0},
-                    {item:'  — Electricity', cur:exp.electricity||0, prev:0},
-                    {item:'✅ Gross Profit', cur:pr.gross||0, prev:pr.prev_gross||0, bold:true},
-                    {item:'📊 Net Margin %', cur:parseFloat(pr.net_margin||0).toFixed(1)+'%', prev:'—', raw:true},
-                ];
-                tbody.innerHTML = rows.map(r => {
-                    const chg = r.raw ? '—' : (r.prev ? ((r.cur-r.prev)/r.prev*100).toFixed(1)+'%' : '—');
-                    const col = r.raw ? '' : (parseFloat(chg)>=0?'color:#27ae60':'color:#e74c3c');
-                    const fw  = r.bold ? 'font-weight:700;' : '';
-                    return `<tr style="border-bottom:1px solid #f0f0f0;">
-                        <td style="padding:7px 10px;${fw}">${r.item}</td>
-                        <td style="padding:7px 8px;text-align:right;${fw}">${r.raw?r.cur:_fmt(r.cur)}</td>
-                        <td style="padding:7px 8px;text-align:right;color:#888;">${r.raw?r.prev:(r.prev?_fmt(r.prev):'—')}</td>
-                        <td style="padding:7px 8px;text-align:right;${col}">${chg}</td>
-                    </tr>`;
-                }).join('');
-            }
-        }
-
-        function _renderPL(d) {
-            const rev = d.revenue||{}; const exp = d.expenses||{}; const pr = d.profit||{};
-            // Waterfall
-            const wLabels = ['Revenue','Salaries','Rent','Electricity','Equipment','Other Costs','Net Profit'];
-            const salary = exp.salaries||0, rent = exp.rent||0, elec = exp.electricity||0, equip = exp.equipment||0;
-            const otherCost = Math.max(0,(exp.total||0) - salary - rent - elec - equip);
-            const wVals = [rev.total||0, -salary, -rent, -elec, -equip, -otherCost, pr.gross||0];
-            const wColors = ['#27ae60','#e74c3c','#e67e22','#f39c12','#8e44ad','#c0392b','#2980b9'];
-            _destroyChart('chartWaterfall');
-            const cW = document.getElementById('chartWaterfall');
-            if (cW) {
-                _charts['chartWaterfall'] = new Chart(cW, { type:'bar',
-                    data:{ labels:wLabels, datasets:[{ label:'₹', data:wVals, backgroundColor:wColors, borderRadius:6, borderWidth:0 }] },
-                    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}}} }
-                });
-            }
-
-            // Dept bar
-            const depts = rev.by_dept||{};
-            _destroyChart('chartDeptBar');
-            const cDB = document.getElementById('chartDeptBar');
-            if (cDB) {
-                _charts['chartDeptBar'] = new Chart(cDB, { type:'bar',
-                    data:{ labels:Object.keys(depts), datasets:[{label:'Revenue',data:Object.values(depts).map(v=>Math.round(v)),backgroundColor:'#667eeacc',borderColor:'#667eea',borderWidth:1,borderRadius:5}] },
-                    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}}} }
-                });
-            }
-
-            // Margin trend
-            const trend = d.trend||[];
-            _destroyChart('chartMarginTrend');
-            const cMT = document.getElementById('chartMarginTrend');
-            if (cMT && trend.length) {
-                const margins = trend.map(t => { const r=parseFloat(t.revenue||1); return r ? parseFloat(((t.profit||0)/r*100).toFixed(1)) : 0; });
-                _charts['chartMarginTrend'] = new Chart(cMT, { type:'line',
-                    data:{ labels:trend.map(t=>t.month||'—'), datasets:[{label:'Net Margin %',data:margins,borderColor:'#f39c12',backgroundColor:'rgba(243,156,18,.1)',tension:.4,fill:true,borderWidth:2,pointRadius:4}] },
-                    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{y:{ticks:{callback:v=>v+'%'}}} }
-                });
-            }
-
-            // Rev vs Exp bar
-            _destroyChart('chartRevVsExp');
-            const cRE = document.getElementById('chartRevVsExp');
-            if (cRE && trend.length) {
-                _charts['chartRevVsExp'] = new Chart(cRE, { type:'bar',
-                    data:{ labels:trend.map(t=>t.month||'—'), datasets:[
-                        {label:'Revenue',data:trend.map(t=>Math.round(t.revenue||0)),backgroundColor:'#667eeacc',borderRadius:4},
-                        {label:'Expenses',data:trend.map(t=>Math.round(t.expenses||0)),backgroundColor:'#e74c3ccc',borderRadius:4}
-                    ] },
-                    options:{ responsive:true,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{callback:v=>'₹'+v.toLocaleString('en-IN')}}} }
-                });
-            }
-
-            // Ratios grid
-            const salaryRatio = parseFloat(pr.salary_ratio||0);
-            const ratios = [
-                { label:'Net Margin', val:(parseFloat(pr.net_margin||0)).toFixed(1)+'%', ok:parseFloat(pr.net_margin||0)>=15 },
-                { label:'Salary to Revenue', val:salaryRatio.toFixed(1)+'%', ok:salaryRatio<=40 },
-                { label:'Expenses to Revenue', val: rev.total?((exp.total/rev.total)*100).toFixed(1)+'%':'—', ok:(rev.total&&exp.total/rev.total<0.85) },
-                { label:'MoM Profit Growth', val:(parseFloat(pr.growth_pct||0)>=0?'+':'')+parseFloat(pr.growth_pct||0).toFixed(1)+'%', ok:parseFloat(pr.growth_pct||0)>=0 },
-            ];
-            const rg = document.getElementById('plRatiosGrid');
-            if (rg) rg.innerHTML = ratios.map(r=>`<div style="background:${r.ok?'#f0fff4':'#fff5f5'};border:1.5px solid ${r.ok?'#b7ebd3':'#fcd4d4'};border-radius:10px;padding:14px 16px;text-align:center;">
-                <div style="font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.5px;">${r.label}</div>
-                <div style="font-size:1.5rem;font-weight:800;color:${r.ok?'#27ae60':'#e74c3c'};margin-top:6px;">${r.val}</div>
-                <div style="font-size:11px;color:#888;margin-top:4px;">${r.ok?'✅ Good':'⚠️ Review'}</div>
-            </div>`).join('');
-        }
-
-        // ── EXPENSES PAGE ───────────────────────────────────────────────────
-        async function _loadExpensesPage(period) {
-            try {
-                const r = await authFetch('/api/admin/expenses?period=' + period);
-                if (!r.ok) return;
+                const r = await authFetch('/api/admin/analytics/revenue?period=' + period);
                 const d = await r.json();
-                const expenses = d.expenses || [];
-                const byCat    = d.by_category || [];
+                const s  = d.summary || {};
+                const db = d.daily_breakdown || [];
+                const ps = d.pharmacy_sales || {};
 
-                // Total badge
-                const tb = document.getElementById('expTotalBadge');
-                if (tb) tb.textContent = 'Total: ' + _fmt(d.total_expenses || 0);
+                // KPI Cards
+                const inrFmt = v => '₹' + Math.round(v||0).toLocaleString('en-IN');
+                document.getElementById('rptRevenue').textContent     = inrFmt(s.total_revenue);
+                document.getElementById('rptPharmSales').textContent  = inrFmt(s.pharmacy || ps.total || 0);
+                document.getElementById('rptLabRev').textContent      = inrFmt(s.lab);
+                document.getElementById('rptOutstanding').textContent = inrFmt(s.outstanding);
+                document.getElementById('rptOPDIPD').textContent      = (s.opd||0) + ' / ' + (s.ipd||0);
+                const collected = s.collected || 0;
+                const totalRev  = s.total_revenue || 1;
+                document.getElementById('rptCollected').textContent   =
+                    'Collected: ' + inrFmt(collected) + ' (' + Math.round(collected/totalRev*100) + '%)';
 
-                // Ledger table
-                const tbody = document.getElementById('expLedgerBody');
-                if (tbody) {
-                    if (!expenses.length) { tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#bbb;">No expenses this period. Use the form above to add.</td></tr>'; }
-                    else tbody.innerHTML = expenses.map(e=>`<tr style="border-bottom:1px solid #f5f5f5;">
-                        <td style="padding:7px 8px;">${e.expense_date||'—'}</td>
-                        <td style="padding:7px 8px;"><span style="background:#eef0ff;color:#5c6bc0;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;">${e.category||'—'}</span></td>
-                        <td style="padding:7px 8px;color:#555;">${e.description||e.sub_category||'—'}</td>
-                        <td style="padding:7px 8px;color:#777;">${e.vendor||'—'}</td>
-                        <td style="padding:7px 8px;text-align:right;font-weight:700;">${_fmt(e.amount)}</td>
-                        <td style="padding:7px 8px;color:#888;">${e.payment_mode||'Cash'}</td>
-                    </tr>`).join('');
+                // Growth badge (MoM % if available)
+                const growthEl = document.getElementById('rptRevGrowth');
+                if (s.growth_pct !== undefined) {
+                    const g = parseFloat(s.growth_pct);
+                    growthEl.textContent = (g >= 0 ? '▲ +' : '▼ ') + g.toFixed(1) + '% vs prior period';
+                    growthEl.style.color = g >= 0 ? '#27ae60' : '#e74c3c';
+                } else { growthEl.textContent = ''; }
+
+                // Pharmacy % of revenue
+                const pharmPct = totalRev ? Math.round((s.pharmacy||0)/totalRev*100) : 0;
+                document.getElementById('rptPharmPct').textContent = pharmPct + '% of total revenue';
+                document.getElementById('rptLabPct').textContent   =
+                    'Lab share: ' + (totalRev ? Math.round((s.lab||0)/totalRev*100) : 0) + '%';
+
+                // OPD % note
+                const opdTotal = (s.opd||0) + (s.ipd||0);
+                document.getElementById('rptOPDPct').textContent =
+                    opdTotal ? Math.round((s.opd||0)/opdTotal*100) + '% OPD vs ' + Math.round((s.ipd||0)/opdTotal*100) + '% IPD' : '';
+
+                // ── Revenue Trend (line chart) ──────────────────────────────
+                const label = d.label || (period === 'monthly' ? 'Monthly Trend' : period === 'yearly' ? 'Yearly Trend' : 'Daily Trend');
+                document.getElementById('rptTrendLabel').textContent = label;
+
+                let trendLabels = [], trendRevenue = [], trendPharm = [];
+                if (db && db.length) {
+                    db.forEach(row => {
+                        trendLabels.push(row.period || row.date || row.month || row.year || '');
+                        trendRevenue.push(Math.round(parseFloat(row.revenue || row.total_revenue || 0)));
+                        trendPharm.push(Math.round(parseFloat(row.pharmacy || 0)));
+                    });
+                } else {
+                    // Fallback: single bar
+                    trendLabels = [label];
+                    trendRevenue = [Math.round(s.total_revenue || 0)];
+                    trendPharm   = [Math.round(s.pharmacy || 0)];
                 }
 
-                // Donut
-                _destroyChart('chartExpDonut');
-                const cED = document.getElementById('chartExpDonut');
-                if (cED && byCat.length) {
-                    _charts['chartExpDonut'] = new Chart(cED, { type:'doughnut',
-                        data:{ labels:byCat.map(c=>c.category), datasets:[{data:byCat.map(c=>Math.round(c.total||0)),backgroundColor:['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#fd79a8','#1abc9c','#636e72','#b2bec3'],borderWidth:2}] },
-                        options:{responsive:true,plugins:{legend:{position:'right'}}}
+                const ctxT = document.getElementById('chartRevenueTrend');
+                if (ctxT) {
+                    if (_chartTrend) _chartTrend.destroy();
+                    _chartTrend = new Chart(ctxT, {
+                        type: 'line',
+                        data: {
+                            labels: trendLabels,
+                            datasets: [
+                                { label: 'Total Revenue (₹)', data: trendRevenue,
+                                  borderColor: '#667eea', backgroundColor: 'rgba(102,126,234,0.12)',
+                                  tension: 0.4, fill: true, pointRadius: 4, borderWidth: 2 },
+                                { label: 'Pharmacy (₹)', data: trendPharm,
+                                  borderColor: '#00b894', backgroundColor: 'rgba(0,184,148,0.1)',
+                                  tension: 0.4, fill: false, pointRadius: 3, borderWidth: 2, borderDash: [5,3] }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { position: 'top' } },
+                            scales: { y: { beginAtZero: true, ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } } }
+                        }
                     });
                 }
-            } catch(e) { console.error('_loadExpensesPage:', e); }
-        }
 
-        async function saveExpense() {
-            const cat    = document.getElementById('expCategory').value;
-            const amount = parseFloat(document.getElementById('expAmount').value);
-            const msg    = document.getElementById('expSaveMsg');
-            if (!cat || !amount) { msg.style.display='block'; msg.style.color='#e74c3c'; msg.textContent='Category and Amount are required.'; return; }
-            const data = {
-                category: cat,
-                amount,
-                expense_date: document.getElementById('expDate').value || new Date().toISOString().slice(0,10),
-                description:  document.getElementById('expVendor').value,
-                sub_category: document.getElementById('expSubcat').value,
-                payment_mode: document.getElementById('expPayMode').value,
-                invoice_ref:  document.getElementById('expInvRef').value,
-                recurring: false
-            };
-            msg.style.display='block'; msg.style.color='#667eea'; msg.textContent='Saving…';
-            try {
-                const r = await authFetch('/api/admin/expenses/add', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-                if (!r.ok) throw new Error(await r.text());
-                const resp = await r.json();
-                msg.style.color='#27ae60'; msg.textContent='✅ Expense saved (ID: ' + resp.expense_id + ')';
-                document.getElementById('expAmount').value=''; document.getElementById('expVendor').value='';
-                document.getElementById('expCategory').value=''; document.getElementById('expSubcat').value='';
-                document.getElementById('expInvRef').value='';
-                _loadExpensesPage(_rptPeriod);
-            } catch(e) { msg.style.color='#e74c3c'; msg.textContent='❌ '+e.message; }
-        }
+                // ── Department Breakdown (doughnut) ──────────────────────────
+                const deptLabels = ['OPD', 'IPD', 'Pharmacy', 'Lab', 'Surgery', 'Other'];
+                const deptVals   = [s.opd||0, s.ipd||0, s.pharmacy||0, s.lab||0, s.surgery||0, s.other||0].map(v => Math.round(v));
+                const ctxD = document.getElementById('chartDeptBreakdown');
+                if (ctxD) {
+                    if (_chartDept) _chartDept.destroy();
+                    _chartDept = new Chart(ctxD, {
+                        type: 'doughnut',
+                        data: {
+                            labels: deptLabels,
+                            datasets: [{ data: deptVals,
+                                backgroundColor: ['#667eea','#e17055','#00b894','#6c5ce7','#fd79a8','#b2bec3'],
+                                borderWidth: 2 }]
+                        },
+                        options: { responsive: true, plugins: { legend: { position: 'right' } } }
+                    });
+                }
 
-        // ── OPERATIONS PAGE ─────────────────────────────────────────────────
-        async function _loadOperationsPage(period) {
-            // P&L for operational KPIs
-            try {
-                let op = {};
-                const rPl = await authFetch('/api/admin/analytics/pl?period='+period);
-                if (rPl.ok) { const dPl = await rPl.json(); op = dPl.operational || {}; }
+                // ── Summary Table ─────────────────────────────────────────────
+                const tbody = document.getElementById('rptSummaryTable');
+                if (tbody) {
+                    const depts = [
+                        { name: '🏃 OPD',      rev: s.opd||0 },
+                        { name: '🛏️ IPD',      rev: s.ipd||0 },
+                        { name: '💊 Pharmacy', rev: s.pharmacy||0 },
+                        { name: '🧪 Lab',      rev: s.lab||0 },
+                        { name: '🔪 Surgery',  rev: s.surgery||0 },
+                    ].sort((a,b) => b.rev - a.rev);
+                    const tot = depts.reduce((s,d) => s + d.rev, 0) || 1;
+                    tbody.innerHTML = depts.map(d => `
+                        <tr style="border-bottom:1px solid #f0f0f0;">
+                            <td style="padding:8px;font-weight:600;">${d.name}</td>
+                            <td style="padding:8px;text-align:right;">₹${Math.round(d.rev).toLocaleString('en-IN')}</td>
+                            <td style="padding:8px;text-align:right;">
+                                <div style="background:#f8f9fa;border-radius:10px;height:8px;overflow:hidden;">
+                                    <div style="background:#667eea;height:100%;width:${Math.round(d.rev/tot*100)}%;"></div>
+                                </div>
+                                <span style="font-size:11px;color:#888;">${Math.round(d.rev/tot*100)}%</span>
+                            </td>
+                            <td style="padding:8px;text-align:right;color:#888;">—</td>
+                        </tr>`).join('');
+                }
 
-                const s2e = id => document.getElementById(id);
-                if (s2e('opsNewPat'))   s2e('opsNewPat').textContent  = op.new_patients  || '—';
-                if (s2e('opsAppts'))    s2e('opsAppts').textContent   = op.appointments  || '—';
-                if (s2e('opsRevPerPat'))s2e('opsRevPerPat').textContent = _fmt(op.rev_per_patient);
-                if (s2e('opsOPD'))      s2e('opsOPD').textContent    = op.opd_count  || '—';
-                if (s2e('opsIPD'))      s2e('opsIPD').textContent    = op.ipd_count  || '—';
-            } catch(e) {}
+            } catch(e) { console.error('loadReportsSection analytics:', e); }
 
-            // Appointments by status
+            // ── 2. Appointment charts from /api/admin/data ──────────────────
             try {
                 const r = await authFetch('/api/admin/data');
                 const d = await r.json();
                 const appts = d.appointments || [];
-                const sCounts = {};
-                appts.forEach(a => { const s = a.status||'pending'; sCounts[s]=(sCounts[s]||0)+1; });
-                _destroyChart('chartAppointments');
-                const cA = document.getElementById('chartAppointments');
-                if (cA) _charts['chartAppointments'] = new Chart(cA, { type:'doughnut', data:{ labels:Object.keys(sCounts), datasets:[{data:Object.values(sCounts),backgroundColor:['#667eea','#27ae60','#e74c3c','#f39c12','#a0aec0'],borderWidth:2}] }, options:{responsive:true,plugins:{legend:{position:'right'}}} });
 
-                // Doctor workload (re-used on operations page as dept ops)
-                const dCounts = {};
-                appts.forEach(a => { const doc=a.doctor||'Unknown'; dCounts[doc]=(dCounts[doc]||0)+1; });
-                const topDocs = Object.entries(dCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+                const statusCounts = {};
+                appts.forEach(a => { const s = a.status || 'pending'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
+                renderDoughnut('chartAppointments', _chartAppt, Object.keys(statusCounts), Object.values(statusCounts), (c) => _chartAppt = c);
 
-                // Dept revenue ops
-                _destroyChart('chartDeptRevOps');
-                const cDO = document.getElementById('chartDeptRevOps');
-                if (cDO && topDocs.length) _charts['chartDeptRevOps'] = new Chart(cDO, { type:'bar',
-                    data:{ labels:topDocs.map(d=>d[0]), datasets:[{label:'Appointments',data:topDocs.map(d=>d[1]),backgroundColor:'#667eeacc',borderRadius:5}] },
-                    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
-                });
-            } catch(e) { console.error('ops appts:', e); }
+                const docCounts = {};
+                appts.forEach(a => { const doc = a.doctor || 'Unknown'; docCounts[doc] = (docCounts[doc] || 0) + 1; });
+                const topDocs = Object.entries(docCounts).sort((a,b) => b[1]-a[1]).slice(0, 10);
+                renderBar('chartDoctors', _chartDoc, topDocs.map(dd=>dd[0]), topDocs.map(dd=>dd[1]), 'Appointments', '#667eea', (c) => _chartDoc = c);
 
-            // IPD vs OPD
+            } catch(e) { console.error('loadReportsSection admin data:', e); }
+
+            // ── 3. IPD vs OPD billing chart ──────────────────────────────────
             try {
                 const r = await authFetch('/api/admin/billing/list');
                 const d = await r.json();
                 const bills = d.bills || [];
-                const opdC = bills.filter(b=>b.bill_type==='OPD').length;
-                const ipdC = bills.filter(b=>b.bill_type==='IPD').length;
-                _destroyChart('chartIPDvsOPD');
-                const cIO = document.getElementById('chartIPDvsOPD');
-                if (cIO) _charts['chartIPDvsOPD'] = new Chart(cIO, { type:'doughnut', data:{ labels:['OPD','IPD','Other'], datasets:[{data:[opdC,ipdC,Math.max(0,bills.length-opdC-ipdC)],backgroundColor:['#667eea','#fd79a8','#b2bec3'],borderWidth:2}] }, options:{responsive:true,plugins:{legend:{position:'right'}}} });
-            } catch(e) {}
+                const opdCount = bills.filter(b => b.bill_type === 'OPD').length;
+                const ipdCount = bills.filter(b => b.bill_type === 'IPD').length;
+                renderDoughnut('chartIPDvsOPD', _chartIPD, ['OPD', 'IPD'], [opdCount, ipdCount], (c) => _chartIPD = c);
+            } catch(e) { console.error('loadReportsSection billing:', e); }
         }
 
-        // ── DOCTORS PAGE ────────────────────────────────────────────────────
-        async function _loadDoctorsPage() {
-            try {
-                const r = await authFetch('/api/admin/analytics/doctors');
-                const d = await r.json();
-                const docs = d.doctors || [];
-
-                // Doctor workload bar
-                const top10 = docs.slice(0,10);
-                _destroyChart('chartDoctors');
-                const cD = document.getElementById('chartDoctors');
-                if (cD) _charts['chartDoctors'] = new Chart(cD, { type:'bar',
-                    data:{ labels:top10.map(doc=>doc.name||doc.doctor_name||'Dr.?'), datasets:[{label:'Prescriptions',data:top10.map(doc=>doc.prescriptions||doc.total_prescriptions||0),backgroundColor:'#667eeacc',borderRadius:5}] },
-                    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
-                });
-
-                // Prescriptions (RX) bar
-                _destroyChart('chartDocRx');
-                const cRx = document.getElementById('chartDocRx');
-                if (cRx) _charts['chartDocRx'] = new Chart(cRx, { type:'bar',
-                    data:{ labels:top10.map(doc=>doc.name||doc.doctor_name||'Dr.?'), datasets:[{label:'Unique Patients',data:top10.map(doc=>doc.unique_patients||doc.patients||0),backgroundColor:'#00b894cc',borderRadius:5}] },
-                    options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
-                });
-
-                // Doctor perf table
-                const tb = document.getElementById('docPerfTable');
-                if (tb) tb.innerHTML = docs.slice(0,15).map((doc,i) => `
-                    <tr style="border-bottom:1px solid #f0f0f0;">
-                        <td style="padding:8px 12px;color:#888;">${i+1}</td>
-                        <td style="padding:8px 12px;font-weight:700;">👨‍⚕️ ${doc.name||doc.doctor_name||'—'}</td>
-                        <td style="padding:8px;text-align:right;">${doc.prescriptions||doc.total_prescriptions||0}</td>
-                        <td style="padding:8px;text-align:right;">${doc.unique_patients||doc.patients||0}</td>
-                        <td style="padding:8px;text-align:right;">${doc.visit_records||doc.visits||0}</td>
-                        <td style="padding:8px;text-align:center;"><span style="background:#d4edda;color:#155724;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;">Active</span></td>
-                    </tr>`).join('');
-            } catch(e) { console.error('_loadDoctorsPage:', e); }
+        function renderDoughnut(canvasId, existingChart, labels, data, callback) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            if (existingChart) existingChart.destroy();
+            const chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{ data, backgroundColor: ['#667eea','#00b894','#fd79a8','#e17055','#6c5ce7','#ffeaa7','#74b9ff','#a29bfe'] }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            });
+            callback(chart);
         }
 
-        // ── EXPORT FUNCTIONS ────────────────────────────────────────────────
+        function renderBar(canvasId, existingChart, labels, data, label, color, callback) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            if (existingChart) existingChart.destroy();
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label, data, backgroundColor: color + 'cc', borderColor: color, borderWidth: 1 }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } } }
+            });
+            callback(chart);
+        }
+
+        // ── Export Functions ──────────────────────────────────────────────────
         async function exportData(type) {
             const fmt   = document.getElementById('exportFormat').value;
             const range = document.getElementById('exportRange').value;
             const msg   = document.getElementById('exportMsg');
-            msg.style.display = 'block'; msg.style.color = '#0369a1'; msg.textContent = '⏳ Preparing export...';
+            msg.style.display = 'block';
+            msg.style.color   = '#0369a1';
+            msg.textContent   = '⏳ Preparing export...';
             try {
                 const url = `/api/admin/export/${type}?format=${fmt}&range=${range}`;
                 const r   = await fetch(url);
                 if (!r.ok) throw new Error(await r.text());
                 const blob = await r.blob();
                 const cd   = r.headers.get('Content-Disposition') || '';
-                const fn   = (cd.match(/filename="([^"]+)"/) || [])[1] || `${type}_export.${fmt === 'excel' ? 'xlsx' : fmt}`;
-                const a    = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fn; a.click();
-                msg.style.color = '#27ae60'; msg.textContent = `✅ ${type} export downloaded (${fn})`;
-            } catch(e) { msg.style.color = '#e74c3c'; msg.textContent = '❌ Export failed: ' + e.message; }
+                const fn   = cd.match(/filename="([^"]+)"/) ? cd.match(/filename="([^"]+)"/)[1] : `${type}_export.${fmt === 'excel' ? 'xlsx' : fmt}`;
+                const a    = document.createElement('a');
+                a.href     = URL.createObjectURL(blob);
+                a.download = fn;
+                a.click();
+                msg.style.color = '#27ae60';
+                msg.textContent = `✅ ${type} export downloaded (${fn})`;
+            } catch(e) {
+                msg.style.color = '#e74c3c';
+                msg.textContent = '❌ Export failed: ' + e.message;
+            }
         }
 
         async function exportFullReport() {
             const msg   = document.getElementById('exportMsg');
-            msg.style.display='block'; msg.style.color='#0369a1'; msg.textContent='⏳ Compiling full report...';
+            msg.style.display = 'block';
+            msg.style.color   = '#0369a1';
+            msg.textContent   = '⏳ Compiling full report (patients + appointments + billing)...';
             const range = document.getElementById('exportRange').value;
             const fmt   = document.getElementById('exportFormat').value;
-            for (const t of ['patients','appointments','billing']) {
+            const types = ['patients', 'appointments', 'billing'];
+            for (const t of types) {
                 try {
-                    const r = await fetch(`/api/admin/export/${t}?format=${fmt}&range=${range}`);
+                    const url = `/api/admin/export/${t}?format=${fmt}&range=${range}`;
+                    const r   = await fetch(url);
                     if (!r.ok) continue;
                     const blob = await r.blob();
-                    const cd = r.headers.get('Content-Disposition')||'';
-                    const fn = (cd.match(/filename="([^"]+)"/) || [])[1] || `${t}.${fmt==='excel'?'xlsx':fmt}`;
-                    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fn; a.click();
-                    await new Promise(res=>setTimeout(res,500));
-                } catch(e) { console.error(t,e); }
+                    const cd   = r.headers.get('Content-Disposition') || '';
+                    const fn   = cd.match(/filename="([^"]+)"/) ? cd.match(/filename="([^"]+)"/)[1] : `${t}.${fmt === 'excel' ? 'xlsx' : fmt}`;
+                    const a    = document.createElement('a');
+                    a.href     = URL.createObjectURL(blob);
+                    a.download = fn;
+                    a.click();
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch(e) { console.error(t, e); }
             }
-            msg.style.color='#27ae60'; msg.textContent='✅ Full report files downloaded!';
+            msg.style.color = '#27ae60';
+            msg.textContent = '✅ Full report files downloaded!';
         }
 
-
-                // ═══════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════
         // ── LAB REPORT MODAL ───────────────────────────────────────────────
         // ═══════════════════════════════════════════════════════════════════
         const LAB_NORMAL_RANGES = {
