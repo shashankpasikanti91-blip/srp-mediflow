@@ -2260,8 +2260,13 @@ def get_analytics_pl(period: str = "monthly") -> dict:
             # Staff headcount + total salary
             cur.execute("SELECT COUNT(*) AS cnt FROM doctors")
             doc_count = cur.fetchone()["cnt"]
-            cur.execute("SELECT COUNT(*) AS cnt FROM users WHERE role != 'FOUNDER'")
-            staff_count = cur.fetchone()["cnt"]
+            # Use staff_users (tenant table) — 'users' only exists in platform DB
+            try:
+                cur.execute("SELECT COUNT(*) AS cnt FROM staff_users WHERE is_active = TRUE")
+                staff_count = cur.fetchone()["cnt"]
+            except Exception:
+                conn.rollback()
+                staff_count = 0
 
             # Patient count this period
             cur.execute(
